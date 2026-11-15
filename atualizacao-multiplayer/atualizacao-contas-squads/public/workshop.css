@@ -1,0 +1,69 @@
+.garden-panel[hidden] { display: none; }
+.garden-panel { position: fixed; z-index: 5; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(720px, calc(100vw - 24px)); max-height: calc(100dvh - 28px); overflow: auto; border: 5px solid #39749b; border-radius: 7px; background: #68a9d2; color: white; box-shadow: 0 8px 0 #18496155, 0 16px 45px #0a382b70; font: 14px Arial, sans-serif; }
+.garden-panel-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: center; min-height: 46px; background: #5399c6; border-bottom: 3px solid #4385ad; }
+.garden-panel h1 { margin: 0; font-size: 21px; text-shadow: 1px 2px #214c67; }
+.panel-close { position: absolute; top: 7px; right: 8px; width: 27px; height: 27px; border: 3px solid #954d52; border-radius: 5px; background: #d3787d; color: #fff; font: bold 24px/16px Arial; cursor: pointer; }
+.workshop-wallet { display: flex; justify-content: space-between; padding: 10px 18px; font-weight: bold; text-shadow: 1px 1px #3c7192; }
+.workshop-wallet b { color: #fff18a; }
+.workshop-body { display: grid; grid-template-columns: 168px 1fr; gap: 18px; padding: 2px 18px 18px; }
+.pickaxe-catalog { display: flex; flex-direction: column; gap: 6px; }
+.pickaxe-catalog button { display: grid; grid-template-columns: 36px 1fr; grid-template-rows: 20px 13px; align-items: center; padding: 5px; border: 3px solid var(--rarity); border-radius: 4px; background: #357aa9; color: #fff; cursor: pointer; text-align: left; font: bold 12px Arial; }
+.pickaxe-catalog img { grid-row: 1/3; width: 32px; height: 32px; object-fit: contain; }
+.pickaxe-catalog small { font-size: 8px; color: #e0f4fb; letter-spacing: .04em; }
+.pickaxe-catalog button.selected { background: #8dc7e8; outline: 2px solid #fcf3b7; color: #214861; }
+.recipe-detail { padding: 12px 16px; border: 3px solid #498bb6; border-radius: 5px; background: #599ac4; }
+.equipped-note { padding-bottom: 8px; border-bottom: 2px solid #4c8bb4; color: #e6f7fd; font-size: 12px; }
+.equipped-note strong { float: right; color: #fff18a; }
+.pickaxe-hero { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 20px 0; }
+.pickaxe-hero img { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(3px 5px #275d7c66); }
+.pickaxe-hero small { font-size: 9px; letter-spacing: .13em; color: #d4edf8; }
+.pickaxe-hero h2 { font-size: 24px; margin: 6px 0; text-shadow: 1px 2px #2e688c; }
+.pickaxe-hero b { color: #fff4a0; font-size: 13px; }
+.recipe-detail h3 { font-size: 13px; margin: 0 0 10px; }
+.recipe-materials { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ingredient { display: flex; align-items: center; gap: 9px; background: #3f7fa8; border: 2px solid #39749c; padding: 9px 7px; border-radius: 4px; }
+.ingredient div { display: grid; gap: 4px; }
+.ingredient span { font-size: 10px; }
+.ingredient b { font-size: 12px; }
+.ingredient.ready b { color: #bbff94; }
+.ingredient.missing b { color: #ffe0a8; }
+.ore-icon, .coin-icon { display: block; flex-shrink: 0; width: 24px; height: 27px; box-shadow: inset 4px 4px #ffffff50; }
+.ore-icon { clip-path: polygon(50% 0,65% 30%,100% 15%,83% 55%,100% 77%,62% 100%,13% 88%,0 50%,28% 45%); }
+.coin-icon { border: 3px solid #c49944; border-radius: 50%; }
+.recipe-prerequisite { font-size: 11px; color: #e0f0fc; line-height: 1.5; margin: 14px 0; }
+.craft-pickaxe { width: 100%; padding: 10px; background: #8bd56b; border: 3px solid #4d9856; border-radius: 5px; color: white; text-shadow: 1px 2px #417341; font: bold 16px Arial; cursor: pointer; }
+.craft-pickaxe:disabled { background: #759895; border-color: #577e80; color: #d9e2df; text-shadow: none; cursor: default; }
+.recipe-result { min-height: 16px; font-size: 11px; color: #fff7ae; text-align: center; }
+.talent-panel { width: min(650px, calc(100vw - 24px)); background: #dc6969; border-color: #a6464b; }
+.talent-panel .garden-panel-header { background: #ce5c62; border-color: #b34e57; }
+.talent-points { display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-weight: bold; }
+.talent-points b { display: grid; place-items: center; min-width: 36px; height: 36px; border: 3px solid #a5474b; border-radius: 50%; background: #bd5259; font-size: 20px; }
+.talent-points span { margin-left: auto; font-size: 11px; font-weight: normal; }
+.talent-scroll { overflow: auto; max-height: 38vh; }
+.talent-stage { position: relative; width: 600px; height: 415px; margin: 0 auto; }
+.talent-stage svg { position: absolute; inset: 0; width: 600px; height: 415px; pointer-events: none; }
+.talent-stage path { fill: none; stroke: #ab474e; stroke-width: 6px; stroke-dasharray: 9 6; stroke-linecap: round; }
+.talent-node { position: absolute; display: flex; flex-direction: column; align-items: center; transform: translateX(-50%); width: 150px; background: transparent; border: 0; color: #fff; cursor: pointer; }
+.talent-symbol { display: grid; place-items: center; width: 54px; height: 54px; border: 5px solid #555e5b; border-radius: 50%; background: var(--talent-color); font-size: 28px; text-shadow: 1px 2px #364841; }
+.talent-node.unlocked .talent-symbol { border-color: #ffffff70; }
+.talent-node b { margin-top: 3px; font-size: 11px; text-shadow: 1px 1px #813d44; }
+.talent-node small { font-size: 9px; }
+.talent-node em { position: absolute; top: 0; right: 23px; font-size: 11px; font-weight: bold; font-style: normal; color: #fff0a0; background: #8d3b42; padding: 2px 4px; border-radius: 5px; }
+.talent-node:disabled { cursor: default; }
+.talent-footnote { padding: 0 18px 8px; font-size: 11px; line-height: 1.4; color: #fff0e8; }
+.talent-node.selected .talent-symbol { outline: 3px solid #fff2a8; outline-offset: 2px; }
+.talent-ranks { padding: 0 18px 18px; display: flex; flex-wrap: wrap; gap: 6px; }
+.talent-ranks h2,.talent-ranks p { width: 100%; margin: 4px 0; font-size: 12px; }
+.talent-ranks button { flex: 1 0 44%; padding: 7px; text-align: left; border: 2px solid var(--stage-color); border-radius: 4px; background: #a94d56; color: #fff; font: bold 10px 'Trebuchet MS'; cursor: pointer; }
+.talent-ranks button:disabled { opacity: .62; cursor: default; }
+.talent-ranks button:not(:disabled) { background: #527b53; outline: 2px solid #fff2a8; }
+.admin-settings { border-top: 2px solid #4d809b; margin-top: 12px; padding-top: 10px; }
+.admin-settings h2 { font-size: 16px; }
+.admin-settings form { display: flex; gap: 8px; flex-wrap: wrap; }
+.admin-settings label { flex: 1; }
+.admin-settings input { min-width: 0; width: 100%; }
+.admin-settings button { padding: 8px; background: #54786d; color: white; border: 2px solid #b7dec2; border-radius: 4px; cursor: pointer; }
+.admin-settings small { display: block; margin-top: 10px; line-height: 1.5; }
+.pickaxe-catalog { max-height: 52vh; overflow-y: auto; padding: 2px; }
+.garden-panel button:focus-visible { outline: 3px solid #fff2a8; outline-offset: 2px; }
+@media(max-width: 560px) { .workshop-body { grid-template-columns: 104px 1fr; gap: 8px; padding: 0 8px 10px; } .pickaxe-catalog button { grid-template-columns: 26px 1fr; font-size: 10px; padding: 3px; } .pickaxe-catalog img { width: 23px; height: 23px; } .recipe-detail { padding: 10px; } .pickaxe-hero { gap: 6px; } .pickaxe-hero img { width: 65px; height: 65px; } .pickaxe-hero h2 { font-size: 17px; } .recipe-materials { grid-template-columns: 1fr; } .talent-points span { max-width: 130px; } }
