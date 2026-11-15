@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>CoxinhaMiner.io</title>
+
+<style>
+body{margin:0;overflow:hidden;background:#111;font-family:Arial;}
+#menu{
+position:absolute;width:100%;height:100%;
+background:#222;display:flex;flex-direction:column;
+justify-content:center;align-items:center;
+}
+canvas{display:none;}
+#mobileUI{
+position:absolute;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+display:flex;
+gap:10px;
+z-index:9999;
+
+opacity:1;
+transition: opacity 0.3s ease;
+pointer-events:auto;
+}
+
+#mobileUI.hidden{
+opacity:0;
+pointer-events:none;
+}
+</style>
+<link rel="stylesheet" href="hud.css">
+<link rel="stylesheet" href="workshop.css">
+<link rel="stylesheet" href="systems.css">
+<link rel="stylesheet" href="adventure.css">
+</head>
+
+<body>
+  
+<div id="mobileUI">
+  <button onclick="inventoryOpen = !inventoryOpen">🎒</button>
+  <button onclick="shopOpen = !shopOpen">🛒</button>
+  <button onclick="craftOpen = !craftOpen">⚒️</button>
+  <button onclick="talentsOpen = !talentsOpen">⭐</button>
+  <button onclick="sellAll()">💰</button>
+</div>
+<div id="menu">
+<h1 style="color:white">CoxinhaMine.io</h1>
+<input id="nameInput" placeholder="Seu nome">
+<button onclick="startGame()">Jogar</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<script src="/socket.io/socket.io.js"></script>
+<script src="game-catalog.js"></script>
+
+<script>
+// ===== SAFE START =====
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const playerBodyImg = new Image();
+playerBodyImg.src = "sprites/player_body.png";
+// ===== INVENTÁRIO UI =====
+const pickaxeSprites = {
+  "Madeira": loadImg("sprites/pickaxe_madeira.png"),
+  "Pedra": loadImg("sprites/pickaxe_pedra.png"),
+  "Ferro": loadImg("sprites/pickaxe_ferro.png"),
+  "Ouro": loadImg("sprites/pickaxe_ouro.png"),
+  "Matéria Vermelha": loadImg("sprites/pickaxe_red.png"),
+  "Diamante": loadImg("sprites/pickaxe_diamond.png"),
+  "Void": loadImg("sprites/pickaxe_void.png"),
+  "Solar": loadImg("sprites/pickaxe_solar.png")
+};
+
+function loadImg(src){
+  let img = new Image();
+  img.src = src;
+  return img;
+}
+
+
+const playerEyesImg = new Image();
+playerEyesImg.src = "sprites/player_eyes.png";
+const WORLD_SIZE = 100000; // gigante
+let currentRealm = 'garden';
+const realmStates = {garden:{ores:[],mobs:[],cells:{}},cave:{ores:[],mobs:[],cells:{}}};
+const ZONE_CHANCES = {
+  G: [0.8,0.2,0,0,0,0],
+  Y: [0.5,0.3,0.2,0,0,0],
+  B: [0.2,0.4,0.3,0.1,0,0],
+  R: [0.1,0.3,0.3,0.2,0.1,0],
+  M: [0,0.2,0.3,0.3,0.2,0],
+  U: [0,0,0,0,0.1,0.2,0.7]
+};
+const pickaxes = [
+  {name:"Madeira", power:5},
+  {name:"Pedra", power:10},
+  {name:"Ferro", power:20},
+  {name:"Ouro", power:35},
+  {name:"Matéria Vermelha", power:60},
+  {name:"Diamante", power:100},
+
+  {name:"Void", power:200, passive:"void"},
+  {name:"Solar", power:400, passive:"solar"}
+];
+pickaxes.forEach((tool,index)=>tool.power=GAME_CATALOG.PICKAXE_POWER[index]);
+const ORE_VALUES = {
+  "Comum": 5,
+  "Incomum": 10,
+  "Raro": 25,
+  "Épico": 60,
+  "Lendário": 150,
+  "Mítico": 400,
+  "ULTRA": 2000,
+  "SUPER": 5000,
+  "ABSOLUT": 20000
+};
+const rarities = [
+  {name:"Comum", color:"#90ee90", hp:50, mult:1},
+  {name:"Incomum", color:"#ffff99", hp:100, mult:2},
+  {name:"Raro", color:"#3498db", hp:200, mult:3},
+  {name:"Épico", color:"#9b59b6", hp:500, mult:5},
+  {name:"Lendário", color:"#e74c3c", hp:1000, mult:10},
+  {name:"Mítico", color:"#ff8800", hp:2000, mult:20},
+  {name:"ULTRA", color:"#ff00ff", hp:5000, mult:100},
+  {name:"SUPER", color:"#00ffff", hp:15000, mult:50000},
+  {name:"ABSOLUT", color:"#ffffff", hp:50000, mult:20000}
+];
+rarities.forEach((rarity,index)=>rarity.hp=GAME_CATALOG.ORE_HP[index]);
+const starterPickaxe = {
+  id: "starter_pickaxe",
+  name: "Madeira",
+  type: "pickaxe",
+  color: "#8b5a2b",
+  power: GAME_CATALOG.PICKAXE_POWER[0],
+  img: pickaxeSprites["Madeira"]
+};
+const craftRecipes = {
+  "Comum": {next:"Incomum", chance:0.9},
+  "Incomum": {next:"Raro", chance:0.8},
+  "Raro": {next:"Épico", chance:0.7},
+  "Épico": {next:"Lendário", chance:0.6},
+  "Lendário": {next:"Mítico", chance:0.5},
+  "Mítico": {next:"ULTRA", chance:0.4},
+  "ULTRA": {next:"SUPER", chance:0.3},
+  "SUPER": {next:"ABSOLUT", chance:0.2}
+};
+const CELL_SIZE = 600; // tamanho da "região"
+const MAX_ORES_PER_CELL = 4;
+const MAP_PADDING = 500; // distância da parede
+const MOB_ZONE_STATS = {
+  P: null, // cidade sem mob
+
+  G: { rarity:"Comum",    hp: 80,   dmg: 5,  size: 12, speed: 1.0 },
+  Y: { rarity:"Incomum",  hp: 150,  dmg: 8,  size: 14, speed: 1.1 },
+  B: { rarity:"Raro",     hp: 300,  dmg: 12, size: 16, speed: 1.2 },
+  R: { rarity:"Épico",    hp: 600,  dmg: 18, size: 18, speed: 1.3 },
+  M: { rarity:"Lendário", hp: 1200, dmg: 25, size: 22, speed: 1.4 },
+  U: { rarity:"ULTRA",    hp: 3000, dmg: 40, size: 28, speed: 1.6 }
+};
+const PLAZA_SPAWN = {
+  x: WORLD_SIZE / 2,
+  y: WORLD_SIZE / 2
+};
+const CITY = {
+  x: WORLD_SIZE / 2,
+  y: WORLD_SIZE / 2,
+  size: 1600,
+  radius: 1000
+};
+const SAVE_KEY = "coxinha_io_save_v1";
+// 🔥 SOCKET SAFE
+let socket;
+try{
+  socket = io(window.location.origin);
+}catch{
+  socket = {emit:()=>{},on:()=>{}};
+}
+
+// ===== DADOS =====
+let playerId = null;
+let players = {};
+let mobs = [];
+let ores = [];
+let chat = [];
+let craftOpen = false;
+let chatInput = "";
+let typing = false;
+let shopOpen = false;
+let inventoryOpen = false;
+let talentsOpen = false;
+let cells = {};
+let touch = {active:false, x:0, y:0};
+let hoveredItem = null;
+let hoveredSlot = null;
+let player = {
+  x:PLAZA_SPAWN.x,
+  y:PLAZA_SPAWN.y,
+  hp:100,
+  maxHp:100,
+  size:20,
+  name:"Player",
+
+  level:1,
+  xp:0,
+  xpToNext:100,
+  coins:0,
+
+  talents:{ speed:0 },
+
+  inventory:[],
+  damage:10,
+
+equipment:{
+  weapon: null,
+  armor: null,
+  pickaxe: starterPickaxe // 🔥 COMEÇA COM ELA
+}
+};
+let mouse={x:0,y:0};
+let movementAimActive = false;
+
+// ===== INPUT SAFE =====
+canvas.addEventListener("touchstart", showHUD);
+canvas.addEventListener("touchmove", showHUD);
+canvas.addEventListener("mousemove", showHUD); // também no PC
+canvas.addEventListener("mousemove", e=>{
+  movementAimActive = true;
+  hoveredItem = null;
+hoveredSlot = null;
+  mouse.x = e.clientX || 0;
+  mouse.y = e.clientY || 0;
+});
+canvas.addEventListener("click", e => {
+  let mouseX = e.clientX;
+  let mouseY = e.clientY;
+
+
+  if(player.dead || inventoryOpen || extraPanel) return;
+  if(shopOpen || craftOpen || talentsOpen || typing) return;
+  handleMiningClick(mouseX, mouseY);
+
+});
+document.addEventListener("keydown", e=>{
+  if(e.key === 'Escape'){shopOpen=false;talentsOpen=false;inventoryOpen=false;craftOpen=false;extraPanel=null;cavePromptOpen=false;typing=false;document.activeElement?.blur?.();return;}
+  if(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+  if(e.target.closest?.('select,[role="dialog"]') || (e.key==='Enter' && e.target.closest?.('button,a'))) return;
+  if(e.key === "1"){
+  player.selectedSlot = 0;
+}
+if(e.key === "2"){
+  player.selectedSlot = 1;
+}
+if(e.key === "3"){
+  player.selectedSlot = 2;
+}
+  if(!typing && e.key === "c") toggleHudPanel('craft');
+  if(!typing && e.key === "b") toggleHudPanel('inventory');
+  if(!typing && e.key === "v") toggleHudPanel('shop');
+  if(!typing && e.key === "t") toggleHudPanel('talents');
+
+// vender tudo
+if(e.key === "x" && inventoryOpen){
+  if(isServerWorld()){requestPlayerAction('sellAll');return;}
+  let total = 0;
+
+  for(let item of player.inventory){
+    if(item.type==='material')total += (item.amount ?? 1) * (ORE_VALUES[materialRarity(item)] || item.value || 1) * 5;
+  }
+
+  player.coins += total;
+  player.inventory = player.inventory.filter(item=>item.type!=='material');
+
+  addChat("💰 Vendeu tudo por " + total);
+}
+  // CHAT
+  if(e.key === "Enter"){
+    e.preventDefault();
+    focusGameChat();
+    return;
+  }
+
+  if(!typing) return;
+
+  if(e.key === "Backspace"){
+    chatInput = chatInput.slice(0,-1);
+    return;
+  }
+
+  if(e.key.length === 1){
+    chatInput += e.key;
+  }
+});
+// ===== SOCKET SAFE =====
+socket.on("init", data=>{
+  if(!data) return;
+  window.sharedWorldAvailable=!!data.sharedWorld;
+
+  playerId = data.id || null;
+  players = data.players || {};
+  if(currentRealm==='cave')realmStates.garden.ores=data.ores || [];
+  else ores=data.ores || [];
+});
+
+socket.on("updatePlayers", data=>{
+  players = data || {};
+});
+
+socket.on("oreRemoved", id=>{
+  if(currentRealm==='cave')realmStates.garden.ores=realmStates.garden.ores.filter(o=>o && o.id!==id);
+  else ores = ores.filter(o=>o && o.id !== id);
+});
+
+socket.on("chat", data=>{ addChat(data); });
+socket.on("chatMessage", data=>{ addChat(data); });
+setInterval(() => {
+  if(player && player.level){
+    saveGame();
+  }
+}, 15000);
+window.addEventListener("beforeunload", () => {
+  saveGame();
+});
+
+// ===== FALLBACK (SE SERVER FALHAR) =====
+function createOre(x, y){
+
+  let zone = getZone(x,y);
+  let rarity = getRandomRarityFromZone(zone) || rarities[0];
+  let index = rarities.indexOf(rarity);
+
+  if(!GAME_CATALOG.gardenOrePositionValid(x,y,GAME_CATALOG.oreRadius(rarity.name),WORLD_SIZE))return null;
+  return {
+    id: Math.random().toString(36).substr(2,9),
+
+    x,
+    y,
+
+    size: 12 + index * 6,
+
+    hp: rarity.hp,
+    maxHp: rarity.hp,
+
+    rarity,
+
+    // ✨ NOVO
+    rotation: Math.random() * Math.PI * 2,
+    shape: Math.floor(Math.random()*3), // 0,1,2 formatos
+    hit: 0
+  };
+}
+function spawnBoss(type){
+  if(isServerWorld())return;
+
+  // evita flood
+  let exists = ores.some(o => o.rarity?.name === type);
+  if(exists) return;
+
+  if(Math.random() > 0.00005) return; // chance realista
+
+  let pos = getValidPosition();
+
+  let data = {
+    SUPER: {color:"#00ffff", hp:2000000},
+    ABSOLUT: {color:"#ffffff", hp:8000000}
+  };
+
+  let boss = data[type];
+  const size=GAME_CATALOG.oreRadius(type);
+  if(!GAME_CATALOG.gardenOrePositionValid(pos.x,pos.y,size,WORLD_SIZE) || ores.some(o=>GAME_CATALOG.orePositionsOverlap(pos.x,pos.y,size,o)))return;
+
+  ores.push({
+    id: type+"_"+Date.now(),
+    x: pos.x,
+    y: pos.y,
+    size,
+    hp: boss.hp,
+    maxHp: boss.hp,
+    rarity:{name:type,color:boss.color},
+    isBoss:true
+  });
+
+  addChat("🔥 " + type + " apareceu!");
+}
+function spawnOreInCell(cx, cy){
+
+  let baseX = cx * CELL_SIZE;
+  let baseY = cy * CELL_SIZE;
+
+  let x = baseX + Math.random() * CELL_SIZE;
+  let y = baseY + Math.random() * CELL_SIZE;
+
+  if(
+    x < MAP_PADDING || 
+    y < MAP_PADDING || 
+    x > WORLD_SIZE - MAP_PADDING || 
+    y > WORLD_SIZE - MAP_PADDING
+  ){
+    return;
+  }
+
+  let zone = getZone(x,y);
+  if(zone === "P") return;
+
+  let rarity = getRandomRarityFromZone(zone) || rarities[0];
+  let index = rarities.indexOf(rarity);
+  const size=GAME_CATALOG.oreRadius(rarity.name);
+  if(!GAME_CATALOG.gardenOrePositionValid(x,y,size,WORLD_SIZE))return;
+
+  for(let o of ores){
+    if(GAME_CATALOG.orePositionsOverlap(x,y,size,o)){
+      return;
+    }
+  }
+
+  // 🔥 lados da pedra
+  let sides = Math.min(12, Math.floor(3 + index * 1.5));
+  let irregularity = 0.3;
+
+  let points = [];
+
+  for(let i = 0; i < sides; i++){
+    let angle = (i / sides) * Math.PI * 2;
+
+    let radius = 1 - irregularity + Math.random() * irregularity;
+
+    points.push({
+      angle,
+      radius
+    });
+  }
+
+  ores.push({
+    id: Math.random().toString(36).substr(2,9),
+    x,
+    y,
+    size,
+    hp: rarity.hp,
+    maxHp: rarity.hp,
+    rarity,
+    rotation: Math.random() * Math.PI * 2,
+    points: points,
+    hit: 0
+  });
+}
+function drawRock(ore){
+  drawCrystal(ore);
+}
+function checkLevelUp(){
+  if(!player.xpToNext)player.xpToNext=xpForLevel(player.level);
+  while(player.xp>=player.xpToNext){
+    player.xp-=player.xpToNext;
+    player.level++;
+    player.xpToNext=xpForLevel(player.level);
+    player.talentPoints=(player.talentPoints || 0)+1;
+    checkAchievements();
+  }
+}
+function getRandomRarityFromZone(zone){
+
+  let chances = ZONE_CHANCES[zone];
+  if(!chances) return rarities[0];
+
+  let r = Math.random();
+  let sum = 0;
+
+  for(let i=0;i<chances.length;i++){
+    sum += chances[i];
+    if(r <= sum){
+      return rarities[i];
+    }
+  }
+
+  return rarities[0];
+}
+
+function addChat(msg){
+  if(msg && typeof msg==='object')chat.push({name:String(msg.name || '').slice(0,32),text:String(msg.text || '').slice(0,220),level:Math.max(1,Number(msg.level)||1),rarityIndex:Math.max(0,Math.min(11,Number(msg.rarityIndex)||0))});
+  else chat.push(String(msg).slice(0,300));
+  if(chat.length>80) chat.shift();
+}
+
+// ===== DESENHO =====
+function drawPlayer(x, y, entity=player){
+  if(entity.dead){drawDeadPlayer(x,y,entity);return;}
+  const size=(entity.size || player.size)*3;
+  const aim=entity===player ? Math.atan2(mouse.y-canvas.height/2,mouse.x-canvas.width/2) : (entity.aimAngle || 0);
+  const dx=Math.cos(aim),dy=Math.sin(aim);
+  const distance=Math.hypot(dx,dy)||1;
+  ctx.save();
+  if(playerBodyImg.complete && playerBodyImg.naturalWidth) ctx.drawImage(playerBodyImg,x-size/2,y-size/2,size,size);
+  if(playerEyesImg.complete && playerEyesImg.naturalWidth) ctx.drawImage(playerEyesImg,x-size/2+dx/distance*4,y-size/2+dy/distance*4,size,size);
+  drawPlayerArmor(x,y,entity);
+  const held=entity===player ? (player.selectedSlot===3 && player.equipment.utility ? player.equipment.utility : player.selectedSlot===0 && player.equipment.weapon ? player.equipment.weapon : player.equipment.pickaxe) : getRemoteEquipment(entity);
+  drawHeldEquipment(held,x,y,aim,entity===player,entity);
+  if(entity!==player){
+    const aiming=Date.now()<(entity.attackUntil || 0),radius=aiming ? 95 : 78;
+    ctx.globalAlpha=aiming ? .8 : .3;ctx.strokeStyle='#fff4c4';ctx.lineWidth=1.5;
+    const ax=x+Math.cos(aim)*radius,ay=y+Math.sin(aim)*radius;
+    ctx.beginPath();ctx.moveTo(x+Math.cos(aim)*48,y+Math.sin(aim)*48);ctx.lineTo(ax,ay);ctx.stroke();ctx.beginPath();ctx.arc(ax,ay,4,0,Math.PI*2);ctx.stroke();
+  }
+  ctx.restore();
+}
+function saveGame(){
+
+  try{
+
+    let data = {
+      coins: player.coins,
+      level: player.level,
+      xp: player.xp,
+      xpToNext: player.xpToNext,
+
+      inventory: player.inventory,
+     equipment: {
+     weapon: player.equipment.weapon,
+     armor: player.equipment.armor,
+     utility: player.equipment.utility,
+     pickaxe: player.equipment.pickaxe?.name || "Madeira"
+},
+      talents: player.talents,
+      talentPoints: player.talentPoints,
+      talentRanks: player.talentRanks,
+      maxHp: player.maxHp,
+      progressionVersion: player.progressionVersion,
+      abilityReadyAt: player.abilityReadyAt,
+      journal: player.journal,
+      pendingCraft: player.pendingCraft,
+      
+      x: player.x,
+      y: player.y
+    };
+
+    localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    if(typeof queuePlayerSave==='function')queuePlayerSave(data);
+
+
+  }catch(err){
+    console.error("Erro ao salvar:", err);
+  }
+}
+let nextUltraSpawn = 0;
+function spawnUltraOre(){
+  if(isServerWorld())return;
+  if(performance.now() < nextUltraSpawn) return;
+  nextUltraSpawn = performance.now() + 15000;
+
+  if(Math.random() > 1) return;
+
+  let pos = getEdgePosition();
+
+  let rarity = rarities.find(r => r.name === "ULTRA");
+  const size=GAME_CATALOG.oreRadius(rarity.name);
+  if(!GAME_CATALOG.gardenOrePositionValid(pos.x,pos.y,size,WORLD_SIZE) || ores.some(o=>GAME_CATALOG.orePositionsOverlap(pos.x,pos.y,size,o)))return;
+
+  ores.push({
+    id: "ultra_" + Date.now(),
+    x: pos.x,
+    y: pos.y,
+    size,
+    hp: rarity.hp,
+    maxHp: rarity.hp,
+    rarity,
+    hit: 0
+  });
+}
+function drawOres(){
+  ctx.save();
+  for(const ore of ores){
+    if(!ore || !ore.rarity || !Number.isFinite(ore.x) || !Number.isFinite(ore.y)) continue;
+    if(Math.abs(ore.x-player.x)>worldViewWidth()/2+ore.size*2 || Math.abs(ore.y-player.y)>worldViewHeight()/2+ore.size*2) continue;
+    drawRock(ore);
+    const width = ore.size * 2;
+    ctx.fillStyle = "#183326";
+    ctx.fillRect(ore.x-width/2, ore.y-ore.size-13, width, 5);
+    ctx.fillStyle = ore.rarity.color;
+    ctx.fillRect(ore.x-width/2, ore.y-ore.size-13, width*Math.max(0,ore.hp/ore.maxHp), 5);
+    ctx.font = "bold 11px Arial";
+    ctx.textAlign = "center";
+    if(settings.names)ctx.fillText(ore.rarity.name, ore.x, ore.y+ore.size+18);
+  }
+  ctx.restore();
+}
+let minimapCanvas = document.createElement("canvas");
+let minimapCtx = minimapCanvas.getContext("2d");
+minimapCanvas.width = 180;
+minimapCanvas.height = 180;
+
+
+let nextGardenSpawnAt=0;
+function updateSpawnSystem(){
+  if(isServerWorld())return;
+  if(currentRealm==='cave'){populateCave();return;}
+  if(performance.now()<nextGardenSpawnAt)return;
+  nextGardenSpawnAt=performance.now()+250;
+  // Invalid positions are discarded, never projected onto the plaza boundary.
+  ores=ores.filter(ore=>{
+    if(!ore?.rarity)return false;
+    normalizeOreScale(ore);
+    return GAME_CATALOG.gardenOrePositionValid(ore.x,ore.y,ore.size,WORLD_SIZE);
+  });
+
+  let range = 2000;
+
+  let startX = player.x - range;
+  let endX   = player.x + range;
+  let startY = player.y - range;
+  let endY   = player.y + range;
+
+  for(let x = startX; x < endX; x += CELL_SIZE){
+    for(let y = startY; y < endY; y += CELL_SIZE){
+
+      let cx = Math.floor(x / CELL_SIZE);
+      let cy = Math.floor(y / CELL_SIZE);
+
+      let key = cx + "," + cy;
+
+      if(!cells[key]){
+        cells[key] = { ores: 0 };
+      }
+
+      // conta quantos ores já existem nessa célula
+      let count = 0;
+
+      for(let o of ores){
+        let ocx = Math.floor(o.x / CELL_SIZE);
+        let ocy = Math.floor(o.y / CELL_SIZE);
+
+        if(ocx === cx && ocy === cy){
+          count++;
+        }
+      }
+
+      // spawn se tiver pouco
+      if(count < MAX_ORES_PER_CELL){
+        spawnOreInCell(cx, cy);
+      }
+    }
+  }
+}
+function getSafeSpawn(){
+
+  return {
+    x: CITY.x + (Math.random() * CITY.radius * 0.5),
+    y: CITY.y + (Math.random() * CITY.radius * 0.5)
+  };
+}
+function restoreEquipment(){
+
+  let p = player.equipment.pickaxe;
+
+  if(typeof p === "string"){
+    player.equipment.pickaxe = pickaxes.find(px => px.name === p) || starterPickaxe;
+  }
+
+  restoreSword();
+  restoreUtility();
+  // garantir imagem
+  if(player.equipment.pickaxe){
+    player.equipment.pickaxe.img = pickaxeSprites[player.equipment.pickaxe.name];
+  }
+}
+function sendStats(){
+  socket.emit("stats", {
+    name: player.name,
+    level: player.level,
+    coins: player.coins,
+    xp: player.xp
+  });
+}
+function drawMinimap(){
+  renderMinimap();
+}
+function drawWorld(){
+  if(currentRealm==='cave'){drawCaveWorld();return;}
+
+  // chão base
+  ctx.fillStyle = "#2ecc71";
+  ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+
+  drawRiver();
+  drawCity();
+  drawCaveEntrance();
+}
+function getValidPosition(){
+
+  let x = MAP_PADDING + Math.random() * (WORLD_SIZE - MAP_PADDING*2);
+  let y = MAP_PADDING + Math.random() * (WORLD_SIZE - MAP_PADDING*2);
+
+  return {x,y};
+}
+function drawShop(){
+  renderWorkshop();
+}
+function drawHotbar(){
+  updateGameHud();
+}
+function drawTalents(){
+  renderTalentTree();
+}
+function getZone(x, y){
+  if(currentRealm==='cave' || Math.min(x,y,WORLD_SIZE-x,WORLD_SIZE-y)<8000)return 'U';
+
+  let dx = x - WORLD_SIZE/2;
+  let dy = y - WORLD_SIZE/2;
+
+  let dist = Math.sqrt(dx*dx + dy*dy);
+
+  if(dist < 1000) return "P";
+  if(dist < 4000) return "G";
+  if(dist < 8000) return "Y";
+  if(dist < 12000) return "B";
+  if(dist < 26000) return "R";
+  if(dist < 50000) return "M";
+
+  // 🌌 ZONA ULTRA (EXTREMO DO MAPA)
+  if(dist < 100000) return "U";
+
+  // fora disso ainda é Ultra (caos total)
+  return "U";
+}
+function resizeCanvas(){
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+
+window.addEventListener("resize", resizeCanvas);
+function drawInventory(){
+  renderInventoryPanel();
+}
+function loadGame(){
+
+  try{
+
+    let data = localStorage.getItem(SAVE_KEY);
+    if(!data) return;
+
+    let s = JSON.parse(data);
+
+    player.coins = s.coins ?? 0;
+    player.level = s.level ?? 1;
+    player.xp = s.xp ?? 0;
+    player.xpToNext = s.xpToNext ?? 100;
+
+    player.inventory = s.inventory ?? [];
+    player.equipment = s.equipment ?? player.equipment;
+    player.talents = s.talents ?? {speed:0};
+    player.talentPoints = s.talentPoints;
+    player.talentRanks = s.talentRanks;
+    player.maxHp = s.maxHp || 100;
+    player.progressionVersion = s.progressionVersion;
+    player.abilityReadyAt = s.abilityReadyAt;
+    player.journal = s.journal;
+    player.pendingCraft = s.pendingCraft;
+
+    player.x = s.x ?? player.x;
+    player.y = s.y ?? player.y;
+
+    console.log("📥 Save carregado!");
+
+  }catch(err){
+    console.error("Erro ao carregar save:", err);
+  }
+}
+function drawCity(){
+  const x = CITY.x - CITY.size / 2;
+  const y = CITY.y - CITY.size / 2;
+  ctx.save();
+  ctx.fillStyle = "#5a8b65";
+  ctx.fillRect(x - 22, y - 22, CITY.size + 44, CITY.size + 44);
+  ctx.fillStyle = "#a1a99a";
+  ctx.fillRect(x, y, CITY.size, CITY.size);
+  ctx.strokeStyle = "#8b9589";
+  ctx.lineWidth = 2;
+  for(let offset = 0; offset <= CITY.size; offset += 80){
+    ctx.beginPath();
+    ctx.moveTo(x + offset, y);
+    ctx.lineTo(x + offset, y + CITY.size);
+    ctx.moveTo(x, y + offset);
+    ctx.lineTo(x + CITY.size, y + offset);
+    ctx.stroke();
+  }
+  // Four garden beds frame the shared arrival point.
+  for(const dx of [-1, 1]){
+    for(const dy of [-1, 1]){
+      const bx = CITY.x + dx * 410;
+      const by = CITY.y + dy * 410;
+      ctx.fillStyle = "#62785a";
+      ctx.fillRect(bx - 125, by - 125, 250, 250);
+      ctx.fillStyle = "#408553";
+      ctx.fillRect(bx - 110, by - 110, 220, 220);
+      for(let n = 0; n < 9; n++){
+        const fx = bx - 70 + (n % 3) * 70;
+        const fy = by - 70 + Math.floor(n / 3) * 70;
+        ctx.fillStyle = n % 2 ? "#f5cb65" : "#efa7b9";
+        ctx.beginPath();
+        ctx.arc(fx, fy, 13, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = "#fff2b0";
+        ctx.beginPath();
+        ctx.arc(fx, fy, 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+  ctx.fillStyle = "#c1c5ae";
+  ctx.beginPath();
+  ctx.arc(CITY.x, CITY.y, 145, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#e8e1bb";
+  ctx.lineWidth = 8;
+  ctx.stroke();
+  ctx.fillStyle = "#61735d";
+  ctx.font = "bold 24px Arial";
+  ctx.textAlign = "center";
+  ctx.fillText("PRAÇA CENTRAL", CITY.x, CITY.y - 185);
+  ctx.font = "14px Arial";
+  ctx.fillText("Ponto de encontro", CITY.x, CITY.y - 160);
+  ctx.restore();
+}
+
+function drawRiver(){
+
+  let riverWidth = 120; // largura do rio
+
+  ctx.fillStyle = "#1e90ff"; // azul água
+
+  ctx.fillRect(
+    WORLD_SIZE/2 - riverWidth/2,
+    0,
+    riverWidth,
+    WORLD_SIZE
+  );
+}
+function drawTooltip(){
+
+  if(!hoveredItem || !hoveredSlot) return;
+
+  let text1 = hoveredItem.name;
+  let text2 = "Valor: " + (hoveredItem.value * 5);
+  let text3 = "Qtd: " + (hoveredItem.amount || 1);
+
+  ctx.font = "14px Arial";
+
+  let padding = 8;
+  let width = Math.max(
+    ctx.measureText(text1).width,
+    ctx.measureText(text2).width,
+    ctx.measureText(text3).width
+  ) + padding*2;
+
+  let height = 60;
+
+  let x = mouse.x + 15;
+  let y = mouse.y + 15;
+
+  // não sair da tela
+  if(x + width > canvas.width) x = canvas.width - width - 10;
+  if(y + height > canvas.height) y = canvas.height - height - 10;
+
+  // fundo
+  ctx.fillStyle = "rgba(0,0,0,0.85)";
+  ctx.fillRect(x, y, width, height);
+
+  // borda da raridade
+  ctx.strokeStyle = hoveredItem.color || "white";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x, y, width, height);
+
+  // texto
+  ctx.fillStyle = hoveredItem.color || "white";
+  ctx.fillText(text1, x + padding, y + 18);
+
+  ctx.fillStyle = "white";
+  ctx.fillText(text2, x + padding, y + 34);
+  ctx.fillText(text3, x + padding, y + 50);
+}
+function drawChat(){
+  renderGameChat();
+}
+
+function drawXP(){
+  // The shared HUD updates health and experience together.
+}
+function getEdgePosition(){
+
+  let side = Math.floor(Math.random() * 4);
+  let margin = 500;
+
+  let x, y;
+
+  if(side === 0){ // topo
+    x = Math.random() * WORLD_SIZE;
+    y = margin;
+  }
+  else if(side === 1){ // baixo
+    x = Math.random() * WORLD_SIZE;
+    y = WORLD_SIZE - margin;
+  }
+  else if(side === 2){ // esquerda
+    x = margin;
+    y = Math.random() * WORLD_SIZE;
+  }
+  else{ // direita
+    x = WORLD_SIZE - margin;
+    y = Math.random() * WORLD_SIZE;
+  }
+
+  return {x, y};
+}
+function drawCraft(){
+  renderCraftPanel();
+}
+function drawEquipment(){
+  // Equipment previews are drawn in the single DOM hotbar.
+}
+let hudTimer = null;
+
+function showHUD(){
+  document.getElementById("mobileUI").classList.remove("hidden");
+}
+// ===== LOOP SAFE =====
+let lastMobFrame = performance.now();
+function loop(){
+  try{
+    const now = performance.now();
+    const mobDelta = Math.min(0.05, (now-lastMobFrame)/1000);
+    lastMobFrame = now;
+    ctx.globalAlpha = 1;
+    ctx.font='bold 13px "Trebuchet MS"';
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    updateSpawnSystem();
+    updateAdventure(mobDelta);
+    // ===== MOVIMENTO =====
+
+    movePlayerPhysics(mobDelta);
+    updateCombatWorld(mobDelta);
+    sendPlayerMovement();
+
+   
+    // ===== CAMERA =====
+    ctx.save();
+    ctx.translate(canvas.width/2,canvas.height/2);
+    ctx.scale(cameraZoom(),cameraZoom());
+    ctx.translate(-player.x,-player.y);
+
+    // ===== CHÃO (SIMPLIFICADO PRA NÃO BUGAR) =====
+    drawWorld();
+
+    // 👉 se quiser usar zonas depois, a gente arruma com segurança
+    drawOres();
+    drawGuardians();
+    drawCombatEffects();
+    drawAbilityEffects();
+
+    // ===== OUTROS PLAYERS =====
+    for(let id in players){
+      let p = players[id];
+      if(!p || id === playerId || (p.realm || 'garden')!==currentRealm) continue;
+
+      drawPlayer(p.x, p.y, p);
+
+      ctx.fillStyle="black";
+      if(settings.names)ctx.fillText((p.guildTag ? "["+p.guildTag+"] " : "")+p.name,p.x-19,p.y-29);
+
+      ctx.fillStyle="white";
+      if(settings.names)ctx.fillText((p.guildTag ? "["+p.guildTag+"] " : "")+p.name,p.x-20,p.y-30);
+
+      drawLevelNameplate(p.x,p.y,p.level || 1,p.rarityIndex || 0);
+    }
+
+
+    // ===== PLAYER LOCAL =====
+    drawPlayer(player.x, player.y);
+
+    ctx.fillStyle="black";
+    if(settings.names)ctx.fillText(player.name,player.x-19,player.y-29);
+
+    ctx.fillStyle="white";
+    if(settings.names)ctx.fillText(player.name,player.x-20,player.y-30);
+
+    drawLevelNameplate(player.x,player.y,player.level,highestOwnedRarity());
+
+    ctx.restore();
+    drawCaveDarkness();
+    drawInventory();
+    drawXP();
+    drawTalents();
+    drawTooltip();
+    drawMinimap();
+    drawChat();
+    checkLevelUp();
+    drawShop();
+    drawHotbar();
+    if(currentRealm==='garden')spawnUltraOre();
+    drawEquipment();
+    drawCraft();
+    restoreEquipment();
+    if(currentRealm==='garden'){spawnBoss("SUPER");spawnBoss("ABSOLUT");}
+    showHUD();
+    renderSystems();
+    renderAdventureUi();
+  }catch(err){
+  console.error("ERRO LOOP:", err);
+  }
+
+  requestAnimationFrame(loop);
+}
+
+// ===== START =====
+function startGame(){
+
+  player.name = document.getElementById("nameInput").value || "Player";
+
+  // 🔥 SPAWN NO PLAZA
+  player.x = PLAZA_SPAWN.x;
+  player.y = PLAZA_SPAWN.y;
+  
+   loadGame();
+  normalizeProgression();
+  restoreEquipment();
+  normalizeSystems();
+  normalizeAdventure();
+  player.hp = player.maxHp;
+  player.x = PLAZA_SPAWN.x;
+  player.y = PLAZA_SPAWN.y;
+  mouse.x = window.innerWidth / 2;
+  mouse.y = window.innerHeight / 2;
+  beginSharedSession();
+
+  document.getElementById("menu").style.display = "none";
+  canvas.style.display = "block";
+
+  resizeCanvas();
+  mouse.x = canvas.width / 2;
+  mouse.y = canvas.height / 2;
+  document.getElementById("game-hud").hidden = false;
+  movementAimActive = false;
+  loop();
+}
+</script>
+
+<script src="progression.js"></script>
+<script src="systems.js"></script>
+<script src="adventure.js"></script>
+<script src="gear.js"></script>
+<script src="cave.js"></script>
+<script src="boss-mobs.js"></script>
+<script src="workshop.js"></script>
+<script src="hud.js"></script>
+<script src="panels.js"></script>
+<script src="admin-ui.js"></script>
+<script src="inventory.js"></script>
+<script src="adventure-ui.js"></script>
+<script src="multiplayer.js"></script>
+<script src="presentation.js"></script>
+</body>
+</html>
