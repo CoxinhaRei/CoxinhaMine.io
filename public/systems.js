@@ -141,6 +141,7 @@ function movePlayerPhysics(dt) {
   }
   const length=Math.hypot(dx,dy);if(length>1){dx/=length;dy/=length;}
   const speed=240*(1+talentRank('speed')*.08+(currentRealm==='cave' ? talentRank('sprint')*.04 : 0))*(1+utilityBonus('speed'));
+  if(isServerWorld() && multiplayer.protocol>=5){if(!player.dead && multiplayer.ready && socket.connected)networkMovement.input(player,dx,dy,dt,speed,movePredictedPlayer);return;}
   const blend=1-Math.exp(-9*dt);
   player.vx=(player.vx || 0)+(dx*speed-(player.vx || 0))*blend;
   player.vy=(player.vy || 0)+(dy*speed-(player.vy || 0))*blend;
@@ -254,6 +255,7 @@ window.addEventListener('keydown',event=>{
 });
 window.addEventListener('keyup',event=>heldKeys.delete(event.key.toLowerCase()));
 window.addEventListener('blur',()=>{heldKeys.clear();movementAimActive=false;touch.active=false;});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){heldKeys.clear();movementAimActive=false;touch.active=false;}});
 canvas.addEventListener('pointermove',event=>{if(event.pointerType==='touch'){touch={active:true,x:event.clientX,y:event.clientY};}});
 canvas.addEventListener('pointerdown',event=>{if(event.pointerType==='touch'){touch={active:true,x:event.clientX,y:event.clientY};}});
 canvas.addEventListener('pointerup',()=>{touch.active=false;});

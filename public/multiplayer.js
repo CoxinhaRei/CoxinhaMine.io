@@ -1,6 +1,13 @@
 const multiplayer={authority:!!window.sharedWorldAvailable,ready:false,started:false,inLobby:false,lastMove:0,lastSave:0,realm:'garden',contribution:{},squadContribution:{},profileName:'',pendingJoin:false};
 const PROFILE_KEYS='coxinha_profiles_v2';
 const SESSION_KEY='coxinha_active_session_v4';
+const networkMovement=new MovementNet.Predictor();window.networkMovement=networkMovement;
+function networkSpeed(){return 240*(1+talentRank('speed')*.08+(currentRealm==='cave' ? talentRank('sprint')*.04 : 0))*(1+utilityBonus('speed'));}
+function movePredictedPlayer(state,x,y){
+  moveWithWalls(state,x,y,20);
+  for(const ore of ores){const minimum=ore.size+20;if(Math.abs(state.x-ore.x)>minimum || Math.abs(state.y-ore.y)>minimum)continue;const dx=state.x-ore.x,dy=state.y-ore.y,d=Math.hypot(dx,dy);if(d<minimum)moveWithWalls(state,ore.x+(d ? dx/d : 1)*(minimum+.1),ore.y+(d ? dy/d : 0)*(minimum+.1),20);}
+}
+function renderedPlayerPosition(){return {x:player.x+networkMovement.offsetX,y:player.y+networkMovement.offsetY};}
 function activeSession(){try{const session=JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');return session && /^[a-f0-9-]{36}$/.test(session.id) && /^[a-f0-9]{64}$/.test(session.token) ? session : null;}catch{return null;}}
 function isServerWorld(){return multiplayer.authority;}
 function profileKeys(){try{return Object.assign(Object.create(null),JSON.parse(localStorage.getItem(PROFILE_KEYS)||'{}'));}catch{return Object.create(null);}}
@@ -14,7 +21,7 @@ function beginSharedSession({lobby=false}={}){
   const realm=typeof selectedMenuRealm==='string' ? selectedMenuRealm : currentRealm;
   multiplayer.joinPromise=new Promise(resolve=>socket.timeout(15000).emit('joinGame',{credentials,lobby,realm},(error,result)=>{
     multiplayer.pendingJoin=false;
-    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(!error){localStorage.removeItem(SESSION_KEY);multiplayer.account=null;if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
+    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(result?.code==='AUTH_REQUIRED'){localStorage.removeItem(SESSION_KEY);multiplayer.account=null;if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
     resolve(true);
   }));return multiplayer.joinPromise;
 }
@@ -34,9 +41,10 @@ function queuePlayerSave(data){
 function sendPlayerMovement(){
   if(!multiplayer.ready || !socket.connected || performance.now()-multiplayer.lastMove<50)return;
   const now=performance.now(),aimAngle=typeof playerAimAngle==='function' ? playerAimAngle() : Math.atan2(mouse.y-canvas.height/2,mouse.x-canvas.width/2),last=multiplayer.lastSent;
-  if(last && Math.hypot(last.x-player.x,last.y-player.y)<.1 && Math.abs(last.aimAngle-aimAngle)<.01 && last.selectedSlot===player.selectedSlot && now-multiplayer.lastMove<250)return;
+  if(last && !networkMovement.unsent.length && !networkMovement.pending.size && Math.hypot(last.x-player.x,last.y-player.y)<.1 && Math.abs(last.aimAngle-aimAngle)<.01 && last.selectedSlot===player.selectedSlot && now-multiplayer.lastMove<250)return;
   multiplayer.lastMove=now;multiplayer.seq=(multiplayer.seq || 0)+1;
   const packet={seq:multiplayer.seq,realm:currentRealm,epoch:multiplayer.movementEpoch,x:player.x,y:player.y,selectedSlot:player.selectedSlot,aimAngle,viewRadius:Math.hypot(worldViewWidth(),worldViewHeight())/2+350};multiplayer.lastSent=packet;
+  if(multiplayer.protocol>=5){networkMovement.command(packet.seq);packet.commands=networkMovement.batch();socket.volatile.emit('move',packet);return;}
   pendingMovement.set(packet.seq,{x:packet.x,y:packet.y});if(pendingMovement.size>40)pendingMovement.delete(pendingMovement.keys().next().value);
   socket.volatile.emit('move',packet);
 }
@@ -53,13 +61,14 @@ function requestSharedAbility(type){
   socket.emit('useAbility',type);return true;
 }
 function updateSharedPresentation(dt){
+  networkMovement.smooth(dt);
   interpolateNetwork(performance.now());
   for(const number of damageNumbers){number.life-=dt;number.y-=30*dt;}damageNumbers=damageNumbers.filter(n=>n.life>0);
   for(const effect of abilityEffects)effect.life-=dt;abilityEffects=abilityEffects.filter(e=>e.life>0);
 }
 function updateSharedCombatPresentation(dt){
   nearestBoss=null;let distance=Infinity;
-  for(const ore of ores){
+  for(const ore of multiplayer.protocol>=5 ? [] : ores){
     const dx=player.x-ore.x,dy=player.y-ore.y,d=Math.hypot(dx,dy);
     if(!player.dead && d<ore.size+player.size){const overlap=ore.size+player.size-d;moveWithWalls(player,player.x+(dx || 1)/(d || 1)*overlap,player.y+dy/(d || 1)*overlap,player.size);}
   }
@@ -76,11 +85,11 @@ function sharedNotice(message){
 }
 const networkNotice=document.createElement('div');networkNotice.id='network-notice';networkNotice.setAttribute('role','status');networkNotice.hidden=true;document.body.append(networkNotice);
 const networkStatus=document.createElement('small');networkStatus.id='network-status';document.body.append(networkStatus);
-function renderNetworkStatus(){networkStatus.hidden=!multiplayer.started;networkStatus.textContent=multiplayer.ready && socket.connected ? '● Mundo compartilhado · '+(multiplayer.ping ?? '…')+' ms · loot: 5%+' : 'Reconectando ao mundo…';}
+function renderNetworkStatus(){networkStatus.hidden=!multiplayer.started;networkStatus.textContent=multiplayer.ready && socket.connected ? '● '+(multiplayer.region && multiplayer.region!=='GLOBAL' ? multiplayer.region+' · ' : '')+'Mundo compartilhado · '+(multiplayer.ping ?? '…')+' ms · loot: 5%+' : 'Reconectando ao mundo…';}
 setInterval(()=>{if(!socket.connected)return;const sent=performance.now();socket.timeout(3000).emit('latencyProbe',{},(error,result)=>{if(!error){multiplayer.ping=Math.round(performance.now()-sent);multiplayer.serverTick=result.tickMs;renderNetworkStatus();}});},5000);
-socket.on('init',data=>{multiplayer.supportsLobby=data.protocol>=3;multiplayer.accounts=!!data.accounts;multiplayer.squads=!!data.squads;multiplayer.durable=data.durable;if(data.sharedWorld){multiplayer.authority=true;if((multiplayer.started || multiplayer.inLobby) && !multiplayer.ready)beginSharedSession({lobby:!multiplayer.started});}renderNetworkStatus();});
+socket.on('init',data=>{multiplayer.protocol=data.protocol;multiplayer.region=data.region;multiplayer.serverLocation=data.location;multiplayer.supportsLobby=data.protocol>=3;multiplayer.accounts=!!data.accounts;multiplayer.squads=!!data.squads;multiplayer.durable=data.durable;if(data.sharedWorld){multiplayer.authority=true;if((multiplayer.started || multiplayer.inLobby) && !multiplayer.ready)beginSharedSession({lobby:!multiplayer.started});}renderNetworkStatus();});
 socket.on('connect',()=>{multiplayer.pendingJoin=false;if(multiplayer.started || multiplayer.inLobby)beginSharedSession({lobby:!multiplayer.started});renderNetworkStatus();});
-socket.on('disconnect',()=>{multiplayer.ready=false;multiplayer.pendingJoin=false;heldKeys.clear();movementAimActive=false;renderNetworkStatus();});
+socket.on('disconnect',()=>{multiplayer.ready=false;multiplayer.pendingJoin=false;networkMovement.reset();heldKeys.clear();movementAimActive=false;renderNetworkStatus();});
 socket.on('sessionReplaced',()=>{sharedNotice('Este perfil entrou em outra aba. Use outro nome para testar um segundo jogador.');multiplayer.started=false;});
 socket.on('profileReady',data=>{
   const keys=profileKeys();if(data.credentials){for(const name of Object.keys(keys))if(keys[name]?.id===data.credentials.id)keys[name]=data.credentials;keys[data.state.name]=data.credentials;localStorage.setItem(PROFILE_KEYS,JSON.stringify(keys));}multiplayer.profileName=data.state.name;
@@ -90,7 +99,7 @@ socket.on('profileReady',data=>{
   multiplayer.inLobby=!!data.lobby;
   multiplayer.movementEpoch=data.epoch;
   CAVE.maze=null;caveMapImage=null;multiplayer.mapVersion=-1;
-  pendingMovement.clear();multiplayer.lastSent=null;player.name=data.state.name;currentRealm=data.realm;player.x=data.x;player.y=data.y;applyServerPlayer(data.state);renderNetworkStatus();
+  pendingMovement.clear();networkMovement.reset();multiplayer.correctedSeq=0;multiplayer.seq=0;multiplayer.lastSent=null;player.vx=0;player.vy=0;player.name=data.state.name;currentRealm=data.realm;player.x=data.x;player.y=data.y;applyServerPlayer(data.state);renderNetworkStatus();
 });
 socket.on('playerState',applyServerPlayer);
 socket.on('playerDamage',data=>{
@@ -103,6 +112,7 @@ function applyWorldSnapshot(snapshot){
   ores=snapshot.ores;mobs=mergeNetworkEntities(mobs,snapshot.mobs);projectiles=mergeNetworkEntities(projectiles,snapshot.projectiles);bossMobHazards=snapshot.hazards;bossMobEffects=snapshot.effects;
   multiplayer.drops=snapshot.drops || [];multiplayer.timeOffset=snapshot.serverTime-Date.now();
   const self=snapshot.self,history=self && pendingMovement.get(self.seq);
+  if(multiplayer.protocol>=5 && self?.epoch===multiplayer.movementEpoch)networkMovement.reconcile(player,self,snapshot.serverTime,networkSpeed(),movePredictedPlayer);
   if(history && self.epoch===multiplayer.movementEpoch && self.seq>(multiplayer.correctedSeq || 0)){multiplayer.correctedSeq=self.seq;const dx=self.x-history.x,dy=self.y-history.y;if(Math.hypot(dx,dy)>2){player.x+=dx;player.y+=dy;for(const [seq,point] of pendingMovement)if(seq>=self.seq){point.x+=dx;point.y+=dy;}}}
   multiplayer.contribution=snapshot.contribution;player.hp=snapshot.hp;player.maxHp=snapshot.maxHp;
   multiplayer.squadContribution=snapshot.squadContribution || {};
@@ -112,7 +122,7 @@ function applyWorldSnapshot(snapshot){
 socket.on('worldSnapshot',applyWorldSnapshot);
 socket.on('worldFrame',frame=>{players=mergeRemotePlayers(frame.players);applyWorldSnapshot(frame.world);});
 socket.on('realmChanged',data=>{
-  const change=()=>{currentRealm=data.realm;multiplayer.movementEpoch=data.epoch;player.x=data.x;player.y=data.y;player.vx=0;player.vy=0;ores=[];mobs=[];projectiles=[];multiplayer.drops=[];pendingMovement.clear();clearBossMobEffects();heldKeys.clear();movementAimActive=false;multiplayer.mapVersion=-1;if(currentRealm==='cave')buildCaveMaze();};
+  const change=()=>{currentRealm=data.realm;multiplayer.movementEpoch=data.epoch;multiplayer.seq=0;multiplayer.correctedSeq=0;networkMovement.reset();multiplayer.lastSent=null;player.x=data.x;player.y=data.y;player.vx=0;player.vy=0;ores=[];mobs=[];projectiles=[];multiplayer.drops=[];pendingMovement.clear();clearBossMobEffects();heldKeys.clear();movementAimActive=false;multiplayer.mapVersion=-1;if(currentRealm==='cave')buildCaveMaze();};
   if(typeof irisTransition==='function')irisTransition(change);else change();
 });
 socket.on('entityHit',data=>{miningBurst(data.x,data.y,data.color,data.isMob ? 9 : 16);damageNumbers.push({x:data.x,y:data.y-25,text:Math.round(data.damage),life:.7});});

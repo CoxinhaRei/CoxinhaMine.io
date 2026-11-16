@@ -34,12 +34,13 @@ opacity:0;
 pointer-events:none;
 }
 </style>
-<link rel="stylesheet" href="hud.css?v=1.5.2-mobile4">
-<link rel="stylesheet" href="workshop.css?v=1.5.2-mobile4">
-<link rel="stylesheet" href="systems.css?v=1.5.2-mobile4">
-<link rel="stylesheet" href="adventure.css?v=1.5.2-mobile4">
-<link rel="stylesheet" href="account-menu.css?v=1.5.2-mobile4">
-<link rel="stylesheet" href="mobile-play.css?v=1.5.2-mobile4">
+<link rel="stylesheet" href="hud.css?v=1.5.3-regions5">
+<link rel="stylesheet" href="workshop.css?v=1.5.3-regions5">
+<link rel="stylesheet" href="systems.css?v=1.5.3-regions5">
+<link rel="stylesheet" href="adventure.css?v=1.5.3-regions5">
+<link rel="stylesheet" href="account-menu.css?v=1.5.3-regions5">
+<link rel="stylesheet" href="mobile-play.css?v=1.5.3-regions5">
+<link rel="stylesheet" href="region-client.css?v=1.5.3-regions5">
 </head>
 
 <body>
@@ -70,7 +71,9 @@ pointer-events:none;
 <canvas id="game"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="game-catalog.js?v=1.5.2-mobile4"></script>
+<script src="region-client.js?v=1.5.3-regions5"></script>
+<script src="movement-net.js?v=1.5.3-regions5"></script>
+<script src="game-catalog.js?v=1.5.3-regions5"></script>
 
 <script>
 // ===== SAFE START =====
@@ -190,7 +193,7 @@ const SAVE_KEY = "coxinha_io_save_v1";
 // 🔥 SOCKET SAFE
 let socket;
 try{
-  socket = io(window.location.origin);
+  socket = window.createRegionSocket ? window.createRegionSocket() : io(window.location.origin);
 }catch{
   socket = {emit:()=>{},on:()=>{}};
 }
@@ -958,7 +961,8 @@ function loop(){
     ctx.save();
     ctx.translate(canvas.width/2,canvas.height/2);
     ctx.scale(cameraZoom(),cameraZoom());
-    ctx.translate(-player.x,-player.y);
+    const renderPosition=typeof renderedPlayerPosition==='function' ? renderedPlayerPosition() : player;
+    ctx.translate(-renderPosition.x,-renderPosition.y);
 
     // ===== CHÃO (SIMPLIFICADO PRA NÃO BUGAR) =====
     drawWorld();
@@ -989,16 +993,16 @@ function loop(){
 
 
     // ===== PLAYER LOCAL =====
-    drawPlayer(player.x, player.y);
+    drawPlayer(renderPosition.x, renderPosition.y);
 
     ctx.fillStyle="black";
-    if(settings.names)ctx.fillText(player.name,player.x-19,player.y-29);
+    if(settings.names)ctx.fillText(player.name,renderPosition.x-19,renderPosition.y-29);
 
     ctx.fillStyle="white";
-    if(settings.names)ctx.fillText(player.name,player.x-20,player.y-30);
+    if(settings.names)ctx.fillText(player.name,renderPosition.x-20,renderPosition.y-30);
 
-    drawLevelNameplate(player.x,player.y,player.level,highestOwnedRarity());
-    if(typeof drawEntityHealth==='function')drawEntityHealth(player,player.x,player.y+53,72,'#a9ee6b');
+    drawLevelNameplate(renderPosition.x,renderPosition.y,player.level,highestOwnedRarity());
+    if(typeof drawEntityHealth==='function')drawEntityHealth(player,renderPosition.x,renderPosition.y+53,72,'#a9ee6b');
 
     ctx.restore();
     drawCaveDarkness();
@@ -1037,24 +1041,24 @@ async function startGame(){
 }
 </script>
 
-<script src="progression.js?v=1.5.2-mobile4"></script>
-<script src="systems.js?v=1.5.2-mobile4"></script>
-<script src="adventure.js?v=1.5.2-mobile4"></script>
-<script src="gear.js?v=1.5.2-mobile4"></script>
-<script src="cave.js?v=1.5.2-mobile4"></script>
-<script src="boss-mobs.js?v=1.5.2-mobile4"></script>
-<script src="workshop.js?v=1.5.2-mobile4"></script>
-<script src="hud.js?v=1.5.2-mobile4"></script>
-<script src="panels.js?v=1.5.2-mobile4"></script>
-<script src="admin-ui.js?v=1.5.2-mobile4"></script>
-<script src="inventory.js?v=1.5.2-mobile4"></script>
-<script src="adventure-ui.js?v=1.5.2-mobile4"></script>
-<script src="multiplayer.js?v=1.5.2-mobile4"></script>
-<script src="account-menu.js?v=1.5.2-mobile4"></script>
-<script src="secure-ui.js?v=1.5.2-mobile4"></script>
-<script src="mobile-play.js?v=1.5.2-mobile4"></script>
-<script src="world-presentation.js?v=1.5.2-mobile4"></script>
-<script src="presentation.js?v=1.5.2-mobile4"></script>
+<script src="progression.js?v=1.5.3-regions5"></script>
+<script src="systems.js?v=1.5.3-regions5"></script>
+<script src="adventure.js?v=1.5.3-regions5"></script>
+<script src="gear.js?v=1.5.3-regions5"></script>
+<script src="cave.js?v=1.5.3-regions5"></script>
+<script src="boss-mobs.js?v=1.5.3-regions5"></script>
+<script src="workshop.js?v=1.5.3-regions5"></script>
+<script src="hud.js?v=1.5.3-regions5"></script>
+<script src="panels.js?v=1.5.3-regions5"></script>
+<script src="admin-ui.js?v=1.5.3-regions5"></script>
+<script src="inventory.js?v=1.5.3-regions5"></script>
+<script src="adventure-ui.js?v=1.5.3-regions5"></script>
+<script src="multiplayer.js?v=1.5.3-regions5"></script>
+<script src="account-menu.js?v=1.5.3-regions5"></script>
+<script src="secure-ui.js?v=1.5.3-regions5"></script>
+<script src="mobile-play.js?v=1.5.3-regions5"></script>
+<script src="world-presentation.js?v=1.5.3-regions5"></script>
+<script src="presentation.js?v=1.5.3-regions5"></script>
 </body>
 </html>
 

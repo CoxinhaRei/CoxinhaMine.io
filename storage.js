@@ -10,8 +10,10 @@ module.exports=async function openStorage(env=process.env){
     const response=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(command),signal:AbortSignal.timeout(10000)});
     const result=await response.json();if(!response.ok || result.error)throw Error('Falha ao acessar o banco persistente.');return result.result;
   }
-  if(url){const existing=await request(['GET',key]);if(existing)db.setState(JSON.parse(existing)).write();}
+  let remoteState={},remoteRaw='';
+  if(url){const existing=await request(['GET',key]);if(existing){remoteRaw=existing;remoteState=JSON.parse(existing);db.setState(remoteState).write();}else db.setState({}).write();}
   db.defaults({players:{},profiles:{},guilds:{}}).write();
+  if(url)return require('./regional-storage')({db,file:path.join(directory,'db.json'),key,request,initial:remoteState,initialRaw:remoteRaw});
   let pending=null,writing=null,dirty=false,localDirty=false,lastError=null;
   const file=path.join(directory,'db.json');
   async function flush(){

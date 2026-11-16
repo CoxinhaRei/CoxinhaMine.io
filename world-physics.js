@@ -8,9 +8,20 @@ class SpatialIndex{
   }
   query(x,y,r){const found=new Set(this.large);for(let ix=Math.floor((x-r)/this.cell);ix<=Math.floor((x+r)/this.cell);ix++)for(let iy=Math.floor((y-r)/this.cell);iy<=Math.floor((y+r)/this.cell);iy++)for(const body of this.cells.get(ix+','+iy) || [])found.add(body);return found;}
 }
-function resolveWorldCollisions(world,actors){
+function oreIndex(world){
   const g=world.game;
   if(world.physicsOres!==g.ores || world.physicsOreCount!==g.ores.length){world.physicsOres=g.ores;world.physicsOreCount=g.ores.length;world.oreIndex=new SpatialIndex();for(const ore of g.ores)world.oreIndex.insert({id:ore.id,x:ore.x,y:ore.y,radius:ore.size});}
+  return world.oreIndex;
+}
+function movePlayerBody(world,state,x,y){
+  world.game.moveEntity(state,x,y,20);
+  for(const ore of oreIndex(world).query(state.x,state.y,20)){
+    const dx=state.x-ore.x,dy=state.y-ore.y,d=Math.hypot(dx,dy),minimum=20+ore.radius;
+    if(d<minimum)world.game.moveEntity(state,ore.x+(d ? dx/d : 1)*(minimum+.1),ore.y+(d ? dy/d : 0)*(minimum+.1),20);
+  }
+}
+function resolveWorldCollisions(world,actors){
+  const g=world.game;oreIndex(world);
   const bodies=[...actors.map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:20,state:a.state})),...g.mobs.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,state:m}))],index=new SpatialIndex();
   for(const body of bodies)index.insert(body);
   for(const body of bodies){
@@ -27,4 +38,4 @@ function resolveWorldCollisions(world,actors){
   }
 }
 function segmentHitsCircle(ax,ay,bx,by,x,y,radius){const dx=bx-ax,dy=by-ay,length=dx*dx+dy*dy,t=length ? Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/length)) : 0;return (ax+dx*t-x)**2+(ay+dy*t-y)**2<radius*radius;}
-module.exports={SpatialIndex,resolveWorldCollisions,segmentHitsCircle};
+module.exports={SpatialIndex,resolveWorldCollisions,segmentHitsCircle,movePlayerBody};

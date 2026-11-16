@@ -8,7 +8,7 @@ function nickname(value){
   return nick;
 }
 function password(value){if(typeof value!=='string' || value.length<8 || value.length>128)throw Error('A senha deve ter de 8 a 128 caracteres.');return value;}
-module.exports=function createAccounts(db,store){
+module.exports=function createAccounts(db,store,hooks={}){
   db.defaults({accounts:{},accountsByNick:{}}).write();
   const limits=new Map();let working=0;
   const dummy={salt:crypto.randomBytes(16).toString('hex'),hash:crypto.randomBytes(64).toString('hex')};
@@ -37,6 +37,7 @@ module.exports=function createAccounts(db,store){
       if(data.credentials?.id && store.find(data.credentials.id))throw Error('A sessão desse perfil expirou.');
       profile=store.create(nick).profile;
     }
+    await hooks.beforeSession?.(profile);
     store.rename(profile,nick);
     const account={id:crypto.randomUUID(),username:nick,nickKey:key,profileId:profile.id,password:{algorithm:'scrypt',N:PARAMETERS.N,r:PARAMETERS.r,p:PARAMETERS.p,salt,hash:derived.toString('hex')},createdAt:Date.now()};
     profile.accountId=account.id;db.set(['accounts',account.id],account).set(['accountsByNick',key],account.id).write();
@@ -49,6 +50,7 @@ module.exports=function createAccounts(db,store){
     const derived=await hashPassword(secret,record.salt),matches=crypto.timingSafeEqual(derived,Buffer.from(record.hash,'hex'));
     if(!account || !matches)throw Error('Nick ou senha incorretos.');
     const profile=store.find(account.profileId);if(!profile)throw Error('Não foi possível carregar o progresso desta conta.');
+    await hooks.beforeSession?.(profile);
     return {profile,credentials:store.rotateToken(profile),account:summary(profile)};
   }
   function logout(profile){if(profile?.accountId)store.rotateToken(profile);}

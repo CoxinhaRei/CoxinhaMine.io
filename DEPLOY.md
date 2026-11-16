@@ -1,17 +1,19 @@
-# CoxinhaMine.io 1.5.2 — mobile, contas seguras e mundo compartilhado
+# CoxinhaMine.io 1.5.3 — servidores regionais e caminhada suave
+
+Leia também [REGIONS.md](REGIONS.md): BR/US exigem endereços reais, o mesmo banco nos dois e este patch em todos os serviços. O Render oferece Virgínia; ainda não oferece São Paulo. O seletor não muda a localização física de um serviço existente.
 
 ## Publicação na estrutura atual do GitHub
 
-Abra **atualizacao-multiplayer/atualizacao-contas-squads** no repositório CoxinhaRei/CoxinhaMine.io. Envie o **conteúdo** da atualização dentro dessa pasta: arquivos da raiz e pastas public, scripts e tests. Inclua world-physics.js, os módulos do servidor e todos os arquivos novos de public. Atualizar apenas index.html não instala esta versão.
+Abra a **raiz** do repositório CoxinhaRei/CoxinhaMine.io, que agora contém a versão atual. Envie o **conteúdo** da atualização ali: arquivos da raiz e pastas public, scripts e tests. Inclua regional-storage.js, regions.js, world-physics.js e os novos arquivos de public. Atualizar apenas index.html não instala esta versão. As cópias antigas nas pastas atualizacao-multiplayer/atualizacao-contas-squads não são o destino deste patch.
 
 No Render mantenha:
 
-- Root Directory: `atualizacao-multiplayer/atualizacao-contas-squads`
+- Root Directory: vazio (raiz do repositório).
 - Build Command: `npm install`
 - Start Command: `npm start`
-- Node 24 e uma única instância do servidor.
+- Node 24 e uma instância por região. Configure o mesmo Redis e SAVE_KEY se houver duas regiões.
 
-Espere o deploy Live e recarregue com Ctrl+F5. A rota `/health` deve informar `build: mobile-secure-v4`, `version: 1.5.2`, `protocol: 4` e `accountRequired: true`. Os arquivos JS/CSS têm uma versão no endereço para evitar misturar clientes antigos e novos. A tag de verificação do Google e robots.txt foram mantidos.
+Espere o deploy Live e recarregue com Ctrl+F5. A rota `/health` deve informar `build: regions-smooth-v5`, `version: 1.5.3`, `protocol: 5` e `accountRequired: true`. Com Redis, confira também `sharedSaves: true`, `durable: true` e `saveError: false`. Os arquivos JS/CSS têm uma versão no endereço para evitar misturar clientes antigos e novos. A tag de verificação do Google e robots.txt foram mantidos.
 
 ## Banco obrigatório para novos cadastros no Render
 
@@ -45,7 +47,7 @@ Documentação: https://upstash.com/docs/redis/overall/getstarted ; https://upst
 - Uma conta nova começa no nível 1, sem moedas nem itens herdados do save aberto no navegador. Saves enviados pelo cliente não alteram a economia do servidor.
 - A opção de vincular um perfil antigo exige uma chave válida de um perfil que ainda exista no banco do servidor. Só aparece para perfis com comprovante salvo no navegador.
 - Um perfil antigo que já desapareceu com o disco temporário do Render não pode ser comprovado só pelo nick. Backups antigos devem ser guardados para uma restauração administrativa; não são importados automaticamente como novos personagens.
-- Entrar em outro dispositivo troca a chave de sessão e encerra a sessão anterior. O X volta ao menu mantendo a conta conectada. Sair da conta remove e revoga a sessão.
+- Entrar em outro dispositivo no mesmo servidor troca a chave e encerra a sessão anterior. Se a conta estiver ocupada em outra região, volte ao menu de lá e use o seletor para trocar, ou saia da conta antes de entrar no novo dispositivo. Após uma queda abrupta, aguarde até 60 segundos para liberar a sessão regional. O X mantém a conta conectada. Sair da conta remove e revoga a sessão.
 - Senhas usam scrypt com salt individual; há limite de tentativas e de hashes simultâneos. A senha não é guardada no navegador. Não há recuperação por e-mail nesta versão.
 
 ## Mobile, HUD e transições
