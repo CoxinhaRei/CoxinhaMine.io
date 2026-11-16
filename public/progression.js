@@ -67,6 +67,7 @@ function recipeStatus(recipe) {
   };
 }
 function equipPickaxe(name) {
+  if(isServerWorld())return requestPlayerAction('equip',{type:'pickaxe',name});
   if(!ownedPickaxe(name)) return false;
   const definition = pickaxes.find(p => p.name === name);
   if(!definition) return false;
@@ -75,6 +76,7 @@ function equipPickaxe(name) {
   return true;
 }
 function craftPickaxe(name) {
+  if(isServerWorld())return requestPlayerAction('pickaxe',{name});
   const recipe = PICKAXE_RECIPES.find(p => p.name === name);
   if(!recipe) return false;
   const status = recipeStatus(recipe);
@@ -99,6 +101,7 @@ function craftPickaxe(name) {
   return true;
 }
 function unlockTalent(id) {
+  if(isServerWorld())return requestPlayerAction('talent',{id});
   const talent = TALENTS.find(t => t.id === id);
   if(!talent) return false;
   const rank = talentRank(id);
@@ -118,15 +121,16 @@ function handleMiningClick(screenX,screenY) {
   if(now-lastMiningHit<cooldown || (!player.equipment.pickaxe && !player.equipment.weapon)) return;
   const point = {x:(screenX-canvas.width/2)/cameraZoom()+player.x,y:(screenY-canvas.height/2)/cameraZoom()+player.y};
   const range = 175 + talentRank('range')*18 + (player.range || 0)+utilityBonus('range');
-  const mob = mobs.find(m => Math.hypot(m.x-point.x,m.y-point.y)<m.size && Math.hypot(m.x-player.x,m.y-player.y)<=range+m.size);
-  const ore = mob ? null : ores.find(o => o?.rarity && Math.hypot(o.x-point.x,o.y-point.y)<o.size+12 && Math.hypot(o.x-player.x,o.y-player.y)<=range+o.size);
+  const mob = player.selectedSlot===0 ? mobs.find(m => Math.hypot(m.x-point.x,m.y-point.y)<m.size && Math.hypot(m.x-player.x,m.y-player.y)<=range+m.size) : null;
+  const ore = player.selectedSlot===2 ? ores.find(o => o?.rarity && Math.hypot(o.x-point.x,o.y-point.y)<o.size+12 && Math.hypot(o.x-player.x,o.y-player.y)<=range+o.size) : null;
   if(!mob && !ore) return;
   const surface=targetSurface(mob || ore);
   if(!caveLineClear(player.x,player.y,surface.x,surface.y))return;
-  const tool=mob && player.selectedSlot===0 && player.equipment.weapon ? player.equipment.weapon : player.equipment.pickaxe;
+  const tool=mob ? player.equipment.weapon : player.equipment.pickaxe;
   if(!tool)return;
   lastMiningHit = now;
   player.swingUntil=now+160;
+  if(isServerWorld()){socket.emit('attack',{targetId:(mob || ore).id,type:mob ? 'weapon' : 'pickaxe'});return;}
   let damage = (player.damage+(tool.type==='weapon' ? tool.damage || 5 : tool.power || 5))*(1+.12*talentRank('damage'));
   if(!mob)damage*=1+utilityBonus('mining');
   if(Math.random()<talentRank('crit')*.03+(player.crit || 0)/100) damage*=2;
@@ -160,7 +164,7 @@ function drawCrystal(ore, brush=ctx) {
   if(ore.hit>0)ore.hit--;
   const vertices=ore.crystalPoints.map(p=>({x:Math.cos(p.angle)*p.radius*ore.size,y:Math.sin(p.angle)*p.radius*ore.size}));
   brush.beginPath();vertices.forEach((p,i)=>i ? brush.lineTo(p.x,p.y) : brush.moveTo(p.x,p.y));brush.closePath();
-  brush.fillStyle='#646d70';brush.fill();brush.strokeStyle=ore.rarity.color;brush.lineWidth=2.5;brush.stroke();
+  brush.fillStyle=index>=7 ? rarityPaint(ore.rarity,-ore.size,-ore.size,ore.size*2,brush) : '#646d70';brush.fill();brush.strokeStyle=rarityPaint(ore.rarity,-ore.size,-ore.size,ore.size*2,brush);brush.lineWidth=2.5;brush.stroke();
   for(let i=0;i<vertices.length;i+=2){
     const a=vertices[i],b=vertices[(i+1)%vertices.length];
     brush.beginPath();brush.moveTo(-ore.size*.1,-ore.size*.05);brush.lineTo(a.x,a.y);brush.lineTo(b.x,b.y);brush.closePath();

@@ -185,6 +185,7 @@ function renderSystems(){
   if(extraPanel==='guild')renderGuild();if(extraPanel==='gallery')renderGallery();if(extraPanel==='achievements')renderAchievements();
   document.querySelector('.hud-map').hidden=!settings.minimap;
   bossBar.hidden=!nearestBoss;
+  const participation=document.getElementById('boss-participation');if(participation && nearestBoss){const own=(multiplayer.contribution[nearestBoss.id] || 0)*100,team=multiplayer.squadContribution?.[nearestBoss.id];participation.textContent='Você: '+own.toFixed(1)+'%'+(team!==undefined ? ' · Squad: '+(team*100).toFixed(1)+'%' : '')+' · loot a partir de 5%';}
   if(nearestBoss){bossBar.querySelector('b').textContent=(nearestBoss.name || 'PEDRA')+' '+nearestBoss.rarity.name;bossBar.querySelector('i').style.width=Math.max(0,nearestBoss.hp/nearestBoss.maxHp*100)+'%';bossBar.querySelector('span').textContent=Math.ceil(nearestBoss.hp).toLocaleString('pt-BR')+' / '+nearestBoss.maxHp.toLocaleString('pt-BR');}
   if(lastAchievementNotice){achievementToast.textContent='★ '+lastAchievementNotice;achievementToast.hidden=false;lastAchievementNotice='';clearTimeout(renderSystems.notice);renderSystems.notice=setTimeout(()=>{achievementToast.hidden=true;},3500);}
 }

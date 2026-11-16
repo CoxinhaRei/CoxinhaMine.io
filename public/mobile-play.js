@@ -1,0 +1,30 @@
+const mobileState={enabled:false,dx:0,dy:0,aim:0,attack:false,stickPointer:null};
+function playerAimAngle(){return mobileState.enabled ? mobileState.aim : Math.atan2(mouse.y-canvas.height/2,mouse.x-canvas.width/2);}
+const touchHud=document.createElement('div');touchHud.id='touch-hud';touchHud.hidden=true;
+touchHud.innerHTML='<div id="touch-stick" role="group" aria-label="Joystick de movimento"><i></i><span>MOVER</span></div><div class="touch-combat"><div class="touch-abilities"><button type="button" id="touch-sword" aria-label="Habilidade da espada">✦<small>Espada</small></button><button type="button" id="touch-pick" aria-label="Habilidade da picareta">⛏<small>Picareta</small></button><button type="button" id="touch-utility" aria-label="Habilidade da utilidade">⚡<small>Utilidade</small></button><button type="button" id="touch-light" aria-label="Ligar lanterna">☼<small>Luz</small></button></div><button type="button" id="touch-attack" aria-label="Segure para atacar ou minerar">⚔<small>SEGURE</small></button></div>';
+document.body.append(touchHud);const stick=document.getElementById('touch-stick'),knob=stick.querySelector('i');
+function resetMobileInput(){mobileState.dx=0;mobileState.dy=0;mobileState.attack=false;mobileState.stickPointer=null;knob.style.transform='translate(0px,0px)';touch.active=false;}
+function updateMobileMode(){const forced=new URLSearchParams(location.search).has('mobile'),touchDevice=matchMedia('(pointer:coarse)').matches || navigator.maxTouchPoints>0 || innerWidth<650;mobileState.enabled=forced || touchDevice;document.body.classList.toggle('mobile-mode',mobileState.enabled);const help=document.querySelector('.menu-footer span:last-child');if(help)help.textContent=mobileState.enabled ? 'Joystick para mover · segure o botão para atacar ou minerar' : 'WASD / mouse · 1 espada · 3 picareta · Q / R habilidades';resetMobileInput();}
+updateMobileMode();window.addEventListener('resize',updateMobileMode);window.addEventListener('blur',resetMobileInput);document.addEventListener('visibilitychange',()=>{if(document.hidden)resetMobileInput();});
+function moveStick(event){const box=stick.getBoundingClientRect(),dx=event.clientX-box.left-box.width/2,dy=event.clientY-box.top-box.height/2,length=Math.hypot(dx,dy),radius=box.width*.34,strength=Math.min(1,length/radius);mobileState.dx=length>5 ? dx/(length || 1)*strength : 0;mobileState.dy=length>5 ? dy/(length || 1)*strength : 0;knob.style.transform='translate('+(mobileState.dx*radius)+'px,'+(mobileState.dy*radius)+'px)';if(strength>.15 && !mobileState.attack)mobileState.aim=Math.atan2(dy,dx);event.preventDefault();event.stopPropagation();}
+stick.addEventListener('pointerdown',event=>{if(mobileState.stickPointer!==null)return;mobileState.stickPointer=event.pointerId;stick.setPointerCapture(event.pointerId);moveStick(event);});
+stick.addEventListener('pointermove',event=>{if(event.pointerId===mobileState.stickPointer)moveStick(event);});
+for(const name of ['pointerup','pointercancel','lostpointercapture'])stick.addEventListener(name,event=>{if(event.pointerId===mobileState.stickPointer){mobileState.dx=mobileState.dy=0;mobileState.stickPointer=null;knob.style.transform='translate(0px,0px)';}});
+const attackButton=document.getElementById('touch-attack');
+attackButton.addEventListener('pointerdown',event=>{event.preventDefault();event.stopPropagation();attackButton.setPointerCapture(event.pointerId);mobileState.attack=true;attackButton.classList.add('pressed');mobileBasicAttack();});
+for(const name of ['pointerup','pointercancel','lostpointercapture'])attackButton.addEventListener(name,()=>{mobileState.attack=false;attackButton.classList.remove('pressed');});
+function mobileBasicAttack(){
+  if(!mobileState.enabled || isUiBlocking() || !multiplayer.started)return;
+  const type=player.selectedSlot===0 ? 'weapon' : player.selectedSlot===2 ? 'pickaxe' : null;if(!type || !player.equipment[type])return;
+  const targets=type==='weapon' ? mobs : ores,range=175+talentRank('range')*18+utilityBonus('range');let closest,best=Infinity;
+  for(const target of targets){const surface=targetSurface(target),distance=Math.hypot(surface.x-player.x,surface.y-player.y);if(distance<best && distance<=range && caveLineClear(player.x,player.y,surface.x,surface.y)){closest=target;best=distance;}}
+  if(!closest)return;mobileState.aim=Math.atan2(closest.y-player.y,closest.x-player.x);handleMiningClick(canvas.width/2+(closest.x-player.x)*cameraZoom(),canvas.height/2+(closest.y-player.y)*cameraZoom());
+}
+document.getElementById('touch-sword').onclick=()=>useEquipmentAbility('weapon');document.getElementById('touch-pick').onclick=()=>useEquipmentAbility('pickaxe');document.getElementById('touch-utility').onclick=useUtilityAbility;document.getElementById('touch-light').onclick=toggleLantern;
+setInterval(()=>{
+  const playing=mobileState.enabled && multiplayer.started && !menuVisible();touchHud.hidden=!playing;if(!playing){if(mobileState.attack || mobileState.dx || mobileState.dy)resetMobileInput();return;}
+  if(mobileState.attack)mobileBasicAttack();
+  const blocked=isUiBlocking();for(const [id,type] of [['touch-sword','weapon'],['touch-pick','pickaxe'],['touch-utility','utility']]){const button=document.getElementById(id),ability=type==='utility' ? equippedUtility()?.active : equipmentAbility(player.equipment[type]),remaining=Math.max(0,Math.ceil(((player.abilityReadyAt?.[type] || 0)-Date.now())/1000));button.disabled=blocked || !ability || remaining>0;button.querySelector('small').textContent=remaining ? remaining+'s' : {weapon:'Espada',pickaxe:'Picareta',utility:'Utilidade'}[type];}
+  document.getElementById('touch-light').disabled=blocked || !ownsLantern();attackButton.disabled=blocked;attackButton.firstChild.textContent=player.selectedSlot===2 ? '⛏' : '⚔';
+},100);
+canvas.addEventListener('pointerdown',event=>{if(mobileState.enabled && !isUiBlocking())mobileState.aim=Math.atan2(event.clientY-canvas.height/2,event.clientX-canvas.width/2);});

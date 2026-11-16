@@ -67,6 +67,7 @@ function nextCaveStep(mob){
   return {x:mob.x,y:mob.y};
 }
 function switchRealm(next){
+  if(isServerWorld()){socket.emit('changeRealm',next);cavePromptOpen=false;return;}
   clearBossMobEffects();
   realmStates[currentRealm]={ores,mobs,cells};
   currentRealm=next;const state=realmStates[next];ores=state.ores;mobs=state.mobs;cells=state.cells;
@@ -83,6 +84,7 @@ function interactPortal(){
   if(currentRealm==='cave')switchRealm('garden');else cavePromptOpen=true;
 }
 function populateCave(){
+  if(isServerWorld())return;
   buildCaveMaze();
   for(const deposit of CAVE.deposits || []){
     if(!deposit.spawned && Math.hypot(deposit.x-player.x,deposit.y-player.y)<deposit.size+2600){deposit.spawned=true;ores.push({...deposit});}
@@ -136,6 +138,7 @@ function drawCaveWorld(){
   ctx.fillStyle='#94dbb3';ctx.font='bold 18px "Trebuchet MS"';ctx.textAlign='center';ctx.fillText('SAÍDA · E',750,650);
 }
 function carveCaveChamber(px,py,radius){
+  CAVE.revision=(CAVE.revision || 0)+1;
   for(let y=Math.floor((py-radius)/CAVE.tile);y<=Math.ceil((py+radius)/CAVE.tile);y++)for(let x=Math.floor((px-radius)/CAVE.tile);x<=Math.ceil((px+radius)/CAVE.tile);x++){
     if(x>0 && y>0 && x<CAVE.columns-1 && y<CAVE.rows-1 && Math.hypot((x+.5)*CAVE.tile-px,(y+.5)*CAVE.tile-py)<radius+CAVE.tile*.7)CAVE.maze[y*CAVE.columns+x]=1;
   }

@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <html>
 <head>
+<title>CoxinhaMine.io - RPG Multiplayer de Mineração</title>
+<meta name="description" content="Jogue CoxinhaMine.io gratuitamente! Explore mapas, minere recursos, enfrente bosses gigantes, consiga equipamentos raros e jogue com amigos.">
 <meta charset="UTF-8">
-<title>CoxinhaMiner.io</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="google-site-verification" content="fSFItpvWf2dieWJv2I8rTJKxz8oWWe0CePS2lvw7ZCY" />
 
 <style>
 body{margin:0;overflow:hidden;background:#111;font-family:Arial;}
@@ -31,10 +34,12 @@ opacity:0;
 pointer-events:none;
 }
 </style>
-<link rel="stylesheet" href="hud.css">
-<link rel="stylesheet" href="workshop.css">
-<link rel="stylesheet" href="systems.css">
-<link rel="stylesheet" href="adventure.css">
+<link rel="stylesheet" href="hud.css?v=1.5.2-mobile4">
+<link rel="stylesheet" href="workshop.css?v=1.5.2-mobile4">
+<link rel="stylesheet" href="systems.css?v=1.5.2-mobile4">
+<link rel="stylesheet" href="adventure.css?v=1.5.2-mobile4">
+<link rel="stylesheet" href="account-menu.css?v=1.5.2-mobile4">
+<link rel="stylesheet" href="mobile-play.css?v=1.5.2-mobile4">
 </head>
 
 <body>
@@ -46,16 +51,26 @@ pointer-events:none;
   <button onclick="talentsOpen = !talentsOpen">⭐</button>
   <button onclick="sellAll()">💰</button>
 </div>
-<div id="menu">
-<h1 style="color:white">CoxinhaMine.io</h1>
-<input id="nameInput" placeholder="Seu nome">
-<button onclick="startGame()">Jogar</button>
-</div>
+<main id="menu" aria-label="Menu principal">
+  <canvas id="menu-garden" aria-hidden="true"></canvas>
+  <nav class="menu-realms" aria-label="Escolher mapa"><button type="button" data-realm="garden" class="selected" aria-pressed="true">Jardim</button><button type="button" data-realm="cave" aria-pressed="false">Caverna</button></nav>
+  <section class="menu-content">
+    <div class="menu-character"><div class="menu-character-image"><img src="sprites/player_body.png" alt="Sua coxinha"><img src="sprites/player_eyes.png" alt=""></div><b id="menu-player-name">Sua coxinha</b><span id="menu-account-state">Convidado</span><small id="menu-stats">Prepare sua aventura</small></div>
+    <div class="menu-main"><p class="menu-kicker">PEQUENA COXINHA, GRANDE AVENTURA</p><h1>CoxinhaMine<span>.io</span></h1><p class="menu-subtitle" id="menu-map-description">Explore o jardim, monte sua build e enfrente os gigantes.</p>
+      <div class="menu-play-row"><button id="menu-squad" type="button">Squad</button><label class="sr-only" for="nameInput">Nick da sua coxinha</label><input id="nameInput" maxlength="24" placeholder="Seu nick" autocomplete="nickname"><button id="menu-play" type="button">Jogar <span aria-hidden="true">▶</span></button></div>
+      <div class="menu-level"><i id="menu-xp-fill"></i><span id="menu-level-label">Nível 1</span></div>
+      <div class="menu-loadout" id="menu-loadout" aria-label="Equipamentos da sua coxinha"></div>
+      <p class="menu-recommendation" id="menu-recommendation">Jardim · praça central segura · mineração e criaturas</p>
+      <div class="menu-tools"><button type="button" data-menu-panel="inventory">Inventário</button><button type="button" data-menu-panel="talents">Talentos</button><button type="button" data-menu-panel="settings">Configurações</button></div>
+    </div>
+  </section>
+  <footer class="menu-footer"><span id="menu-connection">Conectando ao mundo…</span><span>WASD / mouse · 1 espada · 3 picareta · Q / R habilidades</span></footer>
+</main>
 
 <canvas id="game"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="game-catalog.js"></script>
+<script src="game-catalog.js?v=1.5.2-mobile4"></script>
 
 <script>
 // ===== SAFE START =====
@@ -93,7 +108,7 @@ const ZONE_CHANCES = {
   B: [0.2,0.4,0.3,0.1,0,0],
   R: [0.1,0.3,0.3,0.2,0.1,0],
   M: [0,0.2,0.3,0.3,0.2,0],
-  U: [0,0,0,0.2,0.3,0.5]
+  U: [0,0,0,0,0.1,0.2,0.7]
 };
 const pickaxes = [
   {name:"Madeira", power:5},
@@ -106,6 +121,7 @@ const pickaxes = [
   {name:"Void", power:200, passive:"void"},
   {name:"Solar", power:400, passive:"solar"}
 ];
+pickaxes.forEach((tool,index)=>tool.power=GAME_CATALOG.PICKAXE_POWER[index]);
 const ORE_VALUES = {
   "Comum": 5,
   "Incomum": 10,
@@ -128,12 +144,13 @@ const rarities = [
   {name:"SUPER", color:"#00ffff", hp:15000, mult:50000},
   {name:"ABSOLUT", color:"#ffffff", hp:50000, mult:20000}
 ];
+rarities.forEach((rarity,index)=>rarity.hp=GAME_CATALOG.ORE_HP[index]);
 const starterPickaxe = {
   id: "starter_pickaxe",
   name: "Madeira",
   type: "pickaxe",
   color: "#8b5a2b",
-  power: 5,
+  power: GAME_CATALOG.PICKAXE_POWER[0],
   img: pickaxeSprites["Madeira"]
 };
 const craftRecipes = {
@@ -262,6 +279,7 @@ if(e.key === "3"){
 
 // vender tudo
 if(e.key === "x" && inventoryOpen){
+  if(isServerWorld()){requestPlayerAction('sellAll');return;}
   let total = 0;
 
   for(let item of player.inventory){
@@ -294,6 +312,7 @@ if(e.key === "x" && inventoryOpen){
 // ===== SOCKET SAFE =====
 socket.on("init", data=>{
   if(!data) return;
+  window.sharedWorldAvailable=!!data.sharedWorld;
 
   playerId = data.id || null;
   players = data.players || {};
@@ -302,7 +321,7 @@ socket.on("init", data=>{
 });
 
 socket.on("updatePlayers", data=>{
-  players = data || {};
+  players = typeof mergeRemotePlayers==='function' ? mergeRemotePlayers(data) : data || {};
 });
 
 socket.on("oreRemoved", id=>{
@@ -313,12 +332,12 @@ socket.on("oreRemoved", id=>{
 socket.on("chat", data=>{ addChat(data); });
 socket.on("chatMessage", data=>{ addChat(data); });
 setInterval(() => {
-  if(player && player.level){
+  if(player && player.level && typeof multiplayer!=='undefined' && multiplayer.ready){
     saveGame();
   }
 }, 15000);
 window.addEventListener("beforeunload", () => {
-  saveGame();
+  if(typeof multiplayer!=='undefined' && multiplayer.ready)saveGame();
 });
 
 // ===== FALLBACK (SE SERVER FALHAR) =====
@@ -349,6 +368,7 @@ function createOre(x, y){
   };
 }
 function spawnBoss(type){
+  if(isServerWorld())return;
 
   // evita flood
   let exists = ores.some(o => o.rarity?.name === type);
@@ -482,14 +502,21 @@ function addChat(msg){
 function drawPlayer(x, y, entity=player){
   if(entity.dead){drawDeadPlayer(x,y,entity);return;}
   const size=(entity.size || player.size)*3;
-  const dx=mouse.x-canvas.width/2,dy=mouse.y-canvas.height/2;
+  const aim=entity===player ? (typeof playerAimAngle==='function' ? playerAimAngle() : Math.atan2(mouse.y-canvas.height/2,mouse.x-canvas.width/2)) : (entity.aimAngle || 0);
+  const dx=Math.cos(aim),dy=Math.sin(aim);
   const distance=Math.hypot(dx,dy)||1;
   ctx.save();
   if(playerBodyImg.complete && playerBodyImg.naturalWidth) ctx.drawImage(playerBodyImg,x-size/2,y-size/2,size,size);
   if(playerEyesImg.complete && playerEyesImg.naturalWidth) ctx.drawImage(playerEyesImg,x-size/2+dx/distance*4,y-size/2+dy/distance*4,size,size);
   drawPlayerArmor(x,y,entity);
   const held=entity===player ? (player.selectedSlot===3 && player.equipment.utility ? player.equipment.utility : player.selectedSlot===0 && player.equipment.weapon ? player.equipment.weapon : player.equipment.pickaxe) : getRemoteEquipment(entity);
-  drawHeldEquipment(held,x,y,Math.atan2(dy,dx),entity===player);
+  drawHeldEquipment(held,x,y,aim,entity===player,entity);
+  if(entity!==player){
+    const aiming=Date.now()<(entity.attackUntil || 0),radius=aiming ? 95 : 78;
+    ctx.globalAlpha=aiming ? .8 : .3;ctx.strokeStyle='#fff4c4';ctx.lineWidth=1.5;
+    const ax=x+Math.cos(aim)*radius,ay=y+Math.sin(aim)*radius;
+    ctx.beginPath();ctx.moveTo(x+Math.cos(aim)*48,y+Math.sin(aim)*48);ctx.lineTo(ax,ay);ctx.stroke();ctx.beginPath();ctx.arc(ax,ay,4,0,Math.PI*2);ctx.stroke();
+  }
   ctx.restore();
 }
 function saveGame(){
@@ -523,8 +550,8 @@ function saveGame(){
     };
 
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    if(typeof queuePlayerSave==='function')queuePlayerSave(data);
 
-    console.log("💾 Jogo salvo!");
 
   }catch(err){
     console.error("Erro ao salvar:", err);
@@ -532,6 +559,7 @@ function saveGame(){
 }
 let nextUltraSpawn = 0;
 function spawnUltraOre(){
+  if(isServerWorld())return;
   if(performance.now() < nextUltraSpawn) return;
   nextUltraSpawn = performance.now() + 15000;
 
@@ -561,11 +589,9 @@ function drawOres(){
     if(Math.abs(ore.x-player.x)>worldViewWidth()/2+ore.size*2 || Math.abs(ore.y-player.y)>worldViewHeight()/2+ore.size*2) continue;
     drawRock(ore);
     const width = ore.size * 2;
-    ctx.fillStyle = "#183326";
-    ctx.fillRect(ore.x-width/2, ore.y-ore.size-13, width, 5);
-    ctx.fillStyle = ore.rarity.color;
-    ctx.fillRect(ore.x-width/2, ore.y-ore.size-13, width*Math.max(0,ore.hp/ore.maxHp), 5);
+    if(typeof drawEntityHealth==='function')drawEntityHealth(ore,ore.x,ore.y+ore.size+29,Math.min(180,Math.max(35,width)),ore.rarity.color);
     ctx.font = "bold 11px Arial";
+    ctx.fillStyle=ore.rarity.color;
     ctx.textAlign = "center";
     if(settings.names)ctx.fillText(ore.rarity.name, ore.x, ore.y+ore.size+18);
   }
@@ -579,6 +605,7 @@ minimapCanvas.height = 180;
 
 let nextGardenSpawnAt=0;
 function updateSpawnSystem(){
+  if(isServerWorld())return;
   if(currentRealm==='cave'){populateCave();return;}
   if(performance.now()<nextGardenSpawnAt)return;
   nextGardenSpawnAt=performance.now()+250;
@@ -649,29 +676,6 @@ function restoreEquipment(){
     player.equipment.pickaxe.img = pickaxeSprites[player.equipment.pickaxe.name];
   }
 }
-function getZone(x, y){
-  if(currentRealm==='cave')return 'U';
-
-  let dx = x - CITY.x;
-  let dy = y - CITY.y;
-
-  let dist = Math.sqrt(dx*dx + dy*dy);
-
-  if(dist < CITY.radius) return "P"; // plaza segura (cidade)
-
-  let dx2 = x - WORLD_SIZE/2;
-  let dy2 = y - WORLD_SIZE/2;
-
-  let dist2 = Math.sqrt(dx2*dx2 + dy2*dy2);
-
-  if(dist2 < 4000) return "G";
-  if(dist2 < 8000) return "Y";
-  if(dist2 < 12000) return "B";
-  if(dist2 < 16000) return "R";
-  if(dist2 < 20000) return "M";
-
-  return "U";
-}
 function sendStats(){
   socket.emit("stats", {
     name: player.name,
@@ -687,8 +691,7 @@ function drawWorld(){
   if(currentRealm==='cave'){drawCaveWorld();return;}
 
   // chão base
-  ctx.fillStyle = "#2ecc71";
-  ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+  if(typeof drawGardenGrass==='function')drawGardenGrass();else{ctx.fillStyle="#21b966";ctx.fillRect(0,0,WORLD_SIZE,WORLD_SIZE);}
 
   drawRiver();
   drawCity();
@@ -711,6 +714,7 @@ function drawTalents(){
   renderTalentTree();
 }
 function getZone(x, y){
+  if(currentRealm==='cave' || Math.min(x,y,WORLD_SIZE-x,WORLD_SIZE-y)<8000)return 'U';
 
   let dx = x - WORLD_SIZE/2;
   let dy = y - WORLD_SIZE/2;
@@ -933,9 +937,10 @@ function showHUD(){
 // ===== LOOP SAFE =====
 let lastMobFrame = performance.now();
 function loop(){
+  if(document.getElementById('menu').style.display!=='none')return;
   try{
     const now = performance.now();
-    const mobDelta = Math.min(0.05, (now-lastMobFrame)/1000);
+    const mobDelta = Math.min(.15,Math.max(.001,(now-lastMobFrame)/1000));
     lastMobFrame = now;
     ctx.globalAlpha = 1;
     ctx.font='bold 13px "Trebuchet MS"';
@@ -946,7 +951,7 @@ function loop(){
 
     movePlayerPhysics(mobDelta);
     updateCombatWorld(mobDelta);
-    socket.emit("move",{x:player.x,y:player.y,weapon:player.equipment.weapon?.name,pickaxe:player.equipment.pickaxe?.name,armor:player.equipment.armor?.name,utility:player.equipment.utility?.name,selectedSlot:player.selectedSlot,realm:currentRealm,dead:player.dead,level:player.level,rarityIndex:highestOwnedRarity()});
+    sendPlayerMovement();
 
    
     // ===== CAMERA =====
@@ -960,6 +965,7 @@ function loop(){
 
     // 👉 se quiser usar zonas depois, a gente arruma com segurança
     drawOres();
+    if(typeof drawGroundLoot==='function')drawGroundLoot();
     drawGuardians();
     drawCombatEffects();
     drawAbilityEffects();
@@ -978,6 +984,7 @@ function loop(){
       if(settings.names)ctx.fillText((p.guildTag ? "["+p.guildTag+"] " : "")+p.name,p.x-20,p.y-30);
 
       drawLevelNameplate(p.x,p.y,p.level || 1,p.rarityIndex || 0);
+      if(typeof drawEntityHealth==='function')drawEntityHealth(p,p.x,p.y+53,64,'#a9ee6b');
     }
 
 
@@ -991,6 +998,7 @@ function loop(){
     if(settings.names)ctx.fillText(player.name,player.x-20,player.y-30);
 
     drawLevelNameplate(player.x,player.y,player.level,highestOwnedRarity());
+    if(typeof drawEntityHealth==='function')drawEntityHealth(player,player.x,player.y+53,72,'#a9ee6b');
 
     ctx.restore();
     drawCaveDarkness();
@@ -1006,7 +1014,7 @@ function loop(){
     if(currentRealm==='garden')spawnUltraOre();
     drawEquipment();
     drawCraft();
-    restoreEquipment();
+    // Equipment is restored only when the authoritative player state changes.
     if(currentRealm==='garden'){spawnBoss("SUPER");spawnBoss("ABSOLUT");}
     showHUD();
     renderSystems();
@@ -1019,50 +1027,34 @@ function loop(){
 }
 
 // ===== START =====
-function startGame(){
+async function startGame(){
+  if(window.startingGame)return;window.startingGame=true;
+  const connected=await beginSharedSession();
+  if(!connected){window.startingGame=false;return;}
 
-  player.name = document.getElementById("nameInput").value || "Player";
-
-  // 🔥 SPAWN NO PLAZA
-  player.x = PLAZA_SPAWN.x;
-  player.y = PLAZA_SPAWN.y;
-  
-   loadGame();
-  normalizeProgression();
-  restoreEquipment();
-  normalizeSystems();
-  normalizeAdventure();
-  player.hp = player.maxHp;
-  player.x = PLAZA_SPAWN.x;
-  player.y = PLAZA_SPAWN.y;
-  mouse.x = window.innerWidth / 2;
-  mouse.y = window.innerHeight / 2;
-  socket.emit("setName", player.name);
-  socket.emit("move", {x:player.x, y:player.y});
-
-  document.getElementById("menu").style.display = "none";
-  canvas.style.display = "block";
-
-  resizeCanvas();
-  mouse.x = canvas.width / 2;
-  mouse.y = canvas.height / 2;
-  document.getElementById("game-hud").hidden = false;
-  movementAimActive = false;
-  loop();
+  const enter=()=>{document.getElementById('menu').style.display='none';canvas.style.display='block';resizeCanvas();mouse.x=canvas.width/2;mouse.y=canvas.height/2;document.getElementById('game-hud').hidden=false;movementAimActive=false;lastMobFrame=performance.now();loop();};
+  try{if(typeof irisTransition==='function')await irisTransition(enter);else enter();}finally{window.startingGame=false;}
 }
 </script>
 
-<script src="progression.js"></script>
-<script src="systems.js"></script>
-<script src="adventure.js"></script>
-<script src="gear.js"></script>
-<script src="cave.js"></script>
-<script src="boss-mobs.js"></script>
-<script src="workshop.js"></script>
-<script src="hud.js"></script>
-<script src="panels.js"></script>
-<script src="admin-ui.js"></script>
-<script src="inventory.js"></script>
-<script src="adventure-ui.js"></script>
+<script src="progression.js?v=1.5.2-mobile4"></script>
+<script src="systems.js?v=1.5.2-mobile4"></script>
+<script src="adventure.js?v=1.5.2-mobile4"></script>
+<script src="gear.js?v=1.5.2-mobile4"></script>
+<script src="cave.js?v=1.5.2-mobile4"></script>
+<script src="boss-mobs.js?v=1.5.2-mobile4"></script>
+<script src="workshop.js?v=1.5.2-mobile4"></script>
+<script src="hud.js?v=1.5.2-mobile4"></script>
+<script src="panels.js?v=1.5.2-mobile4"></script>
+<script src="admin-ui.js?v=1.5.2-mobile4"></script>
+<script src="inventory.js?v=1.5.2-mobile4"></script>
+<script src="adventure-ui.js?v=1.5.2-mobile4"></script>
+<script src="multiplayer.js?v=1.5.2-mobile4"></script>
+<script src="account-menu.js?v=1.5.2-mobile4"></script>
+<script src="secure-ui.js?v=1.5.2-mobile4"></script>
+<script src="mobile-play.js?v=1.5.2-mobile4"></script>
+<script src="world-presentation.js?v=1.5.2-mobile4"></script>
+<script src="presentation.js?v=1.5.2-mobile4"></script>
 </body>
 </html>
+

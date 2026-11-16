@@ -59,6 +59,7 @@ document.querySelectorAll('[data-panel]').forEach(button => {
   button.addEventListener('click', () => toggleHudPanel(button.dataset.panel));
 });
 document.getElementById('hud-sell').addEventListener('click', () => {
+  if(isServerWorld()){requestPlayerAction('sellAll');return;}
   let total = 0;
   player.inventory = player.inventory.filter(item => {
     if (item.type !== 'material') return true;
@@ -98,10 +99,13 @@ function updateGameHud() {
       slot.className = 'gear-slot';
       if(equipmentParticleColor(item) && settings.particles){slot.classList.add('enchanted');slot.style.setProperty('--spark-color',equipmentParticleColor(item));}
       slot.type = 'button';
+      if(item)decorateRarity(slot,itemRarityIndex(item));
       slot.title = item ? item.name + (item.power ? ' · Dano +' + item.power : '') : labels[index] + ' sem equipamento';
       slot.setAttribute('aria-label', slot.title);
-      slot.style.setProperty('--slot-border', item?.color || '#60876c');
-      slot.style.setProperty('--slot-fill', item ? (item.color || '#8dc378') : '#6b9479');
+      const slotRarity=item ? rarities[itemRarityIndex(item)] : null;
+      slot.style.setProperty('--slot-border',slotRarity?.color || '#60876c');
+      slot.style.setProperty('--slot-fill',slotRarity?.color || '#6b9479');
+      slot.style.setProperty('--item-color',slotRarity?.color || '#6b9479');
       const image = item?.img;
       if (image?.src) {
         const preview = document.createElement('img');
@@ -128,6 +132,7 @@ function updateGameHud() {
 }
 
 function renderMinimap() {
+  if(performance.now()-(renderMinimap.last || 0)<125)return;renderMinimap.last=performance.now();
   if(currentRealm==='cave'){renderCaveMinimap();return;}
   const c = mapContext;
   const size = mapCanvas.width;
@@ -142,6 +147,8 @@ function renderMinimap() {
     c.arc(size / 2, size / 2, radii[index] * scale, 0, Math.PI * 2);
     c.fill();
   }
+  c.fillStyle = '#559fca';
+  c.fillStyle='#455b7e';c.fillRect(0,0,size,size*.08);c.fillRect(0,size*.92,size,size*.08);c.fillRect(0,0,size*.08,size);c.fillRect(size*.92,0,size*.08,size);
   c.fillStyle = '#559fca';
   c.fillRect(size / 2 - 1, 0, 2, size);
   c.fillStyle = '#e0d6ad';

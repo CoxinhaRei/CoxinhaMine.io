@@ -7,19 +7,20 @@ rarities.forEach((rarity,index)=>{const option=document.createElement('option');
 let inventoryType='all',selectedInventoryKey=null,inventorySignature='';
 inventoryPanel.querySelectorAll('[data-inventory-type]').forEach(button=>button.onclick=()=>{inventoryType=button.dataset.inventoryType;inventorySignature='';renderInventoryPanel();});
 for(const id of ['inventory-search','inventory-rarity'])document.getElementById(id).addEventListener('input',()=>{inventorySignature='';renderInventoryPanel();});
-const INVENTORY_TYPES={material:'Minério',weapon:'Arma',pickaxe:'Picareta',armor:'Armadura',utility:'Utilidade'};
-function itemKey(item){return item.type+':'+(item.type==='material' ? materialRarity(item) : item.name);}
+const INVENTORY_TYPES={material:'Minério',component:'Drop de criatura',weapon:'Arma',pickaxe:'Picareta',armor:'Armadura',utility:'Utilidade'};
+function itemKey(item){return item.type+':'+(item.type==='material' ? materialRarity(item) : item.type==='component' ? item.kind+':'+item.rarity : item.name);}
 function inventoryRows(){
   const grouped=new Map();
   for(const item of [...player.inventory,...Object.values(player.equipment).filter(Boolean)]){
     if(!item || typeof item!=='object' || (item.amount ?? 1)<=0)continue;
     const key=itemKey(item),existing=grouped.get(key),isStored=player.inventory.includes(item);
-    if(existing){if(item.type==='material' && isStored)existing.quantity+=item.amount ?? 1;continue;}
-    grouped.set(key,{key,item,quantity:item.type==='material' ? item.amount ?? 1 : 1,rarityIndex:itemRarityIndex(item)});
+    if(existing){if(['material','component'].includes(item.type) && isStored)existing.quantity+=item.amount ?? 1;continue;}
+    grouped.set(key,{key,item,quantity:['material','component'].includes(item.type) ? item.amount ?? 1 : 1,rarityIndex:itemRarityIndex(item)});
   }
   return [...grouped.values()].sort((a,b)=>b.rarityIndex-a.rarityIndex || a.item.name.localeCompare(b.item.name,'pt-BR'));
 }
 function itemPreview(item){
+  if(item.type==='component' && typeof lootPreview==='function')return lootPreview(item);
   if(item.type==='material'){
     const index=itemRarityIndex(item),key='ore-'+index;
     if(!itemPreviewCache.has(key)){
@@ -36,6 +37,7 @@ function itemPreview(item){
 }
 function equippedItem(item){return player.equipment[item.type]?.name===item.name;}
 function equipInventoryItem(item){
+  if(isServerWorld()){requestPlayerAction('equip',{type:item.type,name:item.name});return;}
   if(player.dead || item.type==='material')return;
   if(item.type==='weapon'){
     const definition=SWORDS.find(s=>s.name===item.name);player.equipment.weapon=definition ? {...definition} : {...item};player.selectedSlot=0;
@@ -46,6 +48,8 @@ function equipInventoryItem(item){
   saveGame();inventorySignature='';renderInventoryPanel();
 }
 function sellInventoryMaterial(item,amount){
+  if(item.type==='component'){requestPlayerAction('sellComponent',{kind:item.kind,rarity:item.rarity,amount});return;}
+  if(isServerWorld()){requestPlayerAction('sell',{name:materialRarity(item),amount});return;}
   if(player.dead || item.type!=='material')return;
   const rarity=materialRarity(item),quantity=Math.min(materialCount(rarity),amount);
   if(quantity<=0 || !consumeMaterials([[rarity,quantity]]))return;
@@ -66,12 +70,13 @@ function renderInventoryPanel(){
   for(const row of visible){
     const button=document.createElement('button');button.className='inventory-card';button.type='button';button.style.setProperty('--item-color',rarities[row.rarityIndex].color);button.classList.toggle('selected',row.key===selectedInventoryKey);button.setAttribute('aria-pressed',String(row.key===selectedInventoryKey));
     button.title=INVENTORY_TYPES[row.item.type]+' · '+row.item.name+' · '+rarities[row.rarityIndex].name;
+    decorateRarity(button,row.rarityIndex);
     button.setAttribute('aria-label',button.title);
     const src=itemPreview(row.item);
     if(src){const image=document.createElement('img');image.src=src;image.alt='';button.append(image);}else{const icon=document.createElement('span');icon.className='armor-preview';icon.textContent='⛨';button.append(icon);}
     const name=document.createElement('b');name.textContent=row.item.name;
     const label=document.createElement('small');label.textContent=rarities[row.rarityIndex].name+' · '+INVENTORY_TYPES[row.item.type];
-    const count=document.createElement('em');count.textContent=row.item.type==='material' ? '×'+row.quantity : equippedItem(row.item) ? '✓' : '1';
+    const count=document.createElement('em');count.textContent=['material','component'].includes(row.item.type) ? '×'+row.quantity : equippedItem(row.item) ? '✓' : '1';
     button.append(name,label,count);button.onclick=()=>{selectedInventoryKey=row.key;inventorySignature='';renderInventoryPanel();};grid.append(button);
   }
   renderInventoryDetail(visible.find(r=>r.key===selectedInventoryKey));
@@ -87,13 +92,14 @@ function renderInventoryDetail(row){
   const stats=document.createElement('dl');
   const lines=[['Quantidade',quantity]];
   if(item.type==='material')lines.push(['Uso','Receitas e fusão'],['Venda por unidade',((ORE_VALUES[materialRarity(item)] || item.value || 1)*5).toLocaleString('pt-BR')+' moedas']);
+  if(item.type==='component')lines.push(['Origem',CREATURES.find(c=>c.kind===item.kind)?.name || 'Criatura'],['Uso','Venda por moedas'],['Venda por unidade',Math.round(8*Math.pow(1.8,rarityIndex)).toLocaleString('pt-BR')+' moedas']);
   if(item.type==='weapon')lines.push(['Dano',SWORDS.find(s=>s.name===item.name)?.damage || item.damage || 0],['Uso','Combate e habilidades']);
   if(item.type==='pickaxe')lines.push(['Poder',pickaxes.find(p=>p.name===item.name)?.power || item.power || 0],['Uso','Mineração e habilidades']);
   if(item.type==='armor')lines.push(['Defesa',Math.round((ARMORS.find(a=>a.name===item.name)?.defense || 0)*100)+'% menos dano'],['Visual',item.aura ? 'Aura de partículas' : 'Armadura visível']);
   if(item.type==='utility'){const utility=UTILITIES.find(u=>u.name===item.name);lines.push(['Efeito',utility?.description || 'Utilidade'],['Uso','Bônus ao equipar · uma utilidade por vez']);if(utility?.active)lines.push(['Recarga',utility.cooldown+'s'],['Atalho','Z']);}
   const ability=equipmentAbility(item);if(ability)lines.push(['Habilidade',ability.name],['Recarga',ability.cooldown+' segundos'],['Atalho',item.type==='weapon' ? 'Q' : 'R']);
   for(const [name,value] of lines){const label=document.createElement('dt'),text=document.createElement('dd');label.textContent=name;text.textContent=value;stats.append(label,text);}detail.append(stats);
-  if(item.type==='material'){
+  if(['material','component'].includes(item.type)){
     const actions=document.createElement('div');actions.className='inventory-sell';
     for(const [text,amount] of [['Vender 1',1],['Vender 5',5],['Vender pilha',quantity]]){const button=document.createElement('button');button.textContent=text;button.disabled=quantity<amount;button.onclick=()=>sellInventoryMaterial(item,amount);actions.append(button);}detail.append(actions);
   }else{const action=document.createElement('button');action.className='craft-pickaxe';action.textContent=equippedItem(item) ? 'Equipado ✓' : 'Equipar';action.disabled=equippedItem(item);action.onclick=()=>equipInventoryItem(item);detail.append(action);}

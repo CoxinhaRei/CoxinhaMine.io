@@ -2,8 +2,8 @@ const SPECIAL_MOB_ABILITIES={
   guardian:{name:'Coroa de pedras',description:'Lança uma rajada de fragmentos na direção marcada.',windup:1,cooldown:7,color:'#d1dadd',kind:'stones'},
   ladybug:{name:'Investida rubra',description:'Marca uma direção e avança com força. Saia da linha vermelha.',windup:1.1,cooldown:8,color:'#ff8275',kind:'dash'},
   bee:{name:'Chuva de ferrões',description:'Dispara um leque de ferrões na direção marcada.',windup:.9,cooldown:6,color:'#ffe58c',kind:'stings'},
-  ant:{name:'Chamado da colônia',description:'Invoca duas formigas duas raridades abaixo, sem recompensas.',windup:1.3,cooldown:11,color:'#e4b786',kind:'ants'},
-  spider:{name:'Ninhada sombria',description:'Invoca três aranhas duas raridades abaixo, sem recompensas.',windup:1.3,cooldown:12,color:'#d7a8ef',kind:'spiders'},
+  ant:{name:'Chamado da colônia',description:'Invoca 8 ou mais formigas duas raridades abaixo e dispara anéis de projéteis. Invocações não dão recompensas.',windup:1.3,cooldown:11,color:'#e4b786',kind:'ants'},
+  spider:{name:'Ninhada sombria',description:'Invoca 8 ou mais aranhas duas raridades abaixo e dispara rajadas em espiral. Invocações não dão recompensas.',windup:1.3,cooldown:12,color:'#d7a8ef',kind:'spiders'},
   beetle:{name:'Carapaça sísmica',description:'Reduz o dano recebido em 75% por 4 segundos e libera uma onda de impacto.',windup:1.2,cooldown:10,color:'#9af0bd',kind:'shield'},
   centipede:{name:'Rastro corrosivo',description:'Deixa três poças de ácido na posição marcada por 4 segundos.',windup:1.2,cooldown:9,color:'#caf278',kind:'acid'}
 };
@@ -17,10 +17,10 @@ function clearBossMobEffects(){
 function summonBossHelpers(boss,kind,count){
   const tier=rarities.findIndex(r=>r.name===boss.rarity.name),rarity=rarities[Math.max(0,tier-2)];
   const active=mobs.filter(m=>m.summoned),owned=active.filter(m=>m.summonerId===boss.id);
-  const limit=Math.min(count,6-owned.length,18-active.length);
+  const limit=Math.min(count,24-owned.length,96-active.length);
   const dimensions=realmDimensions();let spawned=0;
-  for(let attempt=0;attempt<30 && spawned<limit;attempt++){
-    const helper=createCreature(kind,rarity,0,0),angle=(attempt*.61803398875)*Math.PI*2;
+  for(let attempt=0;attempt<100 && spawned<limit;attempt++){
+    const helper=createCreature(kind,rarity,0,0),angle=(attempt*.61803398875)*Math.PI*2;helper.size*=.55;
     const distance=boss.size+helper.size+100+Math.floor(attempt/8)*100;
     const x=boss.x+Math.cos(angle)*distance,y=boss.y+Math.sin(angle)*distance;
     if(x<helper.size || y<helper.size || x>dimensions.width-helper.size || y>dimensions.height-helper.size)continue;
@@ -35,16 +35,21 @@ function summonBossHelpers(boss,kind,count){
   return spawned;
 }
 function addBossProjectiles(mob,action,stings){
-  const tier=rarities.findIndex(r=>r.name===mob.rarity.name),count=(stings ? 5 : 7)+Math.max(0,tier-7);
+  const tier=rarities.findIndex(r=>r.name===mob.rarity.name),count=Math.min(600-projectiles.length,(stings ? 22 : 28)+Math.max(0,tier-7)*6);
   const spread=stings ? .85 : 1.5,speed=(stings ? 640 : 450)+Math.max(0,tier-7)*35;
   for(let i=0;i<count;i++){
     const angle=action.angle+(i/(count-1)-.5)*spread;
     projectiles.push({owner:mob.id,cause:mob.name+' '+mob.rarity.name+' · '+action.ability.name,x:mob.x+Math.cos(angle)*(mob.size+20),y:mob.y+Math.sin(angle)*(mob.size+20),vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:stings ? 9 : 14,life:3,damage:mob.damage*(stings ? .65 : .8),rotation:angle,kind:stings ? 'sting' : 'stone'});
   }
 }
+function addBulletHellRing(mob,phase=0){
+  const tier=Math.max(0,rarities.findIndex(r=>r.name===mob.rarity.name)-7),count=Math.min(600-projectiles.length,24+tier*8),speed=310+tier*45;
+  for(let i=0;i<count;i++){const angle=i/count*Math.PI*2+phase;projectiles.push({owner:mob.id,cause:mob.name+' '+mob.rarity.name+' · tempestade',x:mob.x+Math.cos(angle)*(mob.size+18),y:mob.y+Math.sin(angle)*(mob.size+18),vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:7,life:5,damage:mob.damage*.55,rotation:angle,kind:mob.kind==='bee' ? 'sting' : 'orb'});}
+}
 function resolveBossMobAbility(mob,action){
   const ability=action.ability,tier=Math.max(0,rarities.findIndex(r=>r.name===mob.rarity.name)-7);
-  if(ability.kind==='spiders' || ability.kind==='ants')summonBossHelpers(mob,ability.kind==='spiders' ? 'spider' : 'ant',ability.kind==='spiders' ? 3 : 2);
+  addBulletHellRing(mob,action.angle);mob.burstShots=2+Math.floor(tier/2);mob.burstTimer=.4;mob.burstAngle=action.angle;
+  if(ability.kind==='spiders' || ability.kind==='ants')summonBossHelpers(mob,ability.kind==='spiders' ? 'spider' : 'ant',8+tier*3);
   if(ability.kind==='stones' || ability.kind==='stings')addBossProjectiles(mob,action,ability.kind==='stings');
   if(ability.kind==='dash')mob.dash={angle:action.angle,time:.65,speed:700+tier*50};
   if(ability.kind==='shield'){
@@ -65,16 +70,17 @@ function resolveBossMobAbility(mob,action){
   }
   miningBurst(mob.x,mob.y,ability.color,20);
 }
-function updateBossMobAbilities(dt){
+function updateBossMobAbilities(dt,activeMobs=mobs,skipEffects=false){
   const safe=currentRealm==='garden' && getZone(player.x,player.y)==='P';
-  for(const mob of [...mobs]){
+  for(const mob of [...activeMobs]){
     mob.shieldTime=Math.max(0,(mob.shieldTime || 0)-dt);
     const ability=bossMobAbility(mob);
     if(!ability)continue;
     const distance=Math.hypot(mob.x-player.x,mob.y-player.y);
     if(player.dead || safe || !creatureAggressive(mob) || distance>1800+mob.size || !caveLineClear(mob.x,mob.y,player.x,player.y)){
-      mob.bossAction=null;mob.dash=null;continue;
+      mob.bossAction=null;mob.dash=null;mob.burstShots=0;continue;
     }
+    if(mob.burstShots>0){mob.burstTimer-=dt;if(mob.burstTimer<=0){mob.burstShots--;mob.burstTimer=.45;mob.burstAngle+=.13;addBulletHellRing(mob,mob.burstAngle);}}
     if(mob.dash){
       const dash=mob.dash,oldX=mob.x,oldY=mob.y;
       const nx=mob.x+Math.cos(dash.angle)*dash.speed*dt,ny=mob.y+Math.sin(dash.angle)*dash.speed*dt;
@@ -93,9 +99,13 @@ function updateBossMobAbilities(dt){
     if(mob.specialCooldown<=0){
       mob.bossAction={ability,remaining:ability.windup,total:ability.windup,x:player.x,y:player.y,angle:Math.atan2(player.y-mob.y,player.x-mob.x)};
       const tier=Math.max(0,rarities.findIndex(r=>r.name===mob.rarity.name)-7);
-      mob.specialCooldown=ability.cooldown*Math.max(.65,1-tier*.06);
+      mob.specialCooldown=Math.max(2.2,ability.cooldown*.43*(1-tier*.07));
     }
   }
+  if(!skipEffects)updateBossMobHazards(dt);
+}
+function updateBossMobHazards(dt){
+  const safe=currentRealm==='garden' && getZone(player.x,player.y)==='P';
   const owners=new Set(mobs.map(m=>m.id));
   for(const hazard of bossMobHazards){
     hazard.life-=dt;hazard.tick-=dt;
@@ -103,7 +113,7 @@ function updateBossMobAbilities(dt){
       takePlayerDamage(hazard.damage,player.x-hazard.x,player.y-hazard.y,hazard.cause);hazard.tick=.8;
     }
   }
-  bossMobHazards=bossMobHazards.filter(h=>h.life>0 && owners.has(h.owner)).slice(-24);
+  bossMobHazards=bossMobHazards.filter(h=>h.life>0 && owners.has(h.owner)).slice(-64);
   for(const effect of bossMobEffects)effect.life-=dt;
   bossMobEffects=bossMobEffects.filter(e=>e.life>0).slice(-60);
 }

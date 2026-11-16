@@ -2,6 +2,7 @@ const {randomUUID} = require('crypto');
 
 module.exports = function createGuildSystem(io, db, players) {
   db.defaults({guilds:{}}).write();
+  const playerPath=player=>player.profileId ? ['profiles',player.profileId,'state'] : ['players',player.name];
   function directory() {
     return Object.values(db.get('guilds').value()).map(guild => ({
       id:guild.id,name:guild.name,tag:guild.tag,owner:guild.owner,members:[...guild.members]
@@ -10,7 +11,7 @@ module.exports = function createGuildSystem(io, db, players) {
   function sync(socket) {
     const player=players[socket.id];
     if(!player)return;
-    const saved=db.get(['players',player.name]).value();
+    const saved=db.get(playerPath(player)).value();
     const guild=db.get(['guilds',saved?.guildId]).value();
     player.guildId=guild?.members.includes(player.name) ? guild.id : null;
     player.guildTag=player.guildId ? guild.tag : '';
@@ -40,13 +41,13 @@ module.exports = function createGuildSystem(io, db, players) {
         if(directory().some(g=>g.tag===tag || g.name.toLowerCase()===name.toLowerCase()))return fail('Esse nome ou sigla já está em uso.');
         const id=randomUUID();
         db.set(['guilds',id],{id,name,tag,owner:player.name,members:[player.name]}).write();
-        db.set(['players',player.name,'guildId'],id).write();
+        db.set([...playerPath(player),'guildId'],id).write();
       } else if(data.action==='join') {
         const guild=db.get(['guilds',String(data.id)]).value();
         if(current)return fail('Você já está em uma guilda.');
         if(!guild || guild.members.length>=50)return fail('Guilda indisponível ou lotada.');
         if(!guild.members.includes(player.name))guild.members.push(player.name);
-        db.set(['guilds',guild.id],guild).set(['players',player.name,'guildId'],guild.id).write();
+        db.set(['guilds',guild.id],guild).set([...playerPath(player),'guildId'],guild.id).write();
       } else if(data.action==='leave') {
         if(!current)return fail('Você ainda não está em uma guilda.');
         current.members=current.members.filter(name=>name!==player.name);
@@ -55,7 +56,7 @@ module.exports = function createGuildSystem(io, db, players) {
           if(current.owner===player.name)current.owner=current.members[0];
           db.set(['guilds',current.id],current).write();
         }
-        db.set(['players',player.name,'guildId'],null).write();
+        db.set([...playerPath(player),'guildId'],null).write();
       } else return fail('Ação de guilda desconhecida.');
       sync(socket);publish();
       socket.emit('guildResult',{ok:true,message:'Guilda atualizada.'});

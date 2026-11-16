@@ -1,7 +1,7 @@
 const SWORD_FILES=['madeira','pedra','ferro','ouro','red','diamond','void','solar'];
 const SWORDS=PICKAXE_RECIPES.map((recipe,index)=>({
   id:'sword_'+SWORD_FILES[index],name:recipe.name,type:'weapon',amount:1,
-  damage:[8,15,26,44,75,130,250,480][index],color:TALENT_COLORS[index],
+  damage:GAME_CATALOG.SWORD_DAMAGE[index],color:TALENT_COLORS[index],
   img:loadImg('sprites/sword_'+SWORD_FILES[index]+'.png'),
   coins:index ? Math.round(recipe.coins*1.25) : 40,
   materials:index ? recipe.materials.map(([name,count])=>[name,Math.ceil(count*.8)]) : [['Comum',5]]
@@ -73,6 +73,7 @@ function consumeMaterials(requirements) {
   return true;
 }
 function craftSword(name) {
+  if(isServerWorld())return requestPlayerAction('weapon',{name});
   const recipe=SWORDS.find(s=>s.name===name);if(!recipe)return false;
   const status=swordRecipeStatus(recipe);
   if(!status.owned){
@@ -84,6 +85,7 @@ function craftSword(name) {
   saveGame();return true;
 }
 function startOreCraft(name,now=Date.now()) {
+  if(isServerWorld())return requestPlayerAction('fusion',{name});
   if(player.pendingCraft && now-player.pendingCraft.startedAt<2400)return false;
   const recipe=craftRecipes[name];
   if(!recipe || !consumeMaterials([[name,5]]))return false;
@@ -119,15 +121,17 @@ function checkAchievements() {
   }
 }
 function focusGameChat() {document.getElementById('game-chat-input')?.focus();}
-function isUiBlocking() {return player.dead || cavePromptOpen || typing || inventoryOpen || shopOpen || craftOpen || talentsOpen || !!extraPanel;}
+function isUiBlocking() {return !!window.worldTransitioning || (isServerWorld() && (!multiplayer.ready || !socket.connected)) || (typeof modalUiBlocking==='function' && modalUiBlocking()) || player.dead || cavePromptOpen || typing || inventoryOpen || shopOpen || craftOpen || talentsOpen || !!extraPanel;}
 function movePlayerPhysics(dt) {
   let dx=0,dy=0;
   if(!isUiBlocking()){
-    if(settings.controls!=='mouse'){
+    const mobile=typeof mobileState!=='undefined' && mobileState.enabled;
+    if(mobile){dx=mobileState.dx;dy=mobileState.dy;}
+    if(!mobile && settings.controls!=='mouse'){
       dx=Number(heldKeys.has('d')||heldKeys.has('arrowright'))-Number(heldKeys.has('a')||heldKeys.has('arrowleft'));
       dy=Number(heldKeys.has('s')||heldKeys.has('arrowdown'))-Number(heldKeys.has('w')||heldKeys.has('arrowup'));
     }
-    if(!dx && !dy && settings.controls!=='wasd' && (movementAimActive || touch.active)){
+    if(!mobile && !dx && !dy && settings.controls!=='wasd' && (movementAimActive || touch.active)){
       dx=(touch.active ? touch.x : mouse.x)-canvas.width/2;
       dy=(touch.active ? touch.y : mouse.y)-canvas.height/2;
       const length=Math.hypot(dx,dy);
@@ -136,7 +140,7 @@ function movePlayerPhysics(dt) {
     }
   }
   const length=Math.hypot(dx,dy);if(length>1){dx/=length;dy/=length;}
-  const speed=245*(1+talentRank('speed')*.08+(player.talents?.speed || 0)*.08+(currentRealm==='cave' ? talentRank('sprint')*.04 : 0))*(1+utilityBonus('speed'));
+  const speed=240*(1+talentRank('speed')*.08+(currentRealm==='cave' ? talentRank('sprint')*.04 : 0))*(1+utilityBonus('speed'));
   const blend=1-Math.exp(-9*dt);
   player.vx=(player.vx || 0)+(dx*speed-(player.vx || 0))*blend;
   player.vy=(player.vy || 0)+(dy*speed-(player.vy || 0))*blend;
@@ -144,6 +148,7 @@ function movePlayerPhysics(dt) {
   moveWithWalls(player,player.x+player.vx*dt,player.y+player.vy*dt,player.size);
 }
 function takePlayerDamage(amount,dx=0,dy=0,cause='uma pedra') {
+  if(isServerWorld())return false;
   const now=performance.now();
   if(player.dead || (currentRealm==='garden' && getZone(player.x,player.y)==='P') || now<(player.hurtUntil || 0))return false;
   player.hp-=Math.max(1,amount*(1-talentRank('defense')*.04)*(1-armorReduction())-(player.defense || 0));
@@ -155,6 +160,7 @@ function takePlayerDamage(amount,dx=0,dy=0,cause='uma pedra') {
   return true;
 }
 function updateCombatWorld(dt) {
+  if(isServerWorld()){updateSharedCombatPresentation(dt);return;}
   if(player.dead){nearestBoss=null;return;}
   updateGuardians(dt);
   updateBossMobAbilities(dt);
@@ -188,6 +194,7 @@ function updateCombatWorld(dt) {
     }
   }
   for(const rock of projectiles){
+    if(Math.abs(rock.x-player.x)>worldViewWidth()/2+30 || Math.abs(rock.y-player.y)>worldViewHeight()/2+30)continue;
     if(player.dead)break;
     rock.x+=rock.vx*dt;rock.y+=rock.vy*dt;rock.life-=dt;
     if(currentRealm==='cave' && !caveTileOpen(Math.floor(rock.x/CAVE.tile),Math.floor(rock.y/CAVE.tile)))rock.life=0;
@@ -208,9 +215,10 @@ function getRemoteEquipment(remote) {
   if(remote.selectedSlot===3)return UTILITIES.find(u=>u.name===remote.utility);
   return remote.selectedSlot===0 ? SWORDS.find(s=>s.name===remote.weapon) : {...pickaxes.find(p=>p.name===remote.pickaxe),img:pickaxeSprites[remote.pickaxe]};
 }
-function drawHeldEquipment(item,x,y,angle,local) {
+function drawHeldEquipment(item,x,y,angle,local,entity=player) {
   if(!item?.img?.complete || !item.img.naturalWidth)return;
-  const swing=local && performance.now()<(player.swingUntil || 0) ? Math.sin((player.swingUntil-performance.now())/160*Math.PI)*.65 : 0;
+  const remaining=local ? (player.swingUntil || 0)-performance.now() : (entity.attackUntil || 0)-Date.now();
+  const swing=remaining>0 ? Math.sin(Math.min(1,remaining/180)*Math.PI)*.85 : 0;
   ctx.save();ctx.translate(x,y);ctx.rotate(angle+swing);
   const sword=item.type==='weapon';ctx.drawImage(item.img,20,sword ? -25 : -15,sword ? 50 : 36,sword ? 50 : 36);ctx.restore();
   const color=equipmentParticleColor(item),now=performance.now();
@@ -228,6 +236,7 @@ function drawCombatEffects() {
     if(rock.kind==='sting'){
       ctx.fillStyle='#292b2c';ctx.strokeStyle='#ffe58c';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(rock.r*2,0);ctx.lineTo(-rock.r,-rock.r*.6);ctx.lineTo(-rock.r,rock.r*.6);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();continue;
     }
+    if(rock.kind==='orb'){ctx.fillStyle='#ed79c6';ctx.strokeStyle='#fff0a8';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,rock.r,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore();continue;}
     ctx.fillStyle='#7d8585';ctx.strokeStyle='#d9d5b6';ctx.lineWidth=2;
     ctx.beginPath();for(let n=0;n<6;n++){const a=n*Math.PI/3;ctx.lineTo(Math.cos(a)*rock.r,Math.sin(a)*rock.r);}ctx.closePath();ctx.fill();ctx.stroke();ctx.restore();
   }

@@ -37,7 +37,7 @@ function renderWorkshop(){
     const small=document.createElement('small');
     const owned=['utility','armor'].includes(shopCategory) ? ownsGear(recipe) : shopCategory==='weapon' ? ownedSword(recipe.name) : ownedPickaxe(recipe.name);
     small.textContent=player.equipment[shopCategory]?.name===recipe.name ? 'EQUIPADA' : owned ? 'OBTIDA' : 'RECEITA';
-    button.style.setProperty('--rarity',rarities[itemRarityIndex(recipe)].color);button.classList.toggle('selected',selectedRecipe===recipe.name);
+    button.style.setProperty('--rarity',rarities[itemRarityIndex(recipe)].color);decorateRarity(button,itemRarityIndex(recipe));button.classList.toggle('selected',selectedRecipe===recipe.name);
     button.setAttribute('aria-pressed',String(selectedRecipe===recipe.name));button.append(img,span,small);
     button.onclick=()=>{selectedRecipe=recipe.name;lastShopState='';document.getElementById('recipe-result').textContent='';renderWorkshop();};catalog.append(button);
   });
@@ -48,6 +48,7 @@ function renderWorkshop(){
   const preview=document.getElementById('recipe-preview');preview.src=shopCategory!=='pickaxe' ? recipe.img.src : pickaxeSprites[recipe.name].src;
   preview.alt=shopCategory==='utility' ? recipe.name : (shopCategory==='armor' ? 'Armadura de ' : shopCategory==='weapon' ? 'Espada de ' : 'Picareta de ')+recipe.name;
   preview.classList.toggle('enchanted',!!equipmentParticleColor(recipe));
+  preview.style.setProperty('--preview-color',rarities[itemRarityIndex(recipe)].color);
   document.getElementById('recipe-kind').textContent=shopCategory==='utility' ? 'UTILIDADE · '+recipe.rarity : shopCategory==='armor' ? 'ARMADURA · '+recipe.rarity : shopCategory==='weapon' ? 'ESPADA' : 'PICARETA';
   document.getElementById('recipe-name').textContent=recipe.name;
   document.getElementById('recipe-power').textContent=shopCategory==='utility' ? recipe.description : shopCategory==='armor' ? Math.round(recipe.defense*100)+'% de redução de dano'+(recipe.aura ? ' · aura de partículas' : ' · proteção visível') : 'Dano +'+(shopCategory==='weapon' ? recipe.damage : pickaxes[index].power);
@@ -55,7 +56,9 @@ function renderWorkshop(){
   const materials=document.getElementById('recipe-materials');materials.replaceChildren();
   for(const entry of ingredients){
     const chip=document.createElement('div');chip.className='ingredient '+(entry.have>=entry.need ? 'ready' : 'missing');
+    chip.style.setProperty('--item-color',entry.color);
     const icon=document.createElement('i');icon.className=entry.coin ? 'coin-icon' : 'ore-icon';icon.style.background=entry.color;
+    if(!entry.coin){icon.style.background='transparent';const image=document.createElement('img');image.src=itemPreview({type:'material',oreRarity:entry.name,name:entry.name});image.alt='';icon.append(image);}
     const label=document.createElement('div'),name=document.createElement('span'),count=document.createElement('b');
     name.textContent=entry.name;count.textContent=entry.have.toLocaleString('pt-BR')+' / '+entry.need.toLocaleString('pt-BR');
     label.append(name,count);chip.append(icon,label);materials.append(chip);

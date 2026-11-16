@@ -17,8 +17,8 @@ function renderAdventureUi(){
   utilityControl.hidden=!utility?.active;utilityControl.disabled=utilityRemaining>0 || isUiBlocking();utilityControl.querySelector('span').textContent=(utility?.name || 'Utilidade')+(utilityRemaining ? ' '+utilityRemaining+'s' : '');utilityControl.title=utility?.description || '';
   for(const type of ['weapon','pickaxe']){
     const button=document.getElementById('ability-'+type),ability=equipmentAbility(player.equipment[type]),remaining=Math.max(0,Math.ceil(((player.abilityReadyAt?.[type] || 0)-Date.now())/1000));
-    button.disabled=!ability || remaining>0 || isUiBlocking();button.querySelector('span').textContent=ability ? remaining ? ability.name+' '+remaining+'s' : ability.name : type==='weapon' ? 'Espada Diamante+' : 'Picareta Diamante+';
-    button.title=ability ? ability.name+' · '+ability.cooldown+'s de recarga' : 'Desbloqueia em equipamentos Diamante ou superiores.';
+    button.disabled=!ability || remaining>0 || isUiBlocking();button.querySelector('span').textContent=ability ? remaining ? ability.name+' '+remaining+'s' : ability.name : type==='weapon' ? 'Espada avançada' : 'Picareta avançada';
+    button.title=ability ? ability.name+' · '+ability.cooldown+'s de recarga' : 'Desbloqueia em equipamentos de Matéria Vermelha ou superiores.';
   }
   const lantern=document.getElementById('toggle-lantern');lantern.disabled=!ownsLantern();lantern.setAttribute('aria-pressed',String(!!player.lanternOn));lantern.querySelector('span').textContent=player.lanternOn ? 'Lanterna ligada' : 'Lanterna';
   const distance=currentRealm==='garden' ? Math.hypot(player.x-CAVE_ENTRANCE.x,player.y-CAVE_ENTRANCE.y) : Math.hypot(player.x-750,player.y-750);

@@ -2,7 +2,7 @@
 const ARMORS=PICKAXE_RECIPES.map((recipe,index)=>({
   ...recipe,id:'armor_'+index,type:'armor',amount:1,coins:Math.round(recipe.coins*1.4+80),
   defense:[.05,.1,.16,.23,.36,.43,.58,.65][index],rarity:rarities[index].name,color:rarities[index].color,
-  aura:['Matéria Vermelha','Solar','Void'].includes(recipe.name),
+  aura:['Diamante','Matéria Vermelha','Solar','Void'].includes(recipe.name),
   img:loadImg('sprites/armor_'+index+'.png')
 }));
 UTILITIES.push(
@@ -30,6 +30,7 @@ function worldViewHeight(){return canvas.height/cameraZoom();}
 function ownsGear(recipe){return player.equipment[recipe.type]?.name===recipe.name || player.inventory.some(i=>i.type===recipe.type && i.name===recipe.name && (i.amount ?? 1)>0);}
 function gearStatus(recipe){return {owned:ownsGear(recipe),previousReady:true,coinsReady:player.coins>=recipe.coins,materialsReady:recipe.materials.every(([name,count])=>materialCount(name)>=count)};}
 function craftGear(recipe){
+  if(isServerWorld())return recipe && requestPlayerAction('gear',{type:recipe.type,name:recipe.name});
   if(!recipe || player.dead)return false;
   const state=gearStatus(recipe);
   if(!state.owned){
@@ -73,6 +74,7 @@ function targetSurface(target){
   return {x:target.x+dx/distance*Math.min(target.size,distance),y:target.y+dy/distance*Math.min(target.size,distance)};
 }
 function useUtilityAbility(){
+  if(isServerWorld())return requestSharedAbility('utility');
   const utility=equippedUtility(),now=Date.now();
   if(player.dead || isUiBlocking() || !utility?.active || now<(player.abilityReadyAt.utility || 0))return false;
   player.abilityReadyAt.utility=now+utility.cooldown*1000*(1-talentRank('resonance')*.03);

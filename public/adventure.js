@@ -21,11 +21,11 @@ let abilityEffects=[];
 let damageNumbers=[];
 let nextCreatureSpawn=0;
 const itemPreviewCache=new Map();
-function xpForLevel(level){return Math.round(45+22*Math.pow(Math.max(1,level),1.22));}
+function xpForLevel(level){return GAME_CATALOG.xpForLevel(level);}
 function normalizeAdventure(){
-  if(player.progressionVersion!==2){
+  if(player.progressionVersion!==3){
     const fraction=Math.max(0,Math.min(1,player.xp/(player.xpToNext || 100)));
-    player.xpToNext=xpForLevel(player.level);player.xp=fraction*player.xpToNext;player.progressionVersion=2;
+    player.xpToNext=xpForLevel(player.level);player.xp=Math.min(.999,fraction)*player.xpToNext;player.progressionVersion=3;
   }else player.xpToNext=xpForLevel(player.level);
   player.abilityReadyAt=player.abilityReadyAt || {};player.dead=false;player.deathCause='';player.lanternOn=false;
   player.journal.species=player.journal.species || {};
@@ -48,7 +48,7 @@ function toggleLantern(){if(player.dead || !ownsLantern())return;player.lanternO
 function isBossRarity(rarity){return rarities.findIndex(r=>r.name===rarity?.name)>6;}
 function createCreature(kind,rarity,x,y){
   const definition=CREATURES.find(c=>c.kind===kind) || CREATURES[0],index=Math.max(0,rarities.findIndex(r=>r.name===rarity.name));
-  const hp=Math.ceil(definition.hp*Math.pow(2.1,index)),size=Math.min(currentRealm==='cave' ? 205 : 360,25*Math.pow(1.32,index));
+  const hp=GAME_CATALOG.mobHealth(definition.hp,index),size=Math.min(currentRealm==='cave' ? 205 : 360,25*Math.pow(1.32,index))*(index>=7 ? 3 : 1);
   return {...definition,id:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),x,y,rarity,hp,maxHp:hp,size,speed:definition.speed+index*4,damage:definition.damage*Math.pow(1.4,index),cooldown:0,angle:0,isBoss:index>6,pathTimer:0};
 }
 function noteCreature(creature){
@@ -56,6 +56,7 @@ function noteCreature(creature){
   const key=creature.kind+':'+creature.rarity.name;player.journal.species[key]=(player.journal.species[key] || 0)+1;
 }
 function updateAdventure(dt){
+  if(isServerWorld()){updateSharedPresentation(dt);return;}
   if(player.dead)return;
   if(talentRank('regeneration'))player.hp=Math.min(player.maxHp,player.hp+talentRank('regeneration')*.35*dt);
   if(currentRealm==='garden' && performance.now()>nextCreatureSpawn){
@@ -86,6 +87,8 @@ function updateCreatureMovement(dt){
   const safe=currentRealm==='garden' && getZone(player.x,player.y)==='P';
   for(const mob of mobs){
     mob.kind=mob.kind || 'guardian';mob.name=mob.name || 'Guardião';
+    const travelled=Math.hypot(mob.x-(mob.lastWalkX ?? mob.x),mob.y-(mob.lastWalkY ?? mob.y));
+    mob.walkPhase=(mob.walkPhase || 0)+travelled/Math.max(12,mob.size*.22);mob.moving=travelled>.05;mob.lastWalkX=mob.x;mob.lastWalkY=mob.y;
     const dx=player.x-mob.x,dy=player.y-mob.y,distance=Math.hypot(dx,dy);
     const aggressive=creatureAggressive(mob) && !player.dead && !safe;
     mob.wanderTimer=(mob.wanderTimer || 0)-dt;
@@ -104,7 +107,7 @@ function updateCreatureMovement(dt){
       continue;
     }
     if(mob.bossAction || mob.dash)continue;
-    if(distance<1600 && distance>player.size+mob.size*.7){
+    if(distance<1600 && distance>player.size+mob.size*.7+4){
       let target={x:player.x,y:player.y};
       if(currentRealm==='cave' && !caveLineClear(mob.x,mob.y,player.x,player.y)){
         mob.pathTimer-=dt;if(mob.pathTimer<=0){mob.pathTarget=nextCaveStep(mob);mob.pathTimer=.65;}target=mob.pathTarget || {x:mob.x,y:mob.y};
@@ -117,25 +120,31 @@ function updateCreatureMovement(dt){
   }
   if(safe && !player.dead)player.hp=Math.min(player.maxHp,player.hp+8*dt);
 }
-function drawCreatureModel(kind,c,x,y,r,angle=0){
+function drawCreatureModel(kind,c,x,y,r,angle=0,phase=0,moving=false){
   c.save();c.translate(x,y);c.rotate(angle);
   const disc=(px,py,radius,color)=>{c.beginPath();c.arc(px,py,radius,0,Math.PI*2);c.fillStyle=color;c.fill();};
   const oval=(px,py,rx,ry,color)=>{c.beginPath();c.ellipse(px,py,rx,ry,0,0,Math.PI*2);c.fillStyle=color;c.fill();};
+  if(moving)c.translate(0,Math.sin(phase*2)*r*.025);
+  if(['ladybug','beetle','guardian'].includes(kind)){
+    c.strokeStyle=kind==='guardian' ? '#40464a' : '#34483a';c.lineWidth=Math.max(2,r*.1);
+    for(let leg=0;leg<3;leg++)for(const side of [-1,1]){const stride=moving ? Math.sin(phase+leg*1.9+(side>0 ? Math.PI : 0))*r*.18 : 0;c.beginPath();c.moveTo((leg-1)*r*.48,side*r*.45);c.lineTo((leg-1)*r*.6+stride,side*r*.97);c.stroke();}
+  }
   if(kind==='guardian'){
     if(guardianImage.complete && guardianImage.naturalWidth)c.drawImage(guardianImage,-r,-r,r*2,r*2);else disc(0,0,r,'#55595d');
   }else if(kind==='ladybug'){
     disc(0,0,r,'#343130');oval(-r*.1,0,r*.88,r*.85,'#e65344');c.strokeStyle='#49312c';c.lineWidth=r*.1;c.beginPath();c.moveTo(-r,0);c.lineTo(r*.6,0);c.stroke();
     for(const [sx,sy] of [[-.5,-.4],[-.5,.4],[.2,-.5],[.2,.5]])disc(sx*r,sy*r,r*.16,'#3b302b');disc(r*.8,0,r*.35,'#3b302b');
   }else if(kind==='bee'){
-    oval(-r*.1,-r*.63,r*.65,r*.32,'#d9f5ec');oval(-r*.1,r*.63,r*.65,r*.32,'#d9f5ec');oval(0,0,r,r*.65,'#f0ca47');
+    const flutter=.22+Math.abs(Math.sin(performance.now()/65))* .18;
+    oval(-r*.1,-r*.63,r*.65,r*flutter,'#d9f5ec');oval(-r*.1,r*.63,r*.65,r*flutter,'#d9f5ec');oval(0,0,r,r*.65,'#f0ca47');
     c.strokeStyle='#493d30';c.lineWidth=r*.2;for(const xx of [-.45,.1]){c.beginPath();c.moveTo(xx*r,-r*.55);c.lineTo(xx*r,r*.55);c.stroke();}disc(r*.72,0,r*.32,'#e0b637');
   }else if(kind==='ant' || kind==='spider'){
     c.strokeStyle=kind==='spider' ? '#64435d' : '#704b31';c.lineWidth=Math.max(2,r*.11);
-    for(let n=0;n<(kind==='spider' ? 4 : 3);n++)for(const side of [-1,1]){c.beginPath();c.moveTo((n-1.5)*r*.3,0);c.lineTo((n-1.5)*r*.55,side*r*.8);c.lineTo((n-1)*r*.65,side*r);c.stroke();}
+    for(let n=0;n<(kind==='spider' ? 4 : 3);n++)for(const side of [-1,1]){const step=moving ? Math.sin(phase+n*1.7+side*Math.PI/2)*r*.22 : 0;c.beginPath();c.moveTo((n-1.5)*r*.3,0);c.lineTo((n-1.5)*r*.55+step*.5,side*r*.8);c.lineTo((n-1)*r*.65+step,side*r);c.stroke();}
     oval(-r*.4,0,r*.65,r*.58,kind==='spider' ? '#50384d' : '#805735');disc(r*.4,0,r*.4,kind==='spider' ? '#795c71' : '#93663e');
   }else if(kind==='centipede'){
     c.strokeStyle='#536d3a';c.lineWidth=r*.06;
-    for(let n=-2;n<=2;n++){for(const side of [-1,1]){c.beginPath();c.moveTo(n*r*.45,0);c.lineTo(n*r*.5,side*r*.55);c.stroke();}disc(n*r*.45,0,r*.35,n===2 ? '#b5d567' : '#91b54e');}
+    for(let n=-2;n<=2;n++){const wave=moving ? Math.sin(phase+n*.9)*r*.12 : 0;for(const side of [-1,1]){c.beginPath();c.moveTo(n*r*.45,wave);c.lineTo(n*r*.5+wave,side*r*.55+wave);c.stroke();}disc(n*r*.45,wave,r*.35,n===2 ? '#b5d567' : '#91b54e');}
   }else{
     oval(0,0,r,r*.8,'#325a47');oval(-r*.15,0,r*.78,r*.72,'#5a9975');c.strokeStyle='#284d3b';c.lineWidth=r*.08;c.beginPath();c.moveTo(-r,0);c.lineTo(r*.6,0);c.stroke();disc(r*.7,0,r*.36,'#385e45');
   }
@@ -146,10 +155,11 @@ function drawCreatures(){
   ctx.save();
   for(const mob of mobs){
     if(Math.abs(mob.x-player.x)>worldViewWidth()/2+mob.size*2 || Math.abs(mob.y-player.y)>worldViewHeight()/2+mob.size*2)continue;
-    if(isBossRarity(mob.rarity)){ctx.beginPath();ctx.arc(mob.x,mob.y,mob.size*1.15,0,Math.PI*2);ctx.strokeStyle=mob.rarity.color;ctx.lineWidth=3;ctx.stroke();}
-    drawCreatureModel(mob.kind || 'guardian',ctx,mob.x,mob.y,mob.size,mob.angle || 0);
-    const width=mob.size*1.8;ctx.fillStyle='#1c2b25';ctx.fillRect(mob.x-width/2,mob.y-mob.size-14,width,6);ctx.fillStyle=mob.rarity.color;ctx.fillRect(mob.x-width/2,mob.y-mob.size-14,width*Math.max(0,mob.hp/mob.maxHp),6);
-    if(settings.names){ctx.font='bold 12px "Trebuchet MS"';ctx.textAlign='center';ctx.fillText((isBossRarity(mob.rarity) && !mob.summoned ? '♛ ' : '')+(mob.name || 'Guardião')+' '+mob.rarity.name,mob.x,mob.y+mob.size+19);if(mob.summoned){ctx.font='bold 10px "Trebuchet MS"';ctx.fillStyle='#ece2fa';ctx.fillText('Invocada · sem XP / drops',mob.x,mob.y+mob.size+33);}}
+    if(isBossRarity(mob.rarity)){ctx.beginPath();ctx.arc(mob.x,mob.y,mob.size*1.15,0,Math.PI*2);ctx.strokeStyle=rarityPaint(mob.rarity,mob.x-mob.size,mob.y-mob.size,mob.size*2);ctx.lineWidth=3;ctx.stroke();}
+    drawCreatureModel(mob.kind || 'guardian',ctx,mob.x,mob.y,mob.size,mob.angle || 0,mob.walkPhase || 0,mob.moving);
+    if(typeof drawEntityHealth==='function')drawEntityHealth(mob,mob.x,mob.y+mob.size+(mob.summoned ? 44 : 31),Math.min(190,Math.max(42,mob.size*1.8)),mob.rarity.color);
+    ctx.fillStyle=mob.rarity.color;
+    if(settings.names){ctx.font='bold 12px "Trebuchet MS"';ctx.textAlign='center';const label=(isBossRarity(mob.rarity) && !mob.summoned ? '♛ ' : '')+(mob.name || 'Guardião')+' '+mob.rarity.name;ctx.strokeStyle='#1b382a';ctx.lineWidth=3;ctx.strokeText(label,mob.x,mob.y+mob.size+19);ctx.fillText(label,mob.x,mob.y+mob.size+19);if(mob.summoned){ctx.font='bold 10px "Trebuchet MS"';ctx.fillStyle='#ece2fa';ctx.fillText('Invocada · sem XP / drops',mob.x,mob.y+mob.size+33);}}
   }
   ctx.restore();
 }
@@ -159,6 +169,7 @@ function enterDeath(cause){
   clearBossMobEffects();
 }
 function returnFromDeath(){
+  if(isServerWorld()){socket.emit('respawn');return;}
   if(currentRealm==='cave')switchRealm('garden');
   player.dead=false;player.hp=player.maxHp;player.deathCause='';player.x=PLAZA_SPAWN.x;player.y=PLAZA_SPAWN.y;player.hurtUntil=performance.now()+2000;player.vx=0;player.vy=0;movementAimActive=false;
   socket.emit('move',{x:player.x,y:player.y,realm:'garden',dead:false});saveGame();
@@ -179,6 +190,7 @@ function miningBurst(x,y,color,count=14){
   for(let n=0;n<count;n++){const angle=Math.random()*Math.PI*2,speed=55+Math.random()*150;particles.push({x,y,vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,life:.3+Math.random()*.5,color});}
 }
 function damageEntity(target,damage,isMob){
+  if(isServerWorld())return;
   if(player.dead || target.hp<=0)return;
   if(isMob)target.aggroUntil=performance.now()+12000;
   if(isMob && target.shieldTime>0)damage*=.25;
@@ -196,16 +208,16 @@ function damageEntity(target,damage,isMob){
 }
 function equipmentAbility(item){
   if(!item || !['weapon','pickaxe'].includes(item.type))return null;
-  const types={Diamante:{name:'Prisma',color:'#8df4fa',radius:250,mult:3,cooldown:12},Void:{name:'Colapso',color:'#a47aff',radius:360,mult:3.5,cooldown:18},Solar:{name:'Explosão solar',color:'#ffe07c',radius:310,mult:4,cooldown:16}};
-  return types[item?.name] || null;
+  return GAME_CATALOG.ability(item?.name);
 }
 function useEquipmentAbility(type){
+  if(isServerWorld())return requestSharedAbility(type);
   const item=player.equipment[type],ability=equipmentAbility(item),now=Date.now();
   if(player.dead || isUiBlocking() || !ability || now<(player.abilityReadyAt?.[type] || 0))return false;
   player.abilityReadyAt=player.abilityReadyAt || {};player.abilityReadyAt[type]=now+ability.cooldown*1000*(1-talentRank('resonance')*.03);
   abilityEffects.push({x:player.x,y:player.y,life:1.1,maxLife:1.1,...ability});
   const damage=((type==='weapon' ? item.damage : item.power)+player.damage)*ability.mult*(1+talentRank('damage')*.12+player.level*.02);
-  const targets=[...mobs.map(target=>({target,isMob:true})),...ores.map(target=>({target,isMob:false}))].filter(({target})=>{const surface=targetSurface(target);return Math.hypot(surface.x-player.x,surface.y-player.y)<=ability.radius && caveLineClear(player.x,player.y,surface.x,surface.y);}).slice(0,35);
+  const targets=(type==='weapon' ? mobs.map(target=>({target,isMob:true})) : ores.map(target=>({target,isMob:false}))).filter(({target})=>{const surface=targetSurface(target);return Math.hypot(surface.x-player.x,surface.y-player.y)<=ability.radius && caveLineClear(player.x,player.y,surface.x,surface.y);}).slice(0,35);
   for(const {target,isMob} of targets){damageEntity(target,damage,isMob);if(item.name==='Void' && isMob)moveWithWalls(target,target.x+(player.x-target.x)*.2,target.y+(player.y-target.y)*.2,target.size*.65);}
   if(item.name==='Solar')player.hp=Math.min(player.maxHp,player.hp+player.maxHp*.12);
   miningBurst(player.x,player.y,ability.color,35);player.swingUntil=performance.now()+180;saveGame();return true;
@@ -213,6 +225,7 @@ function useEquipmentAbility(type){
 function drawAbilityEffects(){
   ctx.save();
   for(const effect of abilityEffects){
+    if(drawEnhancedAbility(effect))continue;
     const progress=1-effect.life/effect.maxLife;ctx.globalAlpha=1-progress;ctx.strokeStyle=effect.color;ctx.lineWidth=5;
     ctx.beginPath();ctx.arc(effect.x,effect.y,effect.radius*progress,0,Math.PI*2);ctx.stroke();
     for(let n=0;n<10;n++){const angle=n*Math.PI/5+progress;ctx.beginPath();ctx.moveTo(effect.x+Math.cos(angle)*25,effect.y+Math.sin(angle)*25);ctx.lineTo(effect.x+Math.cos(angle)*effect.radius*progress,effect.y+Math.sin(angle)*effect.radius*progress);ctx.stroke();}
