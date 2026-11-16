@@ -20,7 +20,7 @@
   watch(event){if(!this.raw)return;const generation=this.generation;this.raw.on(event,(...args)=>{if(generation===this.generation)for(const handler of [...(this.handlers.get(event) || [])])handler(...args);});}
   use(url){
    if(this.raw){this.raw.disconnect();this.raw.removeAllListeners();}
-   this.generation++;this.current=url;this.raw=io(url,{autoConnect:false,transports:['websocket','polling'],tryAllTransports:true,reconnectionDelay:750,reconnectionDelayMax:4000,timeout:12000});
+   this.generation++;this.current=url;this.raw=io(url,{autoConnect:false,auth:{oreCache:true},transports:['websocket','polling'],tryAllTransports:true,reconnectionDelay:750,reconnectionDelayMax:4000,timeout:12000});
    for(const event of this.handlers.keys())this.watch(event);this.raw.connect();
   }
   async discover(){

@@ -51,7 +51,7 @@ function toggleHudPanel(panel) {
   if (panel === 'talents') talentsOpen = !wasOpen;
   if (panel === 'craft') craftOpen = !wasOpen;
   if (panel === 'shop') shopOpen = !wasOpen;
-  if(['settings','guild','gallery','achievements'].includes(panel))extraPanel=wasOpen ? null : panel;
+  if(['settings','guild','gallery','achievements','changelog'].includes(panel))extraPanel=wasOpen ? null : panel;
   if(extraPanel==='guild')socket.emit('guildList');
 }
 
@@ -85,7 +85,7 @@ function updateGameHud() {
   hud.zone.textContent = currentRealm==='cave' ? 'Caverna profunda' : getZone(player.x, player.y) === 'P' ? 'Praça central' : 'Jardim';
   hud.position.textContent = Math.round(player.x) + ', ' + Math.round(player.y);
   const panelState = {inventory: inventoryOpen, talents: talentsOpen, craft: craftOpen, shop: shopOpen};
-  for(const name of ['settings','guild','gallery','achievements'])panelState[name]=extraPanel===name;
+  for(const name of ['settings','guild','gallery','achievements','changelog'])panelState[name]=extraPanel===name;
   document.querySelectorAll('[data-panel]').forEach(button => button.setAttribute('aria-pressed', String(panelState[button.dataset.panel])));
   const equipment = [player.equipment.weapon, player.equipment.armor, player.equipment.pickaxe,player.equipment.utility];
   const equipmentKey = JSON.stringify(equipment.map(item => item && [item.name, item.color, item.img?.src,settings.particles]));

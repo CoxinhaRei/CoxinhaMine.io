@@ -1,4 +1,20 @@
-# CoxinhaMine.io 1.5.3 — servidores e caminhada suave
+# CoxinhaMine.io 1.5.4 — desempenho, servidores e caminhada suave
+
+## Correção do lag crescente ao explorar
+
+O servidor acumulava minérios das áreas percorridas. Ao gerar uma região, percorria repetidamente toda a lista antiga para contar depósitos e verificar sobreposições, bloqueando o processamento de movimento e respostas de ping.
+
+Agora a geração consulta células e um índice espacial. Minérios comuns a Ultra fora da área de TODOS os jogadores ficam em repouso, fora da física e dos pacotes. Esse histórico guarda até 4.000 depósitos por mapa por até 10 minutos; ao retornar nesse intervalo, o depósito mantém seu ID, HP e contribuição. Histórico comum expirado pode ser regenerado. Bosses Super+ não são removidos por essa limpeza, e drops mantêm sua validade e elegibilidade originais. A limpeza não dá XP nem recompensas.
+
+O cliente confirma a lista de minérios recebida. O servidor reaproveita essa lista e não a reenvia dez vezes por segundo quando nada mudou. Mudanças de área, HP, mineração, spawns e troca de mapa invalidam o cache. Pacotes não confirmados são reenviados; uma lista vazia remove os minérios antigos da tela. Criaturas e projéteis continuam recebendo atualizações normais. Eventos visuais distantes e registros temporários de entidades já removidas também deixam de acumular trabalho.
+
+Testes locais sintéticos com 9.000 minérios de áreas antigas reduziram o custo médio de geração de aproximadamente 1.078 ms para 12 ms. O pacote recorrente da cena caiu de cerca de 19,1 KB para 3,9 KB, antes da compressão. São medições locais de carga/volume, não uma promessa de ping na internet. O benchmark completo está no arquivo entregue separadamente `benchmark-exploration.json`.
+
+Foram aprovados 20 testes, incluindo exploração prolongada, volta a depósitos danificados, preservação da área de outro jogador e de bosses/drops, limite do histórico e confirmação/invalidação do cache. O teste de navegador utilizou um perfil isolado em memória, sem acessar o banco dos jogadores.
+
+## Changelog dentro do jogo
+
+Use o botão de jornal no canto superior esquerdo do menu ou na barra de menus durante a partida. O painel verde apresenta as versões 1.5, 1.5.1, 1.5.2, 1.5.3 e 1.5.4, da mais nova para a mais antiga, com rolagem própria, botões para pular à versão, PT/EN e expansão. Não exige login. As notas mais antigas são resumos reconstruídos do histórico, e as notas públicas não incluem funções restritas de administração.
 
 ## O que o patch faz
 
@@ -60,12 +76,12 @@ Os dois serviços precisam usar este patch. Não mantenha um servidor antigo gra
 
 ## Publicar e verificar
 
-O ZIP completo contém a raiz do projeto, `public`, `scripts` e `tests`. Extraia e envie esse conteúdo para a raiz do GitHub. Não coloque os arquivos de servidor dentro de public e não envie o ZIP fechado. O ZIP de patch contém somente os arquivos adicionados/alterados; aplique sobre a versão 1.5.2 mobile-secure-v4.
+O ZIP completo contém a raiz do projeto, `public`, `scripts` e `tests`. Extraia e envie esse conteúdo para a raiz do GitHub. Não coloque os arquivos de servidor dentro de public e não envie o ZIP fechado. O ZIP de patch 1.5.4 contém somente os arquivos alterados desde a versão 1.5.3 regions-smooth-v5. Para instalar sobre a 1.5.2, use a atualização completa.
 
 Após o deploy, `/health` deve informar:
 
 ```json
-{"version":"1.5.3","build":"regions-smooth-v5","protocol":5,"region":"US","persistence":"redis","sharedSaves":true,"durable":true,"saveError":false}
+{"version":"1.5.4","build":"exploration-perf-v6","protocol":6,"region":"US","persistence":"redis","sharedSaves":true,"durable":true,"saveError":false}
 ```
 
 Haverá outros campos. `/servers` mostra os endereços públicos configurados e `/ping` confirma a região servida. Nenhum desses endpoints expõe senhas ou o token do Redis.

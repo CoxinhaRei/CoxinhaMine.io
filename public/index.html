@@ -34,13 +34,13 @@ opacity:0;
 pointer-events:none;
 }
 </style>
-<link rel="stylesheet" href="hud.css?v=1.5.3-regions5">
-<link rel="stylesheet" href="workshop.css?v=1.5.3-regions5">
-<link rel="stylesheet" href="systems.css?v=1.5.3-regions5">
-<link rel="stylesheet" href="adventure.css?v=1.5.3-regions5">
-<link rel="stylesheet" href="account-menu.css?v=1.5.3-regions5">
-<link rel="stylesheet" href="mobile-play.css?v=1.5.3-regions5">
-<link rel="stylesheet" href="region-client.css?v=1.5.3-regions5">
+<link rel="stylesheet" href="hud.css?v=1.5.4-perf6-news1">
+<link rel="stylesheet" href="workshop.css?v=1.5.4-perf6-news1">
+<link rel="stylesheet" href="systems.css?v=1.5.4-perf6-news1">
+<link rel="stylesheet" href="adventure.css?v=1.5.4-perf6-news1">
+<link rel="stylesheet" href="account-menu.css?v=1.5.4-perf6-news1">
+<link rel="stylesheet" href="mobile-play.css?v=1.5.4-perf6-news1">
+<link rel="stylesheet" href="region-client.css?v=1.5.4-perf6-news1">
 </head>
 
 <body>
@@ -71,9 +71,9 @@ pointer-events:none;
 <canvas id="game"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="region-client.js?v=1.5.3-regions5"></script>
-<script src="movement-net.js?v=1.5.3-regions5"></script>
-<script src="game-catalog.js?v=1.5.3-regions5"></script>
+<script src="region-client.js?v=1.5.4-perf6-news1"></script>
+<script src="movement-net.js?v=1.5.4-perf6-news1"></script>
+<script src="game-catalog.js?v=1.5.4-perf6-news1"></script>
 
 <script>
 // ===== SAFE START =====
@@ -403,7 +403,7 @@ function spawnBoss(type){
 
   addChat("🔥 " + type + " apareceu!");
 }
-function spawnOreInCell(cx, cy){
+function spawnOreInCell(cx, cy, nearby=ores){
 
   let baseX = cx * CELL_SIZE;
   let baseY = cy * CELL_SIZE;
@@ -428,7 +428,7 @@ function spawnOreInCell(cx, cy){
   const size=GAME_CATALOG.oreRadius(rarity.name);
   if(!GAME_CATALOG.gardenOrePositionValid(x,y,size,WORLD_SIZE))return;
 
-  for(let o of ores){
+  for(let o of nearby){
     if(GAME_CATALOG.orePositionsOverlap(x,y,size,o)){
       return;
     }
@@ -1036,29 +1036,29 @@ async function startGame(){
   const connected=await beginSharedSession();
   if(!connected){window.startingGame=false;return;}
 
-  const enter=()=>{document.getElementById('menu').style.display='none';canvas.style.display='block';resizeCanvas();mouse.x=canvas.width/2;mouse.y=canvas.height/2;document.getElementById('game-hud').hidden=false;movementAimActive=false;lastMobFrame=performance.now();loop();};
+  const enter=()=>{if(extraPanel==='changelog')extraPanel=null;document.getElementById('menu').style.display='none';canvas.style.display='block';resizeCanvas();mouse.x=canvas.width/2;mouse.y=canvas.height/2;document.getElementById('game-hud').hidden=false;movementAimActive=false;lastMobFrame=performance.now();loop();};
   try{if(typeof irisTransition==='function')await irisTransition(enter);else enter();}finally{window.startingGame=false;}
 }
 </script>
 
-<script src="progression.js?v=1.5.3-regions5"></script>
-<script src="systems.js?v=1.5.3-regions5"></script>
-<script src="adventure.js?v=1.5.3-regions5"></script>
-<script src="gear.js?v=1.5.3-regions5"></script>
-<script src="cave.js?v=1.5.3-regions5"></script>
-<script src="boss-mobs.js?v=1.5.3-regions5"></script>
-<script src="workshop.js?v=1.5.3-regions5"></script>
-<script src="hud.js?v=1.5.3-regions5"></script>
-<script src="panels.js?v=1.5.3-regions5"></script>
-<script src="admin-ui.js?v=1.5.3-regions5"></script>
-<script src="inventory.js?v=1.5.3-regions5"></script>
-<script src="adventure-ui.js?v=1.5.3-regions5"></script>
-<script src="multiplayer.js?v=1.5.3-regions5"></script>
-<script src="account-menu.js?v=1.5.3-regions5"></script>
-<script src="secure-ui.js?v=1.5.3-regions5"></script>
-<script src="mobile-play.js?v=1.5.3-regions5"></script>
-<script src="world-presentation.js?v=1.5.3-regions5"></script>
-<script src="presentation.js?v=1.5.3-regions5"></script>
+<script src="progression.js?v=1.5.4-perf6-news1"></script>
+<script src="systems.js?v=1.5.4-perf6-news1"></script>
+<script src="adventure.js?v=1.5.4-perf6-news1"></script>
+<script src="gear.js?v=1.5.4-perf6-news1"></script>
+<script src="cave.js?v=1.5.4-perf6-news1"></script>
+<script src="boss-mobs.js?v=1.5.4-perf6-news1"></script>
+<script src="workshop.js?v=1.5.4-perf6-news1"></script>
+<script src="hud.js?v=1.5.4-perf6-news1"></script>
+<script src="panels.js?v=1.5.4-perf6-news1"></script>
+<script src="admin-ui.js?v=1.5.4-perf6-news1"></script>
+<script src="inventory.js?v=1.5.4-perf6-news1"></script>
+<script src="adventure-ui.js?v=1.5.4-perf6-news1"></script>
+<script src="multiplayer.js?v=1.5.4-perf6-news1"></script>
+<script src="account-menu.js?v=1.5.4-perf6-news1"></script>
+<script src="secure-ui.js?v=1.5.4-perf6-news1"></script>
+<script src="mobile-play.js?v=1.5.4-perf6-news1"></script>
+<script src="world-presentation.js?v=1.5.4-perf6-news1"></script>
+<script src="presentation.js?v=1.5.4-perf6-news1"></script>
 </body>
 </html>
 

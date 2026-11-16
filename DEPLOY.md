@@ -1,4 +1,4 @@
-# CoxinhaMine.io 1.5.3 — servidores regionais e caminhada suave
+# CoxinhaMine.io 1.5.4 — desempenho na exploração e servidores regionais
 
 Leia também [REGIONS.md](REGIONS.md): BR/US exigem endereços reais, o mesmo banco nos dois e este patch em todos os serviços. O Render oferece Virgínia; ainda não oferece São Paulo. O seletor não muda a localização física de um serviço existente.
 
@@ -13,7 +13,9 @@ No Render mantenha:
 - Start Command: `npm start`
 - Node 24 e uma instância por região. Configure o mesmo Redis e SAVE_KEY se houver duas regiões.
 
-Espere o deploy Live e recarregue com Ctrl+F5. A rota `/health` deve informar `build: regions-smooth-v5`, `version: 1.5.3`, `protocol: 5` e `accountRequired: true`. Com Redis, confira também `sharedSaves: true`, `durable: true` e `saveError: false`. Os arquivos JS/CSS têm uma versão no endereço para evitar misturar clientes antigos e novos. A tag de verificação do Google e robots.txt foram mantidos.
+Espere o deploy Live e recarregue com Ctrl+F5. A rota `/health` deve informar `build: exploration-perf-v6`, `version: 1.5.4`, `protocol: 6` e `accountRequired: true`. Com Redis, confira também `sharedSaves: true`, `durable: true` e `saveError: false`. Os arquivos JS/CSS têm uma versão no endereço para evitar misturar clientes antigos e novos. A tag de verificação do Google e robots.txt foram mantidos.
+
+Na 1.5.4, `/health` também informa as contagens de minérios ativos/em repouso, mobs e projéteis por mapa. A geração deixou de percorrer todos os minérios explorados para cada célula. O cliente confirma a lista de minérios estáticos e recebe outra apenas quando a área ou o estado muda; uma lista não confirmada é reenviada. Clientes anteriores continuam recebendo listas completas até recarregar.
 
 ## Banco obrigatório para novos cadastros no Render
 

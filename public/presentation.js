@@ -46,13 +46,15 @@ for(const panel of transitionPanels){
     if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;
     if(!panel.hidden){
       panelBounds.set(panel,panel.getBoundingClientRect());
-      if(panel.classList.contains('garden-panel'))panel.animate([{opacity:0,transform:'translate(-50%,-42%)'},{opacity:1,transform:'translate(-50%,-50%)'}],{duration:230,easing:'cubic-bezier(.2,.7,.2,1)'});
+      if(panel.classList.contains('changelog-panel'))panel.animate([{opacity:0,translate:'0 12px'},{opacity:1,translate:'0 0'}],{duration:210,easing:'ease-out'});
+      else if(panel.classList.contains('garden-panel'))panel.animate([{opacity:0,transform:'translate(-50%,-42%)'},{opacity:1,transform:'translate(-50%,-50%)'}],{duration:230,easing:'cubic-bezier(.2,.7,.2,1)'});
       else panel.animate([{opacity:0},{opacity:1}],{duration:200});
     }else{
       const box=panelBounds.get(panel);if(!box?.width)return;
       const ghost=panel.cloneNode(true);ghost.hidden=false;ghost.setAttribute('aria-hidden','true');ghost.classList.add('panel-exit-ghost');ghost.removeAttribute('id');
       for(const child of ghost.querySelectorAll('[id]'))child.removeAttribute('id');
       Object.assign(ghost.style,{position:'fixed',top:box.top+'px',left:box.left+'px',width:box.width+'px',height:box.height+'px',maxHeight:'none',transform:'none',margin:0});document.body.append(ghost);
+      if(panel.classList.contains('changelog-panel'))for(const [property,value] of Object.entries({top:box.top+'px',left:box.left+'px',width:box.width+'px',height:box.height+'px',transform:'none'}))ghost.style.setProperty(property,value,'important');
       ghost.animate([{opacity:1,transform:'translateY(0)'},{opacity:0,transform:'translateY(22px)'}],{duration:160,easing:'ease-in',fill:'forwards'}).finished.finally(()=>ghost.remove());
     }
   }).observe(panel,{attributes:true,attributeFilter:['hidden']});

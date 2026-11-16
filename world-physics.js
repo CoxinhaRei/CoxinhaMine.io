@@ -10,7 +10,7 @@ class SpatialIndex{
 }
 function oreIndex(world){
   const g=world.game;
-  if(world.physicsOres!==g.ores || world.physicsOreCount!==g.ores.length){world.physicsOres=g.ores;world.physicsOreCount=g.ores.length;world.oreIndex=new SpatialIndex();for(const ore of g.ores)world.oreIndex.insert({id:ore.id,x:ore.x,y:ore.y,radius:ore.size});}
+  if(world.physicsOres!==g.ores || world.physicsOreCount!==g.ores.length){world.physicsOres=g.ores;world.physicsOreCount=g.ores.length;world.oreIndex=new SpatialIndex();world.oreCellCounts=new Map();for(const ore of g.ores){world.oreIndex.insert({id:ore.id,x:ore.x,y:ore.y,radius:ore.size,rarity:ore.rarity});const cell=Math.floor(ore.x/600)+','+Math.floor(ore.y/600);world.oreCellCounts.set(cell,(world.oreCellCounts.get(cell) || 0)+1);}}
   return world.oreIndex;
 }
 function movePlayerBody(world,state,x,y){
@@ -22,7 +22,8 @@ function movePlayerBody(world,state,x,y){
 }
 function resolveWorldCollisions(world,actors){
   const g=world.game;oreIndex(world);
-  const bodies=[...actors.map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:20,state:a.state})),...g.mobs.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,state:m}))],index=new SpatialIndex();
+  const relevant=g.mobs.filter(m=>actors.some(a=>Math.hypot(a.state.x-m.x,a.state.y-m.y)<Math.max(3000,a.viewRadius || 3000)+m.size));
+  const bodies=[...actors.map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:20,state:a.state})),...relevant.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,state:m}))],index=new SpatialIndex();
   for(const body of bodies)index.insert(body);
   for(const body of bodies){
     for(const ore of world.oreIndex.query(body.state.x,body.state.y,body.radius)){
@@ -38,4 +39,4 @@ function resolveWorldCollisions(world,actors){
   }
 }
 function segmentHitsCircle(ax,ay,bx,by,x,y,radius){const dx=bx-ax,dy=by-ay,length=dx*dx+dy*dy,t=length ? Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/length)) : 0;return (ax+dx*t-x)**2+(ay+dy*t-y)**2<radius*radius;}
-module.exports={SpatialIndex,resolveWorldCollisions,segmentHitsCircle,movePlayerBody};
+module.exports={SpatialIndex,resolveWorldCollisions,segmentHitsCircle,movePlayerBody,oreIndex};

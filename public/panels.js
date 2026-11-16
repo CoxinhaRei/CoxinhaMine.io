@@ -181,7 +181,8 @@ const bossBar=document.createElement('div');bossBar.id='boss-bar';bossBar.hidden
 const achievementToast=document.createElement('div');achievementToast.id='achievement-toast';achievementToast.hidden=true;document.body.append(achievementToast);
 function renderSystems(){
   tickOreCraft();
-  for(const [name,panel] of [['settings',settingsPanel],['guild',guildPanel],['gallery',galleryPanel],['achievements',achievementsPanel]])panel.hidden=extraPanel!==name;
+  for(const [name,panel] of [['settings',settingsPanel],['guild',guildPanel],['gallery',galleryPanel],['achievements',achievementsPanel],['changelog',changelogPanel]])panel.hidden=extraPanel!==name;
+  changelogLaunch.setAttribute('aria-expanded',String(extraPanel==='changelog'));changelogHud.setAttribute('aria-pressed',String(extraPanel==='changelog'));
   if(extraPanel==='guild')renderGuild();if(extraPanel==='gallery')renderGallery();if(extraPanel==='achievements')renderAchievements();
   document.querySelector('.hud-map').hidden=!settings.minimap;
   bossBar.hidden=!nearestBoss;
@@ -189,3 +190,130 @@ function renderSystems(){
   if(nearestBoss){bossBar.querySelector('b').textContent=(nearestBoss.name || 'PEDRA')+' '+nearestBoss.rarity.name;bossBar.querySelector('i').style.width=Math.max(0,nearestBoss.hp/nearestBoss.maxHp*100)+'%';bossBar.querySelector('span').textContent=Math.ceil(nearestBoss.hp).toLocaleString('pt-BR')+' / '+nearestBoss.maxHp.toLocaleString('pt-BR');}
   if(lastAchievementNotice){achievementToast.textContent='★ '+lastAchievementNotice;achievementToast.hidden=false;lastAchievementNotice='';clearTimeout(renderSystems.notice);renderSystems.notice=setTimeout(()=>{achievementToast.hidden=true;},3500);}
 }
+
+// Public release notes. Earlier version groupings are reconstructed from project history.
+const CHANGELOG_ENTRIES = [
+  {version:'1.5.4',title:['Exploração mais leve','Smoother exploration'],groups:[
+    {title:['Desempenho','Performance'],items:[
+      ['Corrigido o acúmulo de minérios que deixava o jogo progressivamente mais lento conforme o mapa era explorado.','Fixed ore accumulation that made the game progressively slower as players explored the map.'],
+      ['A geração de minérios agora consulta células próximas, em vez de percorrer repetidamente o mapa inteiro.','Ore generation now checks nearby cells instead of repeatedly scanning the entire explored world.'],
+      ['Minérios parados deixam de ser reenviados em todos os pacotes. A lista é atualizada ao mudar de área, minerar ou alterar seu estado.','Stationary ores are no longer resent in every update. The list refreshes when the area or ore state changes.'],
+      ['Efeitos distantes e registros de entidades já removidas deixam de acumular trabalho.','Distant effects and records of removed entities no longer accumulate unnecessary work.']
+    ]},
+    {title:['Changelog','Changelog'],items:[
+      ['Novo painel de atualizações no menu e na HUD, com histórico da 1.5 à 1.5.4, navegação por versão, expansão e leitura em português ou inglês.','Added an update panel in the menu and HUD, with history from 1.5 to 1.5.4, version navigation, an expanded view and Portuguese or English notes.']
+    ]},
+    {title:['Mundo compartilhado','Shared world'],items:[
+      ['Áreas sem jogadores entram em repouso. A área de outro jogador continua ativa, mesmo quando você se afasta.','Areas without players go dormant. Another player’s area stays active when you move away.'],
+      ['Depósitos comuns a Ultra em repouso mantêm HP e participação no histórico por até 10 minutos, com limite de 4.000 por mapa.','Dormant Common–Ultra deposits retain HP and contribution for up to 10 minutes, with a limit of 4,000 per map.'],
+      ['Bosses Super+ são preservados. Drops existentes mantêm seu tempo de duração e os jogadores que podem coletá-los.','Super+ bosses are preserved. Existing drops keep their lifetime and pickup eligibility.'],
+      ['No teste local com 9 mil minérios antigos, a geração caiu de aproximadamente 1,08 s para 12 ms. Pacotes recorrentes caíram de cerca de 19,1 KB para 3,9 KB. Resultados variam conforme o cenário.','In a local test with 9,000 previously explored ores, generation fell from about 1.08 s to 12 ms. Recurring snapshots fell from roughly 19.1 KB to 3.9 KB. Results depend on the scene.']
+    ]}
+  ]},
+  {version:'1.5.3',title:['Servidores e movimento','Servers & movement'],groups:[
+    {title:['Servidores','Servers'],items:[
+      ['Adicionado seletor BR / US acima dos mapas, com ping medido e indicação do servidor selecionado.','Added a BR / US selector above the maps, with measured latency and a selected-server indicator.'],
+      ['A mesma conta, nível, moedas, inventário e equipamentos acompanham a troca entre servidores conectados ao mesmo banco.','The same account, level, coins, inventory and equipment carry over between servers connected to the same database.'],
+      ['A troca confirma o save antes de sair. Servidores indisponíveis ou incompatíveis não recebem sua sessão.','Switching confirms the save before leaving. Unavailable or incompatible servers do not receive your session.'],
+      ['Cada servidor possui seu próprio mundo, chat e squads. Para jogar junto, escolha a mesma região dos seus amigos. Regiões dependem das hospedagens disponíveis.','Each server has its own world, chat and squads. Choose the same region as your friends to play together. Regions depend on available hosting.']
+    ]},
+    {title:['Caminhada suave','Smoother movement'],items:[
+      ['Cliente e servidor passaram a usar a mesma aceleração para mouse, WASD e joystick.','Client and server now use the same acceleration for mouse, WASD and joystick controls.'],
+      ['Movimentos ainda não confirmados são reaplicados. Correções de posição e câmera são suavizadas para reduzir tremidas.','Unacknowledged movement is replayed. Position and camera corrections are smoothed to reduce shaking.'],
+      ['Melhor tratamento de atraso variável, perda de pacotes, reconexões e movimentos enviados antes de uma troca de mapa.','Improved handling of variable delay, lost packets, reconnects and movement sent before a map transition.']
+    ]}
+  ]},
+  {version:'1.5.2',title:['Mobile e grande rebalanceamento','Mobile & major rebalance'],groups:[
+    {title:['Mobile e contas','Mobile & accounts'],items:[
+      ['Adicionados joystick virtual, ataque ao segurar e botões de habilidades, utilidade e lanterna. Layout adaptado para celular na horizontal e vertical.','Added a virtual joystick, hold-to-attack and buttons for abilities, utilities and the lantern. The layout supports portrait and landscape mobile screens.'],
+      ['Contas passaram a ser obrigatórias. Corrigido o acesso indevido ao progresso de outro jogador ao digitar seu nick.','Accounts became mandatory. Fixed access to another player’s progress by entering their nickname.'],
+      ['Nomes vazios são recusados. Contas novas começam no nível 1, sem herdar o antigo perfil genérico “Player”.','Blank names are rejected. New accounts start at Level 1 without inheriting the old generic “Player” profile.'],
+      ['Adicionado X para voltar ao menu mantendo a conta conectada, com transições circulares entre cenas.','Added an X button to return to the menu while staying signed in, with circular scene transitions.']
+    ]},
+    {title:['HUD, colisões e loot','HUD, collisions & loot'],items:[
+      ['Prévia da coxinha com olhos acompanhando a direção do olhar, barras de vida abaixo das entidades e perda de vida suave.','Added a coxinha portrait with eyes following the aim direction, health bars below entities and smooth health loss.'],
+      ['Melhorados os quadros dos itens por raridade, a cor da caixa da picareta e a textura do gramado.','Improved rarity item frames, pickaxe slot coloring and grass texture.'],
+      ['Adicionadas colisões entre jogadores, criaturas e minérios.','Added collisions between players, creatures and ores.'],
+      ['Minérios e todas as espécies naturais passaram a deixar itens físicos no chão, com animação de queda, coleta e desaparecimento. Drops duram 3 minutos.','Ores and every natural mob species now leave physical items on the ground, with spawn, pickup and fade effects. Drops last 3 minutes.'],
+      ['Invocações de bosses continuam sem XP, moedas ou drops.','Boss summons continue to award no XP, coins or drops.']
+    ]},
+    {title:['Balanceamento','Balance'],items:[
+      ['Chegar ao nível 300 passou a exigir 100 bilhões de XP acumulados desde o nível 1. O nível 300 não é o limite.','Reaching Level 300 now requires 100 billion total XP from Level 1. Level 300 is not the level cap.'],
+      ['Mobs Comuns receberam 2,5× a vida anterior. Bosses Super receberam 6× a vida anterior, com variação por espécie.','Common mobs received 2.5× their previous HP. Super bosses received 6× their previous HP, depending on the species.'],
+      ['Exemplos de vida Super: Abelha 3 milhões, Guardião 5,4 milhões e Besouro 10,2 milhões.','Super HP examples: Bee 3 million, Guardian 5.4 million and Beetle 10.2 million.'],
+      ['Minérios: Super 12 milhões de HP, Absolut 60 milhões, Quantium 200 milhões e Aleph 1 bilhão.','Ore HP: Super 12 million, Absolut 60 million, Quantium 200 million and Aleph 1 billion.'],
+      ['Bosses Super+ ganharam padrões mais densos de projéteis, ataques em sequência e mais invocações. Dano base de contato e das armas permaneceu igual ao da versão anterior.','Super+ bosses gained denser projectile patterns, follow-up attacks and more summons. Base contact and weapon damage stayed unchanged from the previous version.']
+    ]}
+  ]},
+  {version:'1.5.1',historical:true,title:['Contas, menu e squads','Accounts, menu & squads'],groups:[
+    {title:['Sua aventura','Your adventure'],items:[
+      ['Introduzidas contas com nick e senha e botão da pequena coxinha branca para entrar.','Introduced nickname-and-password accounts and the small white coxinha sign-in button.'],
+      ['Novo menu com seleção de Jardim e Caverna, prévia do personagem, nível e equipamentos.','Added a menu with Garden and Cave selection, character preview, level and equipment.'],
+      ['Progresso associado ao perfil do jogador e integração com armazenamento persistente.','Player progress was associated with profiles and persistent storage integration.']
+    ]},
+    {title:['Jogue em grupo','Play together'],items:[
+      ['Introduzidos squads para até quatro jogadores, com código de convite e gerenciamento do grupo.','Introduced squads for up to four players, with invite codes and group management.'],
+      ['O dano do squad soma para atingir os 5% de participação. Cada integrante elegível recebe uma recompensa normal, uma única vez.','Squad damage combines toward the 5% contribution requirement. Each eligible member receives one normal reward, once.'],
+      ['Recompensas do grupo exigem integrante vivo, fora do menu, no mesmo mapa e a até 2.500 unidades da borda do alvo.','Group rewards require a living member outside the menu, on the same map and within 2,500 units of the target’s edge.']
+    ]}
+  ]},
+  {version:'1.5',historical:true,title:['Mundo multiplayer','Multiplayer world'],groups:[
+    {title:['Exploração e combate','Exploration & combat'],items:[
+      ['Jardim e caverna com mineração, criaturas, equipamentos, armaduras, utilidades e talentos de I a XI.','Garden and cave exploration with mining, creatures, equipment, armor, utilities and talents from I to XI.'],
+      ['Espadas voltadas para criaturas e picaretas voltadas para minérios, com habilidades de equipamentos avançados.','Swords target creatures and pickaxes target ores, with abilities for advanced equipment.'],
+      ['Adicionadas animações de caminhada, efeitos de equipamentos e melhorias visuais de raridades elevadas.','Added walking animations, equipment effects and visual improvements for high rarities.'],
+      ['Melhorada a presença de minérios Ultra nas extremidades do jardim.','Improved Ultra ore availability at the garden’s outer edges.']
+    ]},
+    {title:['Mundo compartilhado','Shared world'],items:[
+      ['Combate, criaturas e minérios passaram a ser controlados pelo servidor para que jogadores interajam com os mesmos alvos.','Combat, creatures and ores became server-controlled so players could interact with the same targets.'],
+      ['Corrigidos personagens seguindo o mouse de outro jogador e diferenças de estado entre telas.','Fixed characters following another player’s mouse and inconsistent world state between screens.'],
+      ['Adicionada participação mínima de 5% da vida real do alvo para qualificar o loot individual.','Added a minimum contribution of 5% of the target’s actual HP to qualify for individual loot.']
+    ]}
+  ]}
+];
+
+const changelogPanel=createSystemPanel('changelog','Changelog');
+changelogPanel.id='changelog-panel';changelogPanel.setAttribute('aria-modal','false');changelogPanel.tabIndex=-1;
+const changelogIcon='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h15v17H5zM2 7h3v13H2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M8 7h9M8 11h9M8 15h9" stroke="currentColor" stroke-width="2"/></svg>';
+const changelogLaunch=document.createElement('button');changelogLaunch.type='button';changelogLaunch.id='changelog-launch';changelogLaunch.className='hud-button changelog-launch';changelogLaunch.innerHTML=changelogIcon;changelogLaunch.setAttribute('aria-label','Changelog');changelogLaunch.title='Changelog · atualizações';document.body.append(changelogLaunch);
+const changelogHud=document.createElement('button');changelogHud.type='button';changelogHud.className='hud-button changelog-hud';changelogHud.dataset.panel='changelog';changelogHud.setAttribute('aria-label','Changelog');changelogHud.title='Changelog · atualizações';changelogHud.innerHTML=changelogIcon;document.querySelector('.hud-top').append(changelogHud);
+const changelogHead=changelogPanel.querySelector('header'),changelogClose=changelogPanel.querySelector('.panel-close'),changelogExpand=document.createElement('button');
+changelogExpand.type='button';changelogExpand.className='changelog-expand';changelogExpand.textContent='⤢';changelogExpand.setAttribute('aria-label','Expandir changelog');changelogHead.insertBefore(changelogExpand,changelogClose);
+const changelogTools=document.createElement('div');changelogTools.className='changelog-tools';changelogTools.innerHTML='<span></span><div aria-label="Idioma das notas"><button type="button" data-news-lang="pt">PT</button><button type="button" data-news-lang="en">EN</button></div>';
+const changelogVersions=document.createElement('nav');changelogVersions.className='changelog-versions';changelogVersions.setAttribute('aria-label','Versões');
+const changelogScroll=document.createElement('div');changelogScroll.className='changelog-scroll';changelogScroll.tabIndex=0;changelogScroll.setAttribute('aria-label','Notas das atualizações');
+changelogPanel.append(changelogTools,changelogVersions,changelogScroll);
+let changelogLanguage=localStorage.getItem('coxinha_changelog_language')==='en' ? 'en' : 'pt',changelogReturnFocus=changelogLaunch;
+function changelogText(pair){return pair[changelogLanguage==='en' ? 1 : 0];}
+function renderChangelog(){
+  const english=changelogLanguage==='en';changelogScroll.lang=changelogLanguage;
+  changelogTools.querySelector('span').textContent=english ? 'UPDATE HISTORY' : 'HISTÓRICO DE ATUALIZAÇÕES';
+  changelogTools.querySelectorAll('[data-news-lang]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.newsLang===changelogLanguage)));
+  changelogVersions.replaceChildren();changelogScroll.replaceChildren();
+  for(const [index,release] of CHANGELOG_ENTRIES.entries()){
+    const jump=document.createElement('button');jump.type='button';jump.textContent=release.version;jump.setAttribute('aria-label',(english ? 'Read version ' : 'Ler versão ')+release.version);jump.dataset.release=release.version;jump.setAttribute('aria-pressed',String(index===0));changelogVersions.append(jump);
+    const article=document.createElement('article');article.className='changelog-release';article.id='release-'+release.version.replaceAll('.','-');
+    const tag=document.createElement('div');tag.className='changelog-release-tag';tag.textContent='v'+release.version;
+    if(index===0){const latest=document.createElement('span');latest.textContent=english ? 'LATEST' : 'ATUAL';tag.append(latest);}
+    const heading=document.createElement('h2');heading.textContent=changelogText(release.title);article.append(tag,heading);
+    for(const group of release.groups){const title=document.createElement('h3'),list=document.createElement('ul');title.textContent=changelogText(group.title);for(const item of group.items){const line=document.createElement('li');line.textContent=changelogText(item);list.append(line);}article.append(title,list);}
+    if(release.historical){const note=document.createElement('small');note.className='changelog-historical';note.textContent=english ? 'Summary reconstructed from project history.' : 'Resumo reconstruído a partir do histórico do projeto.';article.append(note);}
+    changelogScroll.append(article);jump.onclick=()=>changelogScroll.scrollTo({top:Math.max(0,article.offsetTop-8),behavior:matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth'});
+  }
+  changelogScroll.scrollTop=0;
+}
+function closeChangelog(){if(extraPanel==='changelog')extraPanel=null;changelogPanel.hidden=true;changelogLaunch.setAttribute('aria-expanded','false');changelogReturnFocus?.focus();}
+function openChangelog(event){
+  if(!changelogPanel.hidden){closeChangelog();return;}changelogReturnFocus=event?.currentTarget || changelogLaunch;
+  toggleHudPanel('changelog');if(typeof accountPanel!=='undefined')accountPanel.hidden=true;if(typeof squadPanel!=='undefined')squadPanel.hidden=true;
+  renderSystems();changelogLaunch.setAttribute('aria-expanded','true');localStorage.setItem('coxinha_changelog_seen',CHANGELOG_ENTRIES[0].version);changelogLaunch.classList.remove('has-news');changelogHud.classList.remove('has-news');changelogPanel.focus({preventScroll:true});
+}
+changelogLaunch.onclick=changelogHud.onclick=openChangelog;changelogClose.onclick=closeChangelog;
+for(const button of [changelogLaunch,changelogHud]){button.setAttribute('aria-controls','changelog-panel');button.classList.toggle('has-news',localStorage.getItem('coxinha_changelog_seen')!==CHANGELOG_ENTRIES[0].version);}
+changelogLaunch.setAttribute('aria-expanded','false');
+changelogExpand.onclick=()=>{const expanded=changelogPanel.classList.toggle('expanded');changelogExpand.setAttribute('aria-label',expanded ? 'Reduzir changelog' : 'Expandir changelog');changelogExpand.setAttribute('aria-pressed',String(expanded));};
+changelogTools.querySelectorAll('[data-news-lang]').forEach(button=>button.onclick=()=>{changelogLanguage=button.dataset.newsLang;localStorage.setItem('coxinha_changelog_language',changelogLanguage);renderChangelog();});
+changelogScroll.addEventListener('scroll',()=>{let selected=0;[...changelogScroll.children].forEach((article,index)=>{if(article.offsetTop<=changelogScroll.scrollTop+24)selected=index;});if(changelogScroll.scrollTop+changelogScroll.clientHeight>=changelogScroll.scrollHeight-4)selected=CHANGELOG_ENTRIES.length-1;[...changelogVersions.children].forEach((button,index)=>button.setAttribute('aria-pressed',String(index===selected)));},{passive:true});
+changelogPanel.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();closeChangelog();}});
+document.addEventListener('keydown',event=>{if(event.key==='Escape' && !changelogPanel.hidden)closeChangelog();});
+renderChangelog();

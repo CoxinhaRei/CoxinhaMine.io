@@ -1,10 +1,14 @@
-# CoxinhaMine.io 1.5.3
+# CoxinhaMine.io 1.5.4
 
 Jogo de jardim e mineração com mundo compartilhado, coxinhas, equipamentos, talentos, contas e squads.
 
 Inclui joystick e combate touch, conta obrigatória, drops no chão, colisões no servidor, barras de vida suaves e bosses Super+ com rajadas e invocações. O nível 300 exige 100 bilhões de XP acumulados e não é o nível máximo.
 
 O patch 1.5.3 adiciona BR/US no menu, ping medido, transferência da mesma conta entre servidores e movimento com replay e correções visuais suaves. Leia [REGIONS.md](REGIONS.md) para configurar os endereços e publicar em uma região próxima. Servidores não configurados ficam indisponíveis; o código não altera a localização física da hospedagem.
+
+O patch 1.5.4 corrige a perda progressiva de desempenho ao explorar: geração por índice espacial, áreas inativas em repouso, histórico limitado e cache de minérios confirmado pelo cliente. Bosses e loot existentes são preservados. A configuração do banco e das regiões continua igual.
+
+O botão de Changelog abre notas públicas da 1.5 à 1.5.4 no menu ou na HUD, sem exigir login. Há PT/EN, navegação por versão, expansão e rolagem independente. As notas da 1.5 e 1.5.1 estão identificadas como resumos reconstruídos do histórico, sem datas de lançamento inventadas.
 
 Para rodar localmente (Node 24):
 

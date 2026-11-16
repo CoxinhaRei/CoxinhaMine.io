@@ -108,8 +108,9 @@ socket.on('playerDamage',data=>{
   if(data.dead)enterDeath(data.cause);
 });
 function applyWorldSnapshot(snapshot){
-  if(!multiplayer.ready || snapshot.realm!==currentRealm)return;
-  ores=snapshot.ores;mobs=mergeNetworkEntities(mobs,snapshot.mobs);projectiles=mergeNetworkEntities(projectiles,snapshot.projectiles);bossMobHazards=snapshot.hazards;bossMobEffects=snapshot.effects;
+  if(!multiplayer.ready || snapshot.realm!==currentRealm || (snapshot.self?.epoch!==undefined && snapshot.self.epoch!==multiplayer.movementEpoch))return;
+  if(Array.isArray(snapshot.ores)){const previous=new Map(ores.map(ore=>[ore.id,ore]));ores=snapshot.ores.map(data=>Object.assign(previous.get(data.id) || {},data));if(Number.isSafeInteger(snapshot.oreSeq))socket.emit('oreAck',{realm:currentRealm,epoch:multiplayer.movementEpoch,seq:snapshot.oreSeq});}
+  mobs=mergeNetworkEntities(mobs,snapshot.mobs);projectiles=mergeNetworkEntities(projectiles,snapshot.projectiles);bossMobHazards=snapshot.hazards;bossMobEffects=snapshot.effects;
   multiplayer.drops=snapshot.drops || [];multiplayer.timeOffset=snapshot.serverTime-Date.now();
   const self=snapshot.self,history=self && pendingMovement.get(self.seq);
   if(multiplayer.protocol>=5 && self?.epoch===multiplayer.movementEpoch)networkMovement.reconcile(player,self,snapshot.serverTime,networkSpeed(),movePredictedPlayer);
