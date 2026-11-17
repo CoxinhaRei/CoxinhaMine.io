@@ -1,6 +1,15 @@
 const multiplayer={authority:!!window.sharedWorldAvailable,ready:false,started:false,inLobby:false,lastMove:0,lastSave:0,realm:'garden',contribution:{},squadContribution:{},profileName:'',pendingJoin:false};
 const PROFILE_KEYS='coxinha_profiles_v2';
 const SESSION_KEY='coxinha_active_session_v4';
+let guestCredentials=null;
+function currentSession(){return guestCredentials || activeSession();}
+function playerDisplayName(p){return (p.name || 'Convidado')+(p.guest && p.name!=='Convidado' ? ' (Convidado)' : '');}
+function resetGuestSession(){
+  guestCredentials=null;multiplayer.guest=false;multiplayer.ready=false;multiplayer.profileName='';window.accountProgressEnabled=false;
+  Object.assign(player,{name:'',guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:100,maxHp:100,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
+  const input=document.getElementById('nameInput');input.value='';input.readOnly=false;
+  squadState={members:[]};renderSquad();
+}
 const networkMovement=new MovementNet.Predictor();window.networkMovement=networkMovement;
 function networkSpeed(){return 240*(1+talentRank('speed')*.08+(currentRealm==='cave' ? talentRank('sprint')*.04 : 0))*(1+utilityBonus('speed'));}
 function movePredictedPlayer(state,x,y){
@@ -15,19 +24,19 @@ function beginSharedSession({lobby=false}={}){
   if(!lobby)multiplayer.started=true;
   if(multiplayer.pendingJoin)return multiplayer.joinPromise.then(ok=>ok && multiplayer.supportsLobby && multiplayer.inLobby!==lobby ? beginSharedSession({lobby}) : ok);
   if(socket.connected===false)return Promise.resolve(false);
-  const credentials=activeSession();
-  if(!credentials){multiplayer.started=false;if(typeof openAccountRequired==='function')openAccountRequired();return Promise.resolve(false);}
+  const credentials=currentSession();
+  if(!credentials && !multiplayer.supportsGuests){multiplayer.started=false;if(typeof openAccountRequired==='function')openAccountRequired();return Promise.resolve(false);}
   multiplayer.pendingJoin=true;
   const realm=typeof selectedMenuRealm==='string' ? selectedMenuRealm : currentRealm;
-  multiplayer.joinPromise=new Promise(resolve=>socket.timeout(15000).emit('joinGame',{credentials,lobby,realm},(error,result)=>{
+  multiplayer.joinPromise=new Promise(resolve=>socket.timeout(15000).emit(credentials ? 'joinGame' : 'guestJoin',{credentials,guest:!!guestCredentials,name:document.getElementById('nameInput').value,lobby,realm},(error,result)=>{
     multiplayer.pendingJoin=false;
-    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(result?.code==='AUTH_REQUIRED'){localStorage.removeItem(SESSION_KEY);multiplayer.account=null;if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
+    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(result?.code==='GUEST_EXPIRED'){resetGuestSession();multiplayer.inLobby=false;canvas.style.display='none';document.getElementById('game-hud').hidden=true;document.getElementById('menu').style.display='flex';}if(result?.code==='AUTH_REQUIRED'){localStorage.removeItem(SESSION_KEY);multiplayer.account=null;if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
     resolve(true);
   }));return multiplayer.joinPromise;
 }
 function applyServerPlayer(state){
   if(state.dead && !player.dead)enterDeath(state.deathCause);
-  const keys=['level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
+  const keys=['guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
   for(const key of keys)if(state[key]!==undefined)player[key]=state[key];
   player.progressionVersion=3;restoreEquipment();restoreArmor();
   if(typeof inventorySignature!=='undefined')inventorySignature='';if(typeof lastShopState!=='undefined')lastShopState='';
@@ -87,13 +96,15 @@ const networkNotice=document.createElement('div');networkNotice.id='network-noti
 const networkStatus=document.createElement('small');networkStatus.id='network-status';document.body.append(networkStatus);
 function renderNetworkStatus(){networkStatus.hidden=!multiplayer.started;networkStatus.textContent=multiplayer.ready && socket.connected ? '● '+(multiplayer.region && multiplayer.region!=='GLOBAL' ? multiplayer.region+' · ' : '')+'Mundo compartilhado · '+(multiplayer.ping ?? '…')+' ms · loot: 5%+' : 'Reconectando ao mundo…';}
 setInterval(()=>{if(!socket.connected)return;const sent=performance.now();socket.timeout(3000).emit('latencyProbe',{},(error,result)=>{if(!error){multiplayer.ping=Math.round(performance.now()-sent);multiplayer.serverTick=result.tickMs;renderNetworkStatus();}});},5000);
-socket.on('init',data=>{multiplayer.protocol=data.protocol;multiplayer.region=data.region;multiplayer.serverLocation=data.location;multiplayer.supportsLobby=data.protocol>=3;multiplayer.accounts=!!data.accounts;multiplayer.squads=!!data.squads;multiplayer.durable=data.durable;if(data.sharedWorld){multiplayer.authority=true;if((multiplayer.started || multiplayer.inLobby) && !multiplayer.ready)beginSharedSession({lobby:!multiplayer.started});}renderNetworkStatus();});
+socket.on('init',data=>{multiplayer.protocol=data.protocol;multiplayer.region=data.region;multiplayer.serverLocation=data.location;multiplayer.supportsLobby=data.protocol>=3;multiplayer.accounts=!!data.accounts;multiplayer.squads=!!data.squads;multiplayer.durable=data.durable;multiplayer.supportsGuests=!!data.guests;if(data.sharedWorld){multiplayer.authority=true;if((multiplayer.started || multiplayer.inLobby) && !multiplayer.ready)beginSharedSession({lobby:!multiplayer.started});}renderNetworkStatus();});
 socket.on('connect',()=>{multiplayer.pendingJoin=false;if(multiplayer.started || multiplayer.inLobby)beginSharedSession({lobby:!multiplayer.started});renderNetworkStatus();});
 socket.on('disconnect',()=>{multiplayer.ready=false;multiplayer.pendingJoin=false;networkMovement.reset();heldKeys.clear();movementAimActive=false;renderNetworkStatus();});
 socket.on('sessionReplaced',()=>{sharedNotice('Este perfil entrou em outra aba. Use outro nome para testar um segundo jogador.');multiplayer.started=false;});
 socket.on('profileReady',data=>{
-  const keys=profileKeys();if(data.credentials){for(const name of Object.keys(keys))if(keys[name]?.id===data.credentials.id)keys[name]=data.credentials;keys[data.state.name]=data.credentials;localStorage.setItem(PROFILE_KEYS,JSON.stringify(keys));}multiplayer.profileName=data.state.name;
-  multiplayer.account=data.account || null;
+  multiplayer.guest=!!data.state.guest;guestCredentials=multiplayer.guest ? data.credentials : null;
+  multiplayer.account=data.account || null;window.accountProgressEnabled=!!data.account;
+  if(data.account && data.credentials){const keys=profileKeys();for(const name of Object.keys(keys))if(keys[name]?.id===data.credentials.id)keys[name]=data.credentials;keys[data.state.name]=data.credentials;localStorage.setItem(PROFILE_KEYS,JSON.stringify(keys));}
+  multiplayer.profileName=data.state.name;
   if(data.account && data.credentials)localStorage.setItem(SESSION_KEY,JSON.stringify({...data.credentials,username:data.account.username,accountId:data.account.id}));
   multiplayer.authority=true;multiplayer.ready=true;multiplayer.pendingJoin=false;
   multiplayer.inLobby=!!data.lobby;
@@ -130,11 +141,12 @@ socket.on('entityHit',data=>{miningBurst(data.x,data.y,data.color,data.isMob ? 9
 socket.on('abilityEffect',effect=>abilityEffects.push(effect));
 socket.on('lootResult',result=>sharedNotice(result.qualified ? (result.shared ? 'Loot do Squad · ' : 'Loot recebido · ')+result.entity+' '+result.rarity+' · '+((result.shared ? result.squadShare : result.share)*100).toFixed(1)+'% de participação' : 'Sem loot · participação '+(result.share*100).toFixed(1)+'% · mínimo 5%'));
 socket.on('actionResult',result=>{if(!result.ok)sharedNotice(result.message);const message=document.getElementById('recipe-result');if(message && shopOpen)message.textContent=result.message;});
-socket.on('saveConfirmed',result=>{networkStatus.title=(result.committed===false ? 'Banco indisponível; salvamento pendente' : 'Save confirmado no servidor')+' · '+new Date(result.at).toLocaleTimeString()+' · '+result.persistence;if(result.committed===false)sharedNotice('O banco está temporariamente indisponível. O servidor está tentando salvar novamente.');});
+socket.on('saveConfirmed',result=>{if(result.guest){sharedNotice('Convidado: crie uma conta para guardar seu progresso.');return;}networkStatus.title=(result.committed===false ? 'Banco indisponível; salvamento pendente' : 'Save confirmado no servidor')+' · '+new Date(result.at).toLocaleTimeString()+' · '+result.persistence;if(result.committed===false)sharedNotice('O banco está temporariamente indisponível. O servidor está tentando salvar novamente.');});
 const saveTools=document.createElement('section');saveTools.className='save-tools';
 saveTools.innerHTML='<h2>Seu progresso</h2><p>O jogo salva neste navegador e no servidor. Guarde um backup para restaurar seu perfil em outro navegador.</p><button id="export-player-save">Baixar backup</button><label class="save-import">Restaurar backup<input id="import-player-save" type="file" accept="application/json,.json"></label><p id="save-tools-result" role="status"></p>';
 settingsPanel.querySelector('.settings-body').append(saveTools);
 document.getElementById('export-player-save').onclick=()=>{
+  if(!multiplayer.account){document.getElementById('save-tools-result').textContent='Crie uma conta para salvar este convidado. O progresso temporário não é exportado.';return;}
   saveGame();const state=JSON.parse(localStorage.getItem(SAVE_KEY)||'{}'),name=multiplayer.profileName || player.name;
   const data={format:'coxinha-profile-v2',name,credentials:activeSession(),state};
   const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));

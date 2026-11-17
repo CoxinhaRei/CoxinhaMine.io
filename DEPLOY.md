@@ -13,7 +13,13 @@ No Render mantenha:
 - Start Command: `npm start`
 - Node 24 e uma instância por região. Configure o mesmo Redis e SAVE_KEY se houver duas regiões.
 
-Espere o deploy Live e recarregue com Ctrl+F5. A rota `/health` deve informar `build: exploration-perf-v6`, `version: 1.5.4`, `protocol: 6` e `accountRequired: true`. Com Redis, confira também `sharedSaves: true`, `durable: true` e `saveError: false`. Os arquivos JS/CSS têm uma versão no endereço para evitar misturar clientes antigos e novos. A tag de verificação do Google e robots.txt foram mantidos.
+Espere o deploy Live e recarregue com Ctrl+F5. Com o patch de convidados, a rota `/health` deve informar `build: guest-patch-v6`, `version: 1.5.4`, `protocol: 6`, `guests: true` e `accountRequired: false`. Com Redis, confira também `sharedSaves: true`, `durable: true` e `saveError: false`. Os arquivos JS/CSS têm uma versão no endereço para evitar misturar clientes antigos e novos. A tag de verificação do Google e robots.txt foram mantidos.
+
+### Aplicar somente o patch de convidados
+
+Use o patch sobre a 1.5.4 com desempenho e changelog. Extraia o ZIP e envie seus arquivos à raiz do GitHub, mantendo os caminhos: `server.js`, `accounts.js`, `player-store.js` e `guilds.js` ficam na raiz; os arquivos de `public` permanecem dentro de `public`. Não coloque os arquivos de servidor dentro de `public`. Os testes vão em `tests`. O ZIP contém apenas arquivos alterados; os demais continuam no repositório. Não apague nem envie o banco, `.env` ou backups. As variáveis existentes do Render e Upstash continuam iguais. Atualize todos os servidores usados e espere o deploy terminar.
+
+Sem conta, Jogar abre um convidado novo. O botão **Criar conta e salvar** no menu, ou **Convidado · salvar progresso** durante a partida, guarda esse personagem ao criar uma conta. Entrar carrega outra conta e descarta o convidado. Convidados podem jogar e usar squads mesmo sem banco configurado, mas não criar guildas nem exportar saves. O X de volta ao menu mantém a sessão temporária; recarregar, fechar, trocar de servidor ou reiniciar o serviço perde o convidado. Uma desconexão breve pode retomar a sessão por até 60 segundos, sem gravar seus dados em disco ou no navegador.
 
 Na 1.5.4, `/health` também informa as contagens de minérios ativos/em repouso, mobs e projéteis por mapa. A geração deixou de percorrer todos os minérios explorados para cada célula. O cliente confirma a lista de minérios estáticos e recebe outra apenas quando a área ou o estado muda; uma lista não confirmada é reenviada. Clientes anteriores continuam recebendo listas completas até recarregar.
 

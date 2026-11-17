@@ -54,6 +54,7 @@
    try{await Promise.all(entries.filter(entry=>entry.url).map(async entry=>{try{const status=await probe(entry.url);if(status.region!==entry.id)throw Error();statuses.set(entry.id,status);}catch{statuses.set(entry.id,{error:true});}}));render();}finally{probing=false;}
   }
   function resetWorld(){
+   if(multiplayer.guest)resetGuestSession();
    multiplayer.ready=false;multiplayer.started=false;multiplayer.inLobby=!!activeSession();multiplayer.pendingJoin=false;multiplayer.lastSent=null;multiplayer.drops=[];multiplayer.contribution={};multiplayer.squadContribution={};multiplayer.ping=undefined;
    players={};ores=[];mobs=[];projectiles=[];particles=[];abilityEffects=[];nearestBoss=null;pendingMovement.clear();multiplayer.correctedSeq=0;window.networkMovement?.reset();
    squadState={members:[]};renderSquad();accountPanel.hidden=true;squadPanel.hidden=true;inventoryOpen=shopOpen=craftOpen=talentsOpen=false;extraPanel=null;heldKeys.clear();movementAimActive=false;resetMobileInput();clearBossMobEffects();
@@ -66,15 +67,16 @@
   });}
   async function choose(entry){
    if(busy || !entry.url || entry.url===connection.current)return;
+   if(multiplayer.guest && selector.dataset.guestTarget!==entry.id){selector.dataset.guestTarget=entry.id;message.dataset.error='true';message.textContent='O convidado recomeça ao trocar de servidor. Crie uma conta para guardar o progresso ou clique novamente em '+entry.id+' para recomeçar.';return;}
    if(authBusy || multiplayer.pendingJoin){message.textContent='Aguarde a entrada na conta terminar.';return;}
    busy=true;window.regionSwitching=true;message.dataset.error='';message.textContent='Verificando '+entry.id+'…';render();const previous=connection.current;let left=false;
    try{
     const status=await probe(entry.url);statuses.set(entry.id,status);
     if(status.region!==entry.id)throw Error('O endereço configurado pertence a outra região.');
     if(!validRegion(entry,status,config))throw Error('Os servidores precisam usar o mesmo banco e a versão nova para compartilhar seu save.');
-    if(activeSession()){
+    if(activeSession() || multiplayer.guest){
      if(!connection.connected)throw Error('Reconecte ao servidor atual para confirmar o save antes de trocar.');
-     message.textContent='Salvando sua conta…';const result=await callServer('leaveServer',{});if(!result.ok)throw Error(result.message || 'O save ainda não foi confirmado.');
+     message.textContent=multiplayer.guest ? 'Encerrando o convidado temporário…' : 'Salvando sua conta…';const result=await callServer('leaveServer',{});if(!result.ok)throw Error(result.message || 'O save ainda não foi confirmado.');
     }
     left=true;
     await irisTransition(async()=>{resetWorld();message.textContent='Conectando a '+entry.id+'…';await connectTo(entry.url);});

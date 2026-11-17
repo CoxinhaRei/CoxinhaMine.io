@@ -40,7 +40,7 @@ module.exports=function createAccounts(db,store,hooks={}){
     await hooks.beforeSession?.(profile);
     store.rename(profile,nick);
     const account={id:crypto.randomUUID(),username:nick,nickKey:key,profileId:profile.id,password:{algorithm:'scrypt',N:PARAMETERS.N,r:PARAMETERS.r,p:PARAMETERS.p,salt,hash:derived.toString('hex')},createdAt:Date.now()};
-    profile.accountId=account.id;db.set(['accounts',account.id],account).set(['accountsByNick',key],account.id).write();
+    profile.accountId=account.id;store.promoteGuest(profile);db.set(['accounts',account.id],account).set(['accountsByNick',key],account.id).write();
     return {profile,credentials:store.rotateToken(profile),account:summary(profile)};
   }
   async function login(data={},ip='local'){

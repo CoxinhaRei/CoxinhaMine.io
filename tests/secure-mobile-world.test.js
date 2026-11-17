@@ -41,6 +41,68 @@ test('Render without persistent storage refuses new durable-account registration
   const result=await call(socket,'accountRegister',{nickname:'NeedsDatabase',password:'secure-test-password',lobby:true});assert.equal(result.ok,false);assert.match(result.message,/persistente/);assert.equal(Object.keys(db.get('accounts').value()).length,0);
 });
 
+test('guests are isolated, temporary, reward normally and upgrade in place only when registering',{timeout:20000},async t=>{
+  const db=low(new Memory()),server=await createGameServer({storage:{db,flush:async()=>true,mode:'memory',close(){}}});
+  await new Promise(r=>server.http.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.http.address().port,sockets=[];
+  t.after(async()=>{sockets.forEach(s=>s.disconnect());await server.close();});
+  for(const world of Object.values(server.worlds)){world.nextSpawn=Infinity;world.game.ores=[];world.game.mobs=[];}
+  const owner=server.store.create('ExistingAccount',{level:86,coins:9000,progressionVersion:3});
+  await server.accounts.register({nickname:'ExistingAccount',password:'existing-test-password',credentials:owner.credentials},null,'fixture');
+  db.set(['guilds','original'],{id:'original',name:'Original guild',tag:'OLD',owner:'ExistingAccount',members:['ExistingAccount']}).write();
+  const before=JSON.stringify(db.getState()),guest=await client(url);sockets.push(guest);
+  assert.equal((await call(guest,'guestJoin',{name:'ExistingAccount',legacySave:{level:86,coins:999999},lobby:false})).ok,true);
+  const credentials=guest.profile.credentials,actor=server.actors[guest.id];
+  assert.equal(guest.profile.state.guest,true);assert.equal(guest.profile.account,null);assert.notEqual(credentials.id,owner.profile.id);assert.equal(actor.state.level,1);assert.equal(actor.state.coins,0);
+  const world=server.worlds.garden,g=world.game;Object.assign(actor.state,{x:61000,y:50000,hurtUntil:Date.now()+100000});
+  const ore={id:'guest-loot',x:61100,y:50000,size:18,hp:150,maxHp:150,rarity:g.rarities[0]};g.ores=[ore];world.damage(actor,ore,150,false);
+  const drop=world.drops[0];drop.createdAt-=1000;actor.state.x=drop.x;actor.state.y=drop.y;world.collectDrops(actor);
+  assert.ok(actor.state.coins>0);assert.ok(actor.state.inventory.some(i=>i.type==='material'));
+  const group=await call(guest,'squadAction',{action:'create'});assert.equal(group.ok,true);assert.equal(group.state.leaderId,credentials.id);
+  const denied=new Promise(r=>guest.once('guildResult',r));guest.emit('guildAction',{action:'create',name:'Ghost guild',tag:'GHO'});assert.equal((await denied).ok,false);
+  const saveNotice=new Promise(r=>guest.once('saveConfirmed',r));guest.emit('savePlayer');assert.equal((await saveNotice).guest,true);
+  assert.equal(JSON.stringify(db.getState()),before,'guest loot, squad, actions and save requests never write guest data');
+  assert.equal((await call(guest,'returnToMenu',{})).ok,true);assert.equal((await call(guest,'joinGame',{lobby:false})).ok,true);assert.equal(server.actors[guest.id],actor);
+  assert.equal((await call(guest,'accountRegister',{nickname:'ExistingAccount',password:'another-test-password'})).ok,false);assert.equal(actor.profile.guest,true);
+  assert.equal((await call(guest,'accountLogin',{nickname:'ExistingAccount',password:'wrong-test-password'})).ok,false);assert.equal(actor.profile.guest,true);assert.equal(actor.state.coins,5);
+  actor.state.hp=40;const state=actor.state,x=state.x,y=state.y,coins=state.coins;
+  assert.equal((await call(guest,'accountRegister',{nickname:'SavedGuest',password:'guest-test-password',lobby:false})).ok,true);
+  assert.equal(server.actors[guest.id],actor);assert.equal(actor.state,state);assert.equal(actor.state.x,x);assert.equal(actor.state.y,y);assert.ok(actor.state.hp>=40 && actor.state.hp<70,'signup preserves current health apart from normal regeneration');assert.equal(actor.state.coins,coins);
+  assert.equal(guest.profile.credentials.id,credentials.id);assert.equal(guest.profile.state.guest,false);assert.equal(db.get(['profiles',credentials.id,'accountId']).value(),guest.profile.account.id);
+  assert.equal(server.store.verifyCredentials(credentials),null,'temporary token is rotated at signup');assert.equal(server.squads.groupFor(credentials.id).leaderId,credentials.id);
+  assert.equal(db.get(['guilds','original','owner']).value(),'ExistingAccount','renaming a guest cannot rename a real guild member with the same nick');
+  assert.equal((await call(guest,'accountLogout',{})).ok,true);
+  const device=await client(url);sockets.push(device);assert.equal((await call(device,'accountLogin',{nickname:'SavedGuest',password:'guest-test-password',lobby:true})).ok,true);
+  assert.equal(device.profile.state.coins,coins);assert.ok(device.profile.state.inventory.some(i=>i.type==='material'));
+  const another=await client(url);sockets.push(another);assert.equal((await call(another,'guestJoin',{name:'ExistingAccount',lobby:true})).ok,true);
+  const temporaryId=another.profile.credentials.id;server.actors[another.id].state.coins=42;
+  assert.equal((await call(another,'accountLogin',{nickname:'ExistingAccount',password:'existing-test-password',lobby:true})).ok,true);
+  assert.equal(another.profile.credentials.id,owner.profile.id);assert.equal(another.profile.state.level,86);assert.equal(another.profile.state.coins,9000,'login never overwrites or merges an existing account with guest stats');assert.equal(server.store.find(temporaryId),undefined);
+});
+
+test('guests work without a database, reconnect with RAM bearer, and disappear on explicit exit',{timeout:15000},async t=>{
+  const db=low(new Memory());let catalogCalls=0,flushCalls=0,claims=0;
+  const server=await createGameServer({env:{RENDER:'true'},storage:{db,mode:'file',flush:async()=>{flushCalls++;return false;},transact:async()=>{catalogCalls++;throw Error('Database offline');},claim:async()=>{claims++;throw Error('Database offline');},close(){}}});
+  await new Promise(r=>server.http.listen(0,'127.0.0.1',r));const url='http://127.0.0.1:'+server.http.address().port,sockets=[];
+  t.after(async()=>{sockets.forEach(s=>s.disconnect());await server.close();});for(const world of Object.values(server.worlds))world.nextSpawn=Infinity;
+  const a=await client(url);sockets.push(a);assert.equal((await call(a,'guestJoin',{name:'',lobby:true})).ok,true);assert.equal(a.profile.state.name,'Convidado');
+  const credentials=a.profile.credentials,id=credentials.id,oldSocket=a.id;server.actors[a.id].state.coins=42;a.disconnect();await delay(80);assert.equal(server.actors[oldSocket],undefined);assert.equal(server.store.find(id).guest,true);
+  const b=await client(url);sockets.push(b);assert.equal((await call(b,'joinGame',{credentials,guest:true,lobby:true})).ok,true);assert.equal(b.profile.state.coins,42);
+  assert.equal((await call(b,'accountRegister',{nickname:'NoDatabaseYet',password:'guest-test-password'})).ok,false);assert.equal(server.actors[b.id].profile.guest,true);
+  assert.equal((await call(b,'returnToMenu',{})).ok,true);assert.equal((await call(b,'leaveServer',{})).ok,true);assert.equal(server.store.find(id),undefined);
+  assert.equal((await call(b,'joinGame',{credentials,guest:true,lobby:true})).code,'GUEST_EXPIRED');
+  assert.equal((await call(b,'guestJoin',{name:'Convidado',legacySave:{level:86,coins:42},lobby:true})).ok,true);assert.notEqual(b.profile.credentials.id,id);assert.equal(b.profile.state.level,1);assert.equal(b.profile.state.coins,0);
+  assert.equal((await call(b,'accountLogout',{})).ok,true);assert.equal(Object.keys(db.get('profiles').value()).length,0);assert.equal(Object.keys(db.get('accounts').value()).length,0);
+  assert.equal(catalogCalls,0);assert.equal(flushCalls,0);assert.equal(claims,0,'guest paths never depend on Redis leases or catalog locks');
+});
+
+test('signup reports an unconfirmed database commit without losing the promoted guest session',{timeout:10000},async t=>{
+  const db=low(new Memory()),server=await createGameServer({storage:{db,mode:'memory',flush:async()=>false,close(){}}});
+  await new Promise(r=>server.http.listen(0,'127.0.0.1',r));const socket=await client('http://127.0.0.1:'+server.http.address().port);t.after(async()=>{socket.disconnect();await server.close();});
+  assert.equal((await call(socket,'guestJoin',{lobby:true})).ok,true);const actor=server.actors[socket.id],id=actor.profile.id;actor.state.coins=123;
+  const result=await call(socket,'accountRegister',{nickname:'PendingCommitGuest',password:'pending-test-password',lobby:true});
+  assert.equal(result.ok,true);assert.equal(result.saved,false);assert.match(result.message,/não confirmou/);assert.equal(server.actors[socket.id],actor);assert.equal(actor.profile.id,id);assert.equal(actor.state.coins,123);assert.equal(socket.profile.state.guest,false);assert.equal(socket.profile.account.username,'PendingCommitGuest');
+});
+
 test('mob/player/ore collisions resolve; all natural species drop collectible, private and nonduplicated loot',async()=>{
   const db=low(new Memory()),server=await createGameServer({storage:{db,flush:async()=>true,mode:'memory',close(){}}});
   try{const world=server.worlds.garden,g=world.game;world.nextSpawn=Infinity;const seed=server.store.create('DropTester'),profile=seed.profile,events=[],actor={profile,state:profile.state,inLobby:false,socket:{id:'test',emit:(event,value)=>events.push({event,value})}};server.actors.test=actor;

@@ -2,7 +2,9 @@
 
 Jogo de jardim e mineração com mundo compartilhado, coxinhas, equipamentos, talentos, contas e squads.
 
-Inclui joystick e combate touch, conta obrigatória, drops no chão, colisões no servidor, barras de vida suaves e bosses Super+ com rajadas e invocações. O nível 300 exige 100 bilhões de XP acumulados e não é o nível máximo.
+Inclui joystick e combate touch, contas com senha, drops no chão, colisões no servidor, barras de vida suaves e bosses Super+ com rajadas e invocações. O nível 300 exige 100 bilhões de XP acumulados e não é o nível máximo.
+
+O patch de convidados mantém a versão 1.5.4. Sem login, **Jogar** cria um personagem temporário e novo. Criar uma conta durante a sessão vincula seu nível, itens, moedas e talentos; entrar em uma conta existente carrega o save dela, sem juntar personagens. Voltar ao menu mantém o convidado. Fechar/recarregar a página, trocar de servidor ou reiniciar o servidor perde esse progresso. Convidados não são gravados no banco nem no armazenamento do navegador; uma queda breve de conexão pode retomar a sessão por até 60 segundos usando apenas o token em memória. Guildas e backups exigem conta. O cadastro no Render continua exigindo banco persistente.
 
 O patch 1.5.3 adiciona BR/US no menu, ping medido, transferência da mesma conta entre servidores e movimento com replay e correções visuais suaves. Leia [REGIONS.md](REGIONS.md) para configurar os endereços e publicar em uma região próxima. Servidores não configurados ficam indisponíveis; o código não altera a localização física da hospedagem.
 

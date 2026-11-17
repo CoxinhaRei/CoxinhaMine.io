@@ -81,7 +81,7 @@ O ZIP completo contém a raiz do projeto, `public`, `scripts` e `tests`. Extraia
 Após o deploy, `/health` deve informar:
 
 ```json
-{"version":"1.5.4","build":"exploration-perf-v6","protocol":6,"region":"US","persistence":"redis","sharedSaves":true,"durable":true,"saveError":false}
+{"version":"1.5.4","build":"guest-patch-v6","protocol":6,"region":"US","persistence":"redis","sharedSaves":true,"guests":true,"accountRequired":false,"durable":true,"saveError":false}
 ```
 
 Haverá outros campos. `/servers` mostra os endereços públicos configurados e `/ping` confirma a região servida. Nenhum desses endpoints expõe senhas ou o token do Redis.

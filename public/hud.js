@@ -73,7 +73,7 @@ document.getElementById('hud-sell').addEventListener('click', () => {
 
 function updateGameHud() {
   const guild=guildState.directory.find(g=>g.id===guildState.guildId);
-  hud.name.textContent = (guild ? '['+guild.tag+'] ' : '')+player.name;
+  hud.name.textContent = (guild ? '['+guild.tag+'] ' : '')+playerDisplayName(player);
   const maxHp = Math.max(1, player.maxHp || 100);
   const hp = Number.isFinite(player.hp) ? player.hp : maxHp;
   hud.health.style.width = Math.max(0, Math.min(100, hp / maxHp * 100)) + '%';

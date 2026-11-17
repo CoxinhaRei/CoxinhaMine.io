@@ -26,7 +26,7 @@ module.exports = function createGuildSystem(io, db, players, storage={}) {
     io.emit('guildDirectory',directory());
   }
   function attach(socket) {
-    socket.on('guildList',async()=>{try{if(storage.transact)await storage.transact(()=>sync(socket));else sync(socket);}catch{socket.emit('guildResult',{ok:false,message:'Banco indisponível. Tente novamente.'});}});
+    socket.on('guildList',async()=>{try{if(storage.transact && !players[socket.id]?.guest)await storage.transact(()=>sync(socket));else sync(socket);}catch{socket.emit('guildResult',{ok:false,message:'Banco indisponível. Tente novamente.'});}});
     const action=async data=>{
       const player=players[socket.id];
       if(!player || !data || typeof data!=='object')return;
@@ -62,7 +62,7 @@ module.exports = function createGuildSystem(io, db, players, storage={}) {
       sync(socket);publish();
       socket.emit('guildResult',{ok:true,message:'Guilda atualizada.'});
     };
-    socket.on('guildAction',async data=>{if(socket.data.guildBusy)return;socket.data.guildBusy=true;try{if(storage.transact)await storage.transact(()=>action(data));else await action(data);}catch{socket.emit('guildResult',{ok:false,message:'Não foi possível salvar a guilda. Tente novamente.'});}finally{socket.data.guildBusy=false;}});
+    socket.on('guildAction',async data=>{if(players[socket.id]?.guest){socket.emit('guildResult',{ok:false,message:'Crie uma conta para participar de guildas.'});return;}if(socket.data.guildBusy)return;socket.data.guildBusy=true;try{if(storage.transact)await storage.transact(()=>action(data));else await action(data);}catch{socket.emit('guildResult',{ok:false,message:'Não foi possível salvar a guilda. Tente novamente.'});}finally{socket.data.guildBusy=false;}});
   }
   return {attach,sync};
 };

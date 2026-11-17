@@ -5,6 +5,19 @@ const hash=token=>crypto.createHash('sha256').update(token).digest('hex');
 
 module.exports=function playerStore(db,game){
   db.defaults({players:{},profiles:{},guilds:{}}).write();
+  // Guest saves and bearer tokens exist only in this process, never in the database.
+  const guests=new Map(),guestTimers=new Map();
+  const find=id=>guests.get(id) || db.get(['profiles',id]).value();
+  function touchGuest(id){clearTimeout(guestTimers.get(id));guestTimers.delete(id);}
+  function discardGuest(id){touchGuest(id);guests.delete(id);}
+  function deferGuest(id){if(!guests.has(id))return;touchGuest(id);const timer=setTimeout(()=>discardGuest(id),60000);timer.unref?.();guestTimers.set(id,timer);}
+  function createGuest(value){
+    if(guests.size>=256)throw Error('O servidor está cheio de convidados. Tente novamente em instantes.');
+    const name=String(value || '').normalize('NFKC').replace(/[^\p{L}\p{N}_. -]/gu,'').trim().replace(/\s+/g,' ').slice(0,24) || 'Convidado';
+    const id=crypto.randomUUID(),token=crypto.randomBytes(32).toString('hex'),profile={id,name,guest:true,tokenHash:hash(token),state:sanitize(),revision:0};
+    guests.set(id,profile);return {profile,credentials:{id,token}};
+  }
+  function promoteGuest(profile){if(!profile.guest)return;if(!profile.accountId)throw Error('Vincule uma conta antes de salvar.');discardGuest(profile.id);delete profile.guest;}
   function sanitize(raw={}){
     const state=game.fresh();
     state.level=Math.floor(safeNumber(raw.level,1,1,99999));state.xp=safeNumber(raw.xp,0,0,Number.MAX_SAFE_INTEGER);state.coins=Math.floor(safeNumber(raw.coins));
@@ -56,11 +69,11 @@ module.exports=function playerStore(db,game){
     const id=crypto.randomUUID(),token=crypto.randomBytes(32).toString('hex'),profile={id,name,tokenHash:hash(token),state:sanitize(state),revision:0};
     db.set(['profiles',id],profile).write();return {profile,credentials:{id,token}};
   }
-  function save(profile){profile.revision++;profile.savedAt=Date.now();db.set(['profiles',profile.id],profile).write();}
+  function save(profile){profile.revision++;if(profile.guest)return;profile.savedAt=Date.now();db.set(['profiles',profile.id],profile).write();}
   function verifyCredentials(creds={}){
     if(!creds || typeof creds!=='object')return null;
     if(!/^[a-f0-9-]{36}$/.test(creds.id || '') || !/^[a-f0-9]{64}$/.test(creds.token || ''))return null;
-    const profile=db.get(['profiles',creds.id]).value();if(!profile || !/^[a-f0-9]{64}$/.test(profile.tokenHash || ''))return null;
+    const profile=find(creds.id);if(!profile || !/^[a-f0-9]{64}$/.test(profile.tokenHash || ''))return null;
     return crypto.timingSafeEqual(Buffer.from(profile.tokenHash,'hex'),Buffer.from(hash(creds.token),'hex')) ? profile : null;
   }
   function rotateToken(profile){const token=crypto.randomBytes(32).toString('hex');profile.tokenHash=hash(token);save(profile);return {id:profile.id,token};}
@@ -68,8 +81,9 @@ module.exports=function playerStore(db,game){
     if(profile.name===name)return;
     if(Object.values(db.get('profiles').value()).some(p=>p.id!==profile.id && p.name.toLowerCase()===name.toLowerCase()))throw Error('Esse nick já está em uso por outro perfil.');
     const oldName=profile.name;profile.name=name;profile.state.name=name;
-    for(const guild of Object.values(db.get('guilds').value() || {})){guild.members=guild.members.map(member=>member===oldName ? name : member);if(guild.owner===oldName)guild.owner=name;}
+    if(!profile.guest)for(const guild of Object.values(db.get('guilds').value() || {})){guild.members=guild.members.map(member=>member===oldName ? name : member);if(guild.owner===oldName)guild.owner=name;}
   }
-  function clientState(profile){return {...clone(profile.state),name:profile.name,saveRevision:profile.revision};}
-  return {sanitize,join,create,save,clientState,clone,verifyCredentials,rotateToken,rename,find:id=>db.get(['profiles',id]).value()};
+  function clientState(profile){return {...clone(profile.state),name:profile.name,guest:!!profile.guest,saveRevision:profile.revision};}
+  function close(){for(const timer of guestTimers.values())clearTimeout(timer);guestTimers.clear();guests.clear();}
+  return {sanitize,join,create,save,clientState,clone,verifyCredentials,rotateToken,rename,find,createGuest,promoteGuest,touchGuest,deferGuest,discardGuest,close};
 };

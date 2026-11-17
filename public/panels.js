@@ -194,6 +194,11 @@ function renderSystems(){
 // Public release notes. Earlier version groupings are reconstructed from project history.
 const CHANGELOG_ENTRIES = [
   {version:'1.5.4',title:['Exploração mais leve','Smoother exploration'],groups:[
+    {title:['Patch · Convidados','Patch · Guests'],items:[
+      ['Agora é possível jogar como convidado, sem criar conta. O personagem começa do zero e só existe durante a sessão.','You can now play as a guest without creating an account. Each guest starts fresh and exists only for the current session.'],
+      ['Criar uma conta guarda o nível, os itens e o progresso do convidado atual. Entrar em uma conta existente carrega o save dela, sem mesclar personagens.','Creating an account saves your current guest’s level, items and progress. Signing in to an existing account loads its save without merging characters.'],
+      ['Fechar, recarregar ou trocar de servidor perde o convidado. Voltar ao menu mantém a sessão temporária. Guildas e backups exigem uma conta.','Closing, reloading or switching servers loses the guest. Returning to the menu keeps the temporary session. Guilds and backups require an account.']
+    ]},
     {title:['Desempenho','Performance'],items:[
       ['Corrigido o acúmulo de minérios que deixava o jogo progressivamente mais lento conforme o mapa era explorado.','Fixed ore accumulation that made the game progressively slower as players explored the map.'],
       ['A geração de minérios agora consulta células próximas, em vez de percorrer repetidamente o mapa inteiro.','Ore generation now checks nearby cells instead of repeatedly scanning the entire explored world.'],
