@@ -1,10 +1,10 @@
 # Conta de testes DevTeste — CoxinhaMine.io 1.5.5
 
-Este patch prepara a criação da conta no servidor do jogo. A conta ainda não foi criada no site por esta entrega: é necessário publicar os arquivos e definir as variáveis abaixo no seu Render. Nenhuma senha real está neste pacote.
+Este patch cria ou atualiza a conta de testes no servidor do jogo após publicar os arquivos e configurar as variáveis do Render. Nenhuma senha real está neste pacote.
 
 ## Ativar no jogo publicado
 
-1. Extraia o ZIP e envie todos os arquivos para a raiz do repositório do jogo, preservando `public` e `tests`. Substitua os arquivos de mesmo caminho, mantendo os demais. Este pacote é cumulativo sobre a 1.5.5 e também inclui o patch anterior de Craft/Tornados.
+1. Instale primeiro o patch da conta DEV sobre a versão 1.5.5. Se você recebeu o ZIP de correção de senha, extraia-o e envie seus arquivos para a mesma raiz do repositório, preservando a pasta `tests`. Substitua os arquivos de mesmo caminho, mantendo os demais. A correção depende do patch da conta DEV já instalado.
 2. No Render, abra o serviço do jogo → Environment. Preserve as variáveis de Upstash e a chave do banco já usadas pelo jogo.
 3. Adicione:
 
@@ -15,12 +15,12 @@ Este patch prepara a criação da conta no servidor do jogo. A conta ainda não 
 | DEV_ACCOUNT_PASSWORD | Uma senha privada escolhida por você, com 16 a 128 caracteres |
 
 4. Salve com deploy. Se houver mais de um servidor regional, atualize todos os serviços com este código e a mesma configuração antes de usar a conta.
-5. Abra `/health`: confira `build: release-155-devaccount1` e `developerAccountReady: true`.
+5. Abra `/health`: confira `build: release-155-devaccount2` e `developerAccountReady: true`.
 6. No jogo, use **Entrar**, nick **DevTeste** e a senha que você definiu no Render. Não use Criar conta. Recarregue com Ctrl+F5 para carregar o cliente novo.
 
 O cadastro exige o banco persistente no Render. A senha é guardada como hash scrypt; não coloque seu valor no GitHub, em `.env.example`, no ZIP ou no chat. As senhas fictícias dos testes automatizados não servem no site.
 
-Se `developerAccountReady` estiver false, confira os logs do Render. Se já existir uma conta normal chamada DevTeste, ela não será alterada ou tomada: escolha outro nick livre em DEV_ACCOUNT_NICK. Se a conta DEV já foi criada, mantenha a senha original na configuração; trocar a variável não sobrescreve a senha existente.
+Se `developerAccountReady` estiver false, confira os logs do Render. Se já existir uma conta normal chamada DevTeste, ela não será alterada ou tomada: escolha outro nick livre em DEV_ACCOUNT_NICK. Se a conta DEV já foi criada, alterar DEV_ACCOUNT_PASSWORD e fazer deploy atualiza sua senha com um novo hash e invalida as sessões antigas. Isso vale somente para perfis que o servidor já marcou como DEV; contas normais nunca são promovidas ou sobrescritas. O ID e o progresso da DevTeste são preservados. Configure a mesma senha em todos os serviços regionais; um serviço com uma configuração diferente poderá voltar a atualizar a senha no próximo deploy.
 
 ## O que fica liberado
 

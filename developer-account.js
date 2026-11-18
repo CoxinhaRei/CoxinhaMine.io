@@ -30,7 +30,16 @@ async function provision({env,db,store,game,persistence,durable,transact}){
         const profile=store.find(account.profileId);if(profile?.developerTest!==true)throw Error('Esse nick pertence a uma conta normal. Ela não será alterada. Escolha outro DEV_ACCOUNT_NICK.');
         const record=account.password;if(record?.algorithm!=='scrypt')throw Error('O registro da conta de testes é inválido.');
         const hash=await derive(config.password,Buffer.from(record.salt,'hex'),64,{N:record.N,r:record.r,p:record.p,maxmem:64*1024*1024});
-        if(!crypto.timingSafeEqual(hash,Buffer.from(record.hash,'hex')))throw Error('A senha configurada não corresponde à conta de testes existente. Mantenha a senha original; nenhuma conta foi sobrescrita.');
+        if(!crypto.timingSafeEqual(hash,Buffer.from(record.hash,'hex'))){
+          // Only an account already marked DEV may follow the owner's server secret.
+          // Acquire its regional lease before writing credentials or revoking bearers.
+          claimed=profile.id;await persistence.claim?.(claimed);
+          const salt=crypto.randomBytes(16).toString('hex'),parameters={N:32768,r:8,p:3,maxmem:64*1024*1024},next=await derive(config.password,Buffer.from(salt,'hex'),64,parameters);
+          account.password={algorithm:'scrypt',N:parameters.N,r:parameters.r,p:parameters.p,salt,hash:next.toString('hex')};account.passwordUpdatedAt=Date.now();
+          db.set(['accounts',account.id],account).write();store.rotateToken(profile);
+          if(await persistence.flush()===false)throw Error('O banco ainda não confirmou a atualização da senha da conta de testes.');
+          status.passwordUpdated=true;
+        }
       }else{
         const service=createAccounts(db,store,{beforeSession:async profile=>{claimed=profile.id;await persistence.claim?.(claimed);}});
         const result=await service.register({nickname:config.nickname,password:config.password},null,'developer-provision');result.profile.developerTest=true;grant(result.profile,game,store);
