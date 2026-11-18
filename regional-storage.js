@@ -1,6 +1,7 @@
 const crypto=require('node:crypto');
 const fs=require('node:fs');
 const {isDeepStrictEqual:equal}=require('node:util');
+const diagnostics=require('./save-diagnostics');
 const clone=value=>JSON.parse(JSON.stringify(value));
 const own=(object,key)=>Object.prototype.hasOwnProperty.call(object || {},key);
 const object=value=>value && typeof value==='object' && !Array.isArray(value);
@@ -42,7 +43,7 @@ function apply(state,ops){
 
 module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''}){
  const owner=crypto.randomUUID(),held=new Set(),ttl=60000;
- let baseline=initialRaw ? JSON.parse(initialRaw) : {},baselineRaw=initialRaw,dirty=false,pending=null,writing=null,lastError=null,closed=false,transactions=0;
+ let baseline=initialRaw ? JSON.parse(initialRaw) : {},baselineRaw=initialRaw,dirty=false,pending=null,writing=null,lastError=null,lastErrorCode=null,closed=false,transactions=0;
  function install(next){
   const current=db.getState();
   // Keep live actor references stable across asynchronous saves and refreshes.
@@ -55,7 +56,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
   if(writing){const ok=await writing;return ok && dirty ? flush() : ok;}
   if(!dirty)return !lastError;
   const snapshot=clone(db.getState()),ops=changes(baseline,snapshot);dirty=false;
-  if(!ops.length){lastError=null;return true;}
+  if(!ops.length){lastError=null;lastErrorCode=null;return true;}
   writing=(async()=>{
    try{
     const ids=ops.filter(op=>op.path[0]==='profiles' && op.path.length===2).map(op=>op.path[1]);
@@ -74,8 +75,8 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
     baselineRaw=result[1];
     const remote=JSON.parse(result[1]),later=changes(snapshot,clone(db.getState()));baseline=clone(remote);install(apply(remote,later));
     const payload=JSON.stringify(db.getState());await fs.promises.writeFile(file+'.tmp',payload,'utf8');await fs.promises.rename(file+'.tmp',file);
-    lastError=null;return true;
-   }catch(error){dirty=true;lastError=error.message;console.error('Save compartilhado pendente:',error.message);return false;}
+    lastError=null;lastErrorCode=null;return true;
+   }catch(error){dirty=true;lastError=error.message;lastErrorCode=diagnostics.code(error);console.error('Save compartilhado pendente:',lastErrorCode);return false;}
   })();
   const ok=await writing;writing=null;return ok && dirty ? flush() : ok;
  }
@@ -112,5 +113,5 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
   try{return await action();}finally{transactions--;await request(['EVAL',RELEASE,1,lockKey,token]);if(dirty)schedule();}
  }
  const retry=setInterval(()=>{if(!transactions)flush();},10000);retry.unref?.();
- return {db,file,mode:'redis',shared:true,flush,refresh,claim,release,renew,discard,transact,get lastError(){return lastError;},close(){closed=true;clearTimeout(pending);clearInterval(retry);}};
+ return {db,file,mode:'redis',shared:true,flush,refresh,claim,release,renew,discard,transact,get lastError(){return lastError;},get lastErrorCode(){return lastErrorCode;},close(){closed=true;clearTimeout(pending);clearInterval(retry);}};
 };

@@ -10,6 +10,7 @@ const createSquads=require('./squads');
 const movement=require('./public/movement-net');
 const expansion=require('./public/expansion');
 const developer=require('./developer-account');
+const saveDiagnostics=require('./save-diagnostics');
 const {movePlayerBody}=require('./world-physics');
 
 const attachPublicProfiles=require('./public-profiles');
@@ -58,7 +59,7 @@ async function createGameServer(options={}){
   const metrics={tickMs:0,slowTicks:0};
   app.get('/servers',(_request,response)=>{response.set('Cache-Control','no-store');response.json({...regions.public(),protocol:6,sharedSaves:!!persistence.shared});});
   app.get('/ping',(_request,response)=>{response.set({'Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});response.json({ok:!persistence.lastError,region:regions.id,location:regions.location,protocol:6,sharedSaveId:regions.sharedSaveId,sharedSaves:!!persistence.shared});});
-  app.get('/health',(_request,response)=>response.json({ok:true,version:'1.5.5',build:'release-155-devaccount2',developerAccountReady:developerStatus.ready,protocol:6,region:regions.id,location:regions.location,sharedSaves:!!persistence.shared,accounts:true,squads:true,accountRequired:false,guests:true,durable,players:Object.values(actors).filter(a=>!a.inLobby).length,persistence:persistence.mode,saveError:!!persistence.lastError,worldRevision:worlds.garden.revision,tickMs:Math.round(metrics.tickMs*100)/100,slowTicks:metrics.slowTicks,entities:Object.fromEntries(Object.entries(worlds).map(([name,world])=>[name,{activeOres:world.game.ores.length,dormantOres:world.dormantOres.size,mobs:world.game.mobs.length,projectiles:world.game.projectiles.length}]))}));
+  app.get('/health',(_request,response)=>response.json({ok:true,version:'1.5.5',build:'release-155-savecheck1',developerAccountReady:developerStatus.ready,protocol:6,region:regions.id,location:regions.location,sharedSaves:!!persistence.shared,accounts:true,squads:true,accountRequired:false,guests:true,durable,players:Object.values(actors).filter(a=>!a.inLobby).length,persistence:persistence.mode,saveError:!!persistence.lastError,saveErrorCode:persistence.lastError?saveDiagnostics.code({code:persistence.lastErrorCode}):null,worldRevision:worlds.garden.revision,tickMs:Math.round(metrics.tickMs*100)/100,slowTicks:metrics.slowTicks,entities:Object.fromEntries(Object.entries(worlds).map(([name,world])=>[name,{activeOres:world.game.ores.length,dormantOres:world.dormantOres.size,mobs:world.game.mobs.length,projectiles:world.game.projectiles.length}]))}));
   function unbind(socket,{preserveSquad=false,discard=false}={}){
     const actor=actors[socket.id];if(!actor)return;
     if(!discard)store.save(actor.profile);delete actors[socket.id];delete guildPlayers[socket.id];

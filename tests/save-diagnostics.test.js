@@ -1,0 +1,19 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),os=require('node:os'),path=require('node:path'),http=require('node:http');
+const diagnostics=require('../save-diagnostics'),{createGameServer}=require('../server'),fixture=require('./redis-fixture');
+test('save error classification uses fixed codes, never raw messages or credentials',()=>{
+ for(const [error,expected] of [[{code:'SAVE_CONFLICT'},'SAVE_CONFLICT'],[{message:'SESSION_LOST'},'SESSION_LOST'],[{code:'ENOSPC'},'LOCAL_WRITE_FAILED'],[{name:'TimeoutError'},'NETWORK_TIMEOUT'],[{name:'TypeError',message:'fetch failed'},'NETWORK_ERROR'],[{message:'unknown private value',code:'unknown-private-value'},'SAVE_FAILED']])assert.equal(diagnostics.code(error),expected);
+ for(const [status,message,expected] of [[401,'private-token','REDIS_AUTH_FAILED'],[403,'NOPERM private-token','REDIS_WRITE_DENIED'],[413,'private-token','SAVE_TOO_LARGE'],[429,'Too many requests','REDIS_RATE_LIMITED'],[200,'ERR max daily request limit exceeded','REDIS_QUOTA_EXCEEDED'],[200,'ERR max request size exceeded','SAVE_TOO_LARGE'],[503,'private-token','REDIS_UNAVAILABLE'],[400,'unknown private-token','SAVE_FAILED']])assert.equal(diagnostics.redisCode(status,message),expected);
+});
+test('real Redis HTTP failures appear safely in health and clear only after a confirmed retry',{timeout:30000},async t=>{
+ const redis=await fixture(t),root=path.resolve(os.tmpdir()),dir=fs.mkdtempSync(path.join(root,'coxinha-save-diag-'));let fault=null,server;
+ const relay=http.createServer(async(req,res)=>{try{let raw='';for await(const b of req)raw+=b;const command=JSON.parse(raw);res.setHeader('Content-Type','application/json');if(fault&&command[0]==='EVAL'&&command[1].includes('coxinha-record-commit-v1')){res.statusCode=fault.status;res.end(JSON.stringify({error:fault.message}));return;}res.end(JSON.stringify({result:redis.command(command)}));}catch{res.statusCode=500;res.end(JSON.stringify({error:'test relay failure'}));}});
+ try{
+  await new Promise(r=>relay.listen(0,'127.0.0.1',r));server=await createGameServer({env:{...redis.env,UPSTASH_REDIS_REST_URL:'http://127.0.0.1:'+relay.address().port,DATA_DIR:dir}});assert.equal(await server.persistence.flush(),true);await new Promise(r=>server.http.listen(0,'127.0.0.1',r));
+  const health=async()=>(await fetch('http://127.0.0.1:'+server.http.address().port+'/health')).json();assert.equal((await health()).saveErrorCode,null);
+  let n=0;
+  for(const [status,message,expected] of [[401,'WRONGPASS private-fixture-secret','REDIS_AUTH_FAILED'],[403,'NOPERM private-fixture-secret','REDIS_WRITE_DENIED'],[429,'private-fixture-secret','REDIS_RATE_LIMITED'],[200,'ERR max daily request limit exceeded private-fixture-secret','REDIS_QUOTA_EXCEEDED'],[413,'private-fixture-secret','SAVE_TOO_LARGE'],[503,'private-fixture-secret','REDIS_UNAVAILABLE']]){
+   fault={status,message};server.persistence.db.set('diagnosticTestCounter',++n).write();assert.equal(await server.persistence.flush(),false);const failed=await health();assert.equal(failed.build,'release-155-savecheck1');assert.equal(failed.saveError,true);assert.equal(failed.saveErrorCode,expected);assert.equal(JSON.stringify(failed).includes('private-fixture-secret'),false);
+   await assert.rejects(()=>server.persistence.refresh(),/último save/);fault=null;assert.equal(await server.persistence.flush(),true);assert.equal(JSON.parse(redis.values.get('coxinha:database:v2')).diagnosticTestCounter,n);const recovered=await health();assert.equal(recovered.saveError,false);assert.equal(recovered.saveErrorCode,null);
+  }
+ }finally{if(server)await server.close();await new Promise(r=>relay.close(r));if(!path.resolve(dir).startsWith(root+path.sep))throw Error('Unsafe test cleanup');fs.rmSync(dir,{recursive:true,force:true});}
+});
