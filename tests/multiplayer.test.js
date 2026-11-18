@@ -63,7 +63,7 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   const before=JSON.stringify(db.get(['profiles',creds.id,'state','inventory']).value());assert.equal(resetGuilds(db),1);assert.deepEqual(db.get('guilds').value(),{});assert.equal(db.get(['profiles',creds.id,'state','guildId']).value(),null);assert.equal(JSON.stringify(db.get(['profiles',creds.id,'state','inventory']).value()),before);
   const g=server.worlds.garden.game;
   for(const definition of g.creatures){const common=g.createCreature(definition.kind,g.rarities[0],60000,50000),superMob=g.createCreature(definition.kind,g.rarities[7],60000,50000);assert.ok(common.hp>definition.hp);assert.ok(superMob.hp>=500000);assert.equal(superMob.size,Math.min(360,25*Math.pow(1.32,7))*3);assert.equal(superMob.damage,definition.damage*Math.pow(1.4,7));}
-  assert.equal(g.zone(5000,50000),'U');assert.equal(catalog.ORE_HP[7],12000000);assert.ok(g.pickaxes[5].power>=45000);assert.ok(g.armors.find(a=>a.name==='Diamante').aura);
+  assert.equal(g.zone(5000,50000),'U');assert.equal(catalog.ORE_HP[7],18000000);assert.ok(g.pickaxes[5].power>=45000);assert.ok(g.armors.find(a=>a.name==='Diamante').aura);
   const caveFriend=await login(url,'Gamma');sockets.push(caveFriend);
   for(const socket of [resumed,caveFriend]){
     Object.assign(server.actors[socket.id].state,{x:99000,y:1000});socket.emit('move',{x:99000,y:1000,aimAngle:0,selectedSlot:2});await until(()=>server.actors[socket.id].state.x===99000,'portal approach');socket.emit('changeRealm','cave');await until(()=>socket.world?.realm==='cave','shared cave entry');
@@ -73,3 +73,4 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   assert.deepEqual(resumed.world.ores.map(o=>[o.id,o.hp]).sort(),caveFriend.world.ores.map(o=>[o.id,o.hp]).sort(),'same cave resources and health');
   assert.deepEqual(resumed.world.mapDelta,caveFriend.world.mapDelta,'same maze chamber changes');
 });
+
