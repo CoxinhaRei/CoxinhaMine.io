@@ -22,9 +22,9 @@ module.exports=function createAccounts(db,store,hooks={}){
     if(working>=2)throw Error('O servidor está ocupado. Tente novamente em instantes.');
     working++;try{return await derive(secret,Buffer.from(salt,'hex'),64,PARAMETERS);}finally{working--;}
   }
-  function summary(profile){const account=profile.accountId && db.get(['accounts',profile.accountId]).value();return account ? {id:account.id,username:account.username} : null;}
+  function summary(profile){const account=profile.accountId && db.get(['accounts',profile.accountId]).value();return account ? {id:account.id,username:account.username,developerTest:profile.developerTest===true} : null;}
   async function register(data={},currentProfile,ip='local'){
-    const nick=nickname(data.nickname),secret=password(data.password);rate(ip,nick,true);
+    const nick=nickname(data.nickname),secret=password(data.password);hooks.beforeRegister?.(nick);rate(ip,nick,true);
     const key=keyFor(nick);
     if(db.get(['accountsByNick',key]).value())throw Error('Esse nick já tem uma conta. Use Entrar.');
     let profile=currentProfile || store.verifyCredentials(data.credentials);

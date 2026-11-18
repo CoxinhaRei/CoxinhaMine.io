@@ -3,28 +3,29 @@ const normalize=value=>String(value||'').normalize('NFKC').trim().replace(/\s+/g
 const INVITE_TTL=24*60*60*1000;
 module.exports=function createGuildSystem(io,db,players,storage={}){
  db.defaults({guilds:{}}).write();
- const profiles=()=>Object.values(db.get('profiles').value()||{}).filter(p=>p.accountId&&!p.guest).map(p=>storage.getProfile?.(p.id)||p);
- const guilds=()=>Object.values(db.get('guilds').value()||{}).filter(g=>g&&Array.isArray(g.members));
+ const profiles=()=>Object.values(db.get('profiles').value()||{}).filter(p=>p.accountId&&!p.guest&&!p.developerTest).map(p=>storage.getProfile?.(p.id)||p);
+ const developerNames=()=>new Set(Object.values(db.get('profiles').value()||{}).filter(p=>p.developerTest).map(p=>normalize(p.name)));
+ const guilds=()=>{const hidden=developerNames();return Object.values(db.get('guilds').value()||{}).filter(g=>g&&Array.isArray(g.members)&&!hidden.has(normalize(g.owner)));};
  const activeInvites=g=>(g.invites||[]).filter(i=>i&&i.expiresAt>Date.now());
  const profileById=id=>profiles().find(p=>p.id===id),profileByName=name=>profiles().find(p=>normalize(p.name)===normalize(name));
  const memberGuild=name=>guilds().find(g=>g.members.some(n=>normalize(n)===normalize(name)));
  const isOwner=(guild,player)=>guild&&normalize(guild.owner)===normalize(player.name)&&(!guild.ownerId||guild.ownerId===player.profileId);
  function setMembership(profileId,guildId){if(storage.setMembership?.(profileId,guildId)===false)return;const profile=profileById(profileId);if(!profile)return;profile.state.guildId=guildId;db.set(['profiles',profileId,'state','guildId'],guildId).write();}
  function directory(){
-  const byName=new Map(profiles().map(p=>[normalize(p.name),p])),online=new Set(Object.values(players).filter(p=>!p.guest).map(p=>p.profileId));
-  return guilds().map(g=>{const roster=[...new Set(g.members)].map(name=>{const p=byName.get(normalize(name));return {name:p?.name||name,profileId:p?.id,level:p?Math.max(1,E.num(p.state.level,99999)):0,online:!!p&&online.has(p.id),owner:normalize(name)===normalize(g.owner)};});return {id:g.id,name:String(g.name||'Guilda'),tag:String(g.tag||'?'),owner:g.owner,ownerId:g.ownerId||byName.get(normalize(g.owner))?.id,members:roster.map(p=>p.name),roster,totalLevel:roster.reduce((n,p)=>n+p.level,0),online:roster.filter(p=>p.online).length,createdAt:g.createdAt||null,inviteOnly:true};}).sort((a,b)=>b.totalLevel-a.totalLevel||a.name.localeCompare(b.name));
+  const hidden=developerNames(),byName=new Map(profiles().map(p=>[normalize(p.name),p])),online=new Set(Object.values(players).filter(p=>!p.guest).map(p=>p.profileId));
+  return guilds().map(g=>{const roster=[...new Set(g.members)].filter(name=>!hidden.has(normalize(name))).map(name=>{const p=byName.get(normalize(name));return {name:p?.name||name,profileId:p?.id,level:p?Math.max(1,E.num(p.state.level,99999)):0,online:!!p&&online.has(p.id),owner:normalize(name)===normalize(g.owner)};});return {id:g.id,name:String(g.name||'Guilda'),tag:String(g.tag||'?'),owner:g.owner,ownerId:g.ownerId||byName.get(normalize(g.owner))?.id,members:roster.map(p=>p.name),roster,totalLevel:roster.reduce((n,p)=>n+p.level,0),online:roster.filter(p=>p.online).length,createdAt:g.createdAt||null,inviteOnly:true};}).sort((a,b)=>b.totalLevel-a.totalLevel||a.name.localeCompare(b.name));
  }
  function stateFor(player){
-  const own=!player.guest&&memberGuild(player.name);player.guildId=own?.id||null;player.guildTag=own?.tag||'';
+  const own=!player.guest&&!player.developerTest&&memberGuild(player.name);player.guildId=own?.id||null;player.guildTag=own?.tag||'';
   if(!player.guest)storage.setMembership?.(player.profileId,player.guildId);
   const list=directory(),top=list.slice(0,100);if(own&&!top.some(g=>g.id===own.id))top.push(list.find(g=>g.id===own.id));
-  return {guildId:player.guildId,directory:top,rankings:list.slice(0,100).map((g,n)=>({...g,rank:n+1})),totalGuilds:list.length,invitations:player.guest?[]:guilds().flatMap(g=>activeInvites(g).filter(i=>i.profileId===player.profileId).map(i=>({guildId:g.id,name:g.name,tag:g.tag,from:g.owner,expiresAt:i.expiresAt}))),outgoing:own&&isOwner(own,player)?activeInvites(own).map(i=>({profileId:i.profileId,name:i.name,expiresAt:i.expiresAt})):[],rankingMetric:'totalLevel',rankingDescription:'Soma dos níveis atuais de todos os membros. Equipamentos e força não contam.'};
+  return {guildId:player.guildId,directory:top,rankings:list.slice(0,100).map((g,n)=>({...g,rank:n+1})),totalGuilds:list.length,invitations:player.guest||player.developerTest?[]:guilds().flatMap(g=>activeInvites(g).filter(i=>i.profileId===player.profileId).map(i=>({guildId:g.id,name:g.name,tag:g.tag,from:g.owner,expiresAt:i.expiresAt}))),outgoing:own&&isOwner(own,player)?activeInvites(own).map(i=>({profileId:i.profileId,name:i.name,expiresAt:i.expiresAt})):[],rankingMetric:'totalLevel',rankingDescription:'Soma dos níveis atuais de todos os membros. Equipamentos e força não contam.'};
  }
  function sync(socket){const player=players[socket.id];if(!player)return null;const state=stateFor(player);socket.emit('guildState',state);return state;}
  function publish(){for(const [id] of Object.entries(players)){const socket=io.sockets.sockets.get(id);if(socket)sync(socket);}}
  function notify(profileId,text){for(const [id,p] of Object.entries(players))if(p.profileId===profileId)io.sockets.sockets.get(id)?.emit('guildNotice',{text,channel:'guild',system:true});}
  function mutate(socket,data,source){
-  const player=players[socket.id];if(!player||player.guest||!profileById(player.profileId))throw Error('Crie uma conta para participar de guildas.');
+  const player=players[socket.id];if(player?.developerTest)throw Error('Contas de testes não participam de guildas nem do ranking de guildas.');if(!player||player.guest||!profileById(player.profileId))throw Error('Crie uma conta para participar de guildas.');
   if(!data||typeof data!=='object')throw Error('Pedido de guilda inválido.');
   const current=memberGuild(player.name);
   if(data.action==='create'){

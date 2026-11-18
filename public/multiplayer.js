@@ -4,10 +4,10 @@ const SESSION_KEY='coxinha_active_session_v4';
 const TAB_SESSION_KEY='coxinha_tab_session_v155';let accountCredentialsRam=null;
 let guestCredentials=null;
 function currentSession(){return guestCredentials || activeSession();}
-function playerDisplayName(p){return (p.name || 'Convidado')+(p.guest && p.name!=='Convidado' ? ' (Convidado)' : '');}
+function playerDisplayName(p){return (p.name || 'Convidado')+(p.developerTest?' [DEV]':'')+(p.guest && p.name!=='Convidado' ? ' (Convidado)' : '');}
 function resetGuestSession(){
   guestCredentials=null;multiplayer.guest=false;multiplayer.ready=false;multiplayer.profileName='';window.accountProgressEnabled=false;
-  Object.assign(player,{name:'',guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:100,maxHp:100,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
+  Object.assign(player,{name:'',developerTest:false,guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:100,maxHp:100,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
   const input=document.getElementById('nameInput');input.value='';input.readOnly=false;
   squadState={members:[]};renderSquad();
 }
@@ -37,7 +37,7 @@ function beginSharedSession({lobby=false}={}){
 }
 function applyServerPlayer(state){
   if(state.dead && !player.dead)enterDeath(state.deathCause);
-  const keys=['playTimeMs','reviveReadyAt','accessories','accessoryVersion','joinedAt','guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
+  const keys=['developerTest','playTimeMs','reviveReadyAt','accessories','accessoryVersion','joinedAt','guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
   for(const key of keys)if(state[key]!==undefined)player[key]=state[key];
   player.progressionVersion=3;restoreEquipment();restoreArmor();
   if(typeof inventorySignature!=='undefined')inventorySignature='';if(typeof lastShopState!=='undefined')lastShopState='';

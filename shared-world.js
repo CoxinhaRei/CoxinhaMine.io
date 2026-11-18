@@ -79,7 +79,7 @@ class SharedWorld{
     if(!this.contributions.has(entity.id))this.contributions.set(entity.id,new Map());
     const ledger=this.contributions.get(entity.id);ledger.set(actor.profile.id,(ledger.get(actor.profile.id)||0)+actual);
     const squad=this.squads?.groupFor(actor.profile.id);
-    if(squad){
+    if(squad&&!actor.profile.developerTest){
       if(!this.squadCredits.has(entity.id))this.squadCredits.set(entity.id,new Map());
       const groups=this.squadCredits.get(entity.id);if(!groups.has(squad.id))groups.set(squad.id,new Map());
       const credit=groups.get(squad.id);for(const id of squad.members)credit.set(id,(credit.get(id)||0)+actual);
@@ -96,7 +96,7 @@ class SharedWorld{
         const member=this.live().find(a=>a.profile.id===id),current=this.squads?.groupFor(id);
         if(damage/entity.maxHp>=.05-1e-12 && member && current?.id===groupId && Math.hypot(member.state.x-entity.x,member.state.y-entity.y)<=entity.size+2500)awards.set(id,{share:(ledger.get(id)||0)/entity.maxHp,shared:true,squadShare:damage/entity.maxHp});
       }
-      if(isMob&&!entity.summoned&&!entity.noRewards&&tier>=7)this.io.emit('bossDefeated',{name:actor.name,entity:entity.name,rarity:entity.rarity.name,percent:(ledger.get(actor.profile.id)||0)/entity.maxHp*100,realm:this.realm});
+      if(isMob&&!actor.profile.developerTest&&!entity.summoned&&!entity.noRewards&&tier>=7)this.io.emit('bossDefeated',{name:actor.name,entity:entity.name,rarity:entity.rarity.name,percent:(ledger.get(actor.profile.id)||0)/entity.maxHp*100,realm:this.realm});
       for(const [id,participation] of awards){
         const profile=this.store.find(id);if(!profile)continue;
         {
@@ -136,8 +136,7 @@ class SharedWorld{
     }
     let nearby=g.mobs.filter(m=>!m.summoned && Math.hypot(m.x-state.x,m.y-state.y)<3000+m.size).length;
     for(let attempt=0;attempt<30 && nearby<12 && g.mobs.length<180;attempt++){
-      const biomeSpawn=expansion.mapFor(this.realm).spawn,localDistance=Math.hypot(state.x-biomeSpawn.x,state.y-biomeSpawn.y),outer=localDistance>14000;let index=outer ? 3+Math.floor(Math.random()*4) : Math.max(0,Math.floor(localDistance/3500));index=Math.min(6,index);
-      if(outer){const chance=Math.random();if(chance<.000001)index=10;else if(chance<.0002)index=9;else if(chance<.005)index=8;else if(chance<.04)index=7;}
+      const biomeSpawn=expansion.mapFor(this.realm).spawn,localDistance=Math.hypot(state.x-biomeSpawn.x,state.y-biomeSpawn.y),index=expansion.mobRarityTier(localDistance);
       const biome=expansion.mapFor(this.realm),pool=g.creatures.filter(c=>biome.mobs.includes(c.kind)),definition=pool[Math.floor(Math.random()*pool.length)],kind=definition.kind==='beetle'&&Math.random()<.00025?'invertedBeetle':definition.kind,mob=g.createCreature(kind,g.rarities[index],0,0);
       const angle=Math.random()*Math.PI*2,distance=(g.zone(state.x,state.y)==='P'?1600:650)+mob.size+Math.random()*850;mob.x=state.x+Math.cos(angle)*distance;mob.y=state.y+Math.sin(angle)*distance;
       if(!catalog.gardenOrePositionValid(mob.x,mob.y,mob.size,100000) || g.ores.some(o=>Math.hypot(o.x-mob.x,o.y-mob.y)<o.size+mob.size*.7))continue;
@@ -180,7 +179,7 @@ class SharedWorld{
     for(const mob of [...g.mobs]){
       const actor=this.nearest(mob);if(!actor)continue;
       if(Math.hypot(actor.state.x-mob.x,actor.state.y-mob.y)>4500+mob.size)continue;
-      g.moveMob(mob,actor.state,dt);if(mob.kind==='sandTornado'||mob.kind==='iceTornado'){for(const target of live){const dx=mob.x-target.state.x,dy=mob.y-target.state.y,d=Math.hypot(dx,dy);if(d<mob.size+180&&!this.safe(target.state)){const force=(1-expansion.bonuses(target.state).slowResist)*Math.min(190,d)*dt;g.moveEntity(target.state,target.state.x+dx/(d||1)*force,target.state.y+dy/(d||1)*force,20);if(mob.kind==='iceTornado')target.state.slowUntil=now+800;this.hurt(target.state,mob.damage*.6,-dx,-dy,mob.name+' '+mob.rarity.name);}}}
+      g.moveMob(mob,actor.state,dt);if(mob.kind==='sandTornado'||mob.kind==='iceTornado'){for(const target of live){const dx=mob.x-target.state.x,dy=mob.y-target.state.y,d=Math.hypot(dx,dy);if(d<mob.size+180&&!this.safe(target.state)){const force=(1-expansion.bonuses(target.state).slowResist)*Math.min(190,d)*dt*expansion.TORNADO_PULL_SCALE;g.moveEntity(target.state,target.state.x+dx/(d||1)*force,target.state.y+dy/(d||1)*force,20);if(mob.kind==='iceTornado')target.state.slowUntil=now+800;this.hurt(target.state,mob.damage*.6,-dx,-dy,mob.name+' '+mob.rarity.name);}}}
       const before=g.effects.length;g.bossStep(mob,actor.state,dt);
       for(const effect of g.effects.slice(before))if(effect.kind==='pulse')for(const target of live)if(Math.hypot(target.state.x-effect.x,target.state.y-effect.y)<effect.radius+20 && g.lineClear(mob.x,mob.y,target.state.x,target.state.y))this.hurt(target.state,mob.damage*.85,target.state.x-mob.x,target.state.y-mob.y,mob.name+' '+mob.rarity.name+' · impacto');
     }

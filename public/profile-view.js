@@ -4,7 +4,7 @@ function renderPublicProfile155(p){
   const body=node('div','public-profile'),hero=node('section','profile-hero'),portrait=node('div','profile-portrait');
   for(const file of ['player_body.png','player_eyes.png']){const image=node('img');image.src='sprites/'+file;image.alt='';portrait.append(image);}
   portrait.setAttribute('aria-label','Coxinha de '+p.name);portrait.role='img';
-  const identity=node('div','profile-identity');identity.append(node('small','profile-eyebrow','DIÁRIO DO AVENTUREIRO'),node('h2','',p.name),node('span','profile-level-badge','Nível '+p.level));
+  const identity=node('div','profile-identity');identity.append(node('small','profile-eyebrow',p.developerTest?'CONTA DEV · FORA DOS RANKINGS':'DIÁRIO DO AVENTUREIRO'),node('h2','',p.name),node('span','profile-level-badge','Nível '+p.level));
   const time=ItemDetails.number(Math.floor((p.playTimeMs||0)/3600000))+'h '+Math.floor((p.playTimeMs||0)%3600000/60000)+'m';
   identity.append(node('p','profile-playtime',time+' explorando este mundo'));hero.append(portrait,identity);body.append(hero);
   const xp=node('div','profile-xp'),progress=Math.max(0,Math.min(100,p.xp/Math.max(1,p.xpToNext)*100));

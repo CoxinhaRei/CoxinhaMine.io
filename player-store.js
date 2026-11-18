@@ -86,7 +86,7 @@ module.exports=function playerStore(db,game){
     const oldName=profile.name;profile.name=name;profile.state.name=name;
     if(!profile.guest)for(const guild of Object.values(db.get('guilds').value() || {})){guild.members=guild.members.map(member=>member===oldName ? name : member);if(guild.owner===oldName)guild.owner=name;}
   }
-  function clientState(profile){return {...clone(profile.state),name:profile.name,guest:!!profile.guest,saveRevision:profile.revision};}
+  function clientState(profile){return {...clone(profile.state),name:profile.name,guest:!!profile.guest,developerTest:profile.developerTest===true,saveRevision:profile.revision};}
   function close(){for(const timer of guestTimers.values())clearTimeout(timer);guestTimers.clear();guests.clear();}
   return {sanitize,join,create,save,clientState,clone,verifyCredentials,rotateToken,rename,find,createGuest,promoteGuest,touchGuest,deferGuest,discardGuest,close};
 };

@@ -30,7 +30,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
       get creatures(){return CREATURES;},get cave(){return CAVE;},get portal(){return CAVE_ENTRANCE;},
       lootName(kind){return GAME_CATALOG.MOB_LOOT[kind] || 'Fragmento';},
       get expansion(){return EXPANSION;},
-      get swords(){return SWORDS;},get pickaxes(){return pickaxes;},get armors(){return ARMORS;},get utilities(){return UTILITIES;},get legacyUtilities(){return legacyUtilityDefinitions;},
+      get talentsList(){return TALENTS;},get achievementsList(){return ACHIEVEMENTS;},get swords(){return SWORDS;},get pickaxes(){return pickaxes;},get armors(){return ARMORS;},get utilities(){return UTILITIES;},get legacyUtilities(){return legacyUtilityDefinitions;},
       fresh(){return JSON.parse(JSON.stringify(template));},
       bind(state){player=state;},
       normalize(state){player=state;normalizeProgression();normalizeSystems();normalizeAdventure();restoreEquipment();return player;},
@@ -56,7 +56,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
       ,tickPlayer(state){player=state;tickOreCraft();const max=100+(state.talentRanks?.vitality||0)*20+EXPANSION.bonuses(state).health;state.maxHp=max;state.hp=Math.min(max,state.hp); }
       ,command(state,kind,data={}){
         player=state;
-        if(kind==='accessoryMake')return EXPANSION.make(state,data.id);
+        if(kind==='accessoryMake')return EXPANSION.make(state,data.id,Date.now(),data.count);
         if(kind==='expansionFusion')return data.rarity!=='ALEPH' && EXPANSION.fuse(state,data);
         if(kind==='forgeChosen'){const ok=EXPANSION.fuse(state,{...data,rarity:'ALEPH'});if(ok)state.pendingCraft.forge=true;return ok;}
         if(kind==='accessoryEquip')return EXPANSION.equip(state,data.slot,data.item);

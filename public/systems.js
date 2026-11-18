@@ -42,7 +42,7 @@ function normalizeSystems() {
   player.journal={mined:0,kills:0,crafted:0,bossKills:0,...previous,seen:previous.seen || {},unlocked:previous.unlocked || []};
   player.vx=0;player.vy=0;player.hurtUntil=0;
   restoreSword();
-  if(player.pendingCraft && Date.now()-player.pendingCraft.startedAt>=2400) {
+  if(player.pendingCraft && Date.now()-player.pendingCraft.startedAt>=EXPANSION.craftDurationOf(player.pendingCraft)) {
     craftResult=player.pendingCraft;player.pendingCraft=null;saveGame();
   }
 }
@@ -88,7 +88,7 @@ function craftSword(name) {
 }
 function startOreCraft(name,now=Date.now()) {
   if(isServerWorld())return requestPlayerAction('fusion',{name});
-  if(player.pendingCraft && now-player.pendingCraft.startedAt<2400)return false;
+  if(player.pendingCraft && now-player.pendingCraft.startedAt<EXPANSION.craftDurationOf(player.pendingCraft))return false;
   const recipe=craftRecipes[name];
   if(!recipe || !consumeMaterials([[name,5]]))return false;
   const success=Math.random()<recipe.chance;
@@ -101,7 +101,7 @@ function startOreCraft(name,now=Date.now()) {
   saveGame();return true;
 }
 function tickOreCraft(now=Date.now()) {
-  if(player.pendingCraft && now-player.pendingCraft.startedAt>=2400){
+  if(player.pendingCraft && now-player.pendingCraft.startedAt>=EXPANSION.craftDurationOf(player.pendingCraft)){
     craftResult=player.pendingCraft;player.pendingCraft=null;saveGame();
   }
 }
