@@ -59,7 +59,7 @@ function drawGroundLoot(){
 }
 const componentTab=document.createElement('button');componentTab.type='button';componentTab.dataset.inventoryType='component';componentTab.textContent='Drops';componentTab.onclick=()=>{inventoryType='component';inventorySignature='';renderInventoryPanel();};inventoryPanel.querySelector('.inventory-tabs').append(componentTab);
 const cardStyle=document.createElement('style');cardStyle.textContent=`
-  #exit-to-menu{position:absolute;top:12px;right:12px;width:34px;height:34px;border:3px solid #934b4e;border-radius:5px;background:#cb6d70;color:#fff;font:bold 28px/23px Arial;pointer-events:auto;cursor:pointer;z-index:3}
+  #exit-to-menu{position:absolute;top:12px;right:12px;width:34px;height:34px;border:3px solid #934b4e;border-radius:5px;background:#cb6d70;color:#fff;font:bold 28px/23px Ubuntu;pointer-events:auto;cursor:pointer;z-index:3}
   .hud-map{top:57px}.mobile-mode #exit-to-menu{top:10px;right:9px;width:32px;height:32px}.mobile-mode .hud-map{top:54px}
   .status-health #hud-health{transition:width .3s ease-out;z-index:1}.status-health .health-trail{background:#e8a16f;transition:width .8s .15s ease-out;z-index:0}.status-health span{z-index:2}
   .rarity-card,.inventory-card,.gear-slot,.menu-slot{--item-color:#8bc876;border:5px solid color-mix(in srgb,var(--item-color) 72%,#183e35)!important;background:var(--item-color)!important;box-shadow:inset 0 0 0 3px #ffffff24,0 3px #12392d4d!important;border-radius:7px;color:white;isolation:isolate}

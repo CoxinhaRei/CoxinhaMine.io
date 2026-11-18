@@ -6,6 +6,8 @@ const SWORDS=PICKAXE_RECIPES.map((recipe,index)=>({
   coins:index ? Math.round(recipe.coins*1.25) : 40,
   materials:index ? recipe.materials.map(([name,count])=>[name,Math.ceil(count*.8)]) : [['Comum',5]]
 }));
+// Initial menu preview and the shared runtime start with the real wooden sword.
+if(!player.equipment.weapon)player.equipment.weapon={...SWORDS[0]};
 rarities.push({name:'QUANTIUM',color:'#77e9ed',hp:16000000,mult:40000},{name:'ALEPH',color:'#ffe68b',hp:64000000,mult:80000});
 rarities.push({...GAME_CATALOG.PRIMORDIAL});
 ORE_VALUES.QUANTIUM=50000;ORE_VALUES.ALEPH=150000;
@@ -264,4 +266,4 @@ socket.on('connect',()=>{guildState.connected=true;socket.emit('guildList');});
 socket.on('disconnect',()=>{guildState.connected=false;});
 socket.on('guildState',state=>{guildState={...state,connected:true};});
 socket.on('guildDirectory',directory=>{guildState.directory=directory;});
-socket.on('guildResult',result=>{document.getElementById('guild-message').textContent=result.message;socket.emit('guildList');});
+socket.on('guildResult',result=>{document.getElementById('guild-message').textContent=result.message;});

@@ -1,13 +1,13 @@
 .garden-panel[hidden] { display: none; }
-.garden-panel { position: fixed; z-index: 5; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(720px, calc(100vw - 24px)); max-height: calc(100dvh - 28px); overflow: auto; border: 5px solid #39749b; border-radius: 7px; background: #68a9d2; color: white; box-shadow: 0 8px 0 #18496155, 0 16px 45px #0a382b70; font: 14px Arial, sans-serif; }
+.garden-panel { position: fixed; z-index: 5; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(720px, calc(100vw - 24px)); max-height: calc(100dvh - 28px); overflow: auto; border: 5px solid #39749b; border-radius: 7px; background: #68a9d2; color: white; box-shadow: 0 8px 0 #18496155, 0 16px 45px #0a382b70; font: 14px Ubuntu, sans-serif; }
 .garden-panel-header { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: center; min-height: 46px; background: #5399c6; border-bottom: 3px solid #4385ad; }
 .garden-panel h1 { margin: 0; font-size: 21px; text-shadow: 1px 2px #214c67; }
-.panel-close { position: absolute; top: 7px; right: 8px; width: 27px; height: 27px; border: 3px solid #954d52; border-radius: 5px; background: #d3787d; color: #fff; font: bold 24px/16px Arial; cursor: pointer; }
+.panel-close { position: absolute; top: 7px; right: 8px; width: 27px; height: 27px; border: 3px solid #954d52; border-radius: 5px; background: #d3787d; color: #fff; font: bold 24px/16px Ubuntu; cursor: pointer; }
 .workshop-wallet { display: flex; justify-content: space-between; padding: 10px 18px; font-weight: bold; text-shadow: 1px 1px #3c7192; }
 .workshop-wallet b { color: #fff18a; }
 .workshop-body { display: grid; grid-template-columns: 168px 1fr; gap: 18px; padding: 2px 18px 18px; }
 .pickaxe-catalog { display: flex; flex-direction: column; gap: 6px; }
-.pickaxe-catalog button { display: grid; grid-template-columns: 36px 1fr; grid-template-rows: 20px 13px; align-items: center; padding: 5px; border: 3px solid var(--rarity); border-radius: 4px; background: #357aa9; color: #fff; cursor: pointer; text-align: left; font: bold 12px Arial; }
+.pickaxe-catalog button { display: grid; grid-template-columns: 36px 1fr; grid-template-rows: 20px 13px; align-items: center; padding: 5px; border: 3px solid var(--rarity); border-radius: 4px; background: #357aa9; color: #fff; cursor: pointer; text-align: left; font: bold 12px Ubuntu; }
 .pickaxe-catalog img { grid-row: 1/3; width: 32px; height: 32px; object-fit: contain; }
 .pickaxe-catalog small { font-size: 8px; color: #e0f4fb; letter-spacing: .04em; }
 .pickaxe-catalog button.selected { background: #8dc7e8; outline: 2px solid #fcf3b7; color: #214861; }
@@ -31,7 +31,7 @@
 .ore-icon { clip-path: polygon(50% 0,65% 30%,100% 15%,83% 55%,100% 77%,62% 100%,13% 88%,0 50%,28% 45%); }
 .coin-icon { border: 3px solid #c49944; border-radius: 50%; }
 .recipe-prerequisite { font-size: 11px; color: #e0f0fc; line-height: 1.5; margin: 14px 0; }
-.craft-pickaxe { width: 100%; padding: 10px; background: #8bd56b; border: 3px solid #4d9856; border-radius: 5px; color: white; text-shadow: 1px 2px #417341; font: bold 16px Arial; cursor: pointer; }
+.craft-pickaxe { width: 100%; padding: 10px; background: #8bd56b; border: 3px solid #4d9856; border-radius: 5px; color: white; text-shadow: 1px 2px #417341; font: bold 16px Ubuntu; cursor: pointer; }
 .craft-pickaxe:disabled { background: #759895; border-color: #577e80; color: #d9e2df; text-shadow: none; cursor: default; }
 .recipe-result { min-height: 16px; font-size: 11px; color: #fff7ae; text-align: center; }
 .talent-panel { width: min(650px, calc(100vw - 24px)); background: #dc6969; border-color: #a6464b; }
@@ -54,7 +54,7 @@
 .talent-node.selected .talent-symbol { outline: 3px solid #fff2a8; outline-offset: 2px; }
 .talent-ranks { padding: 0 18px 18px; display: flex; flex-wrap: wrap; gap: 6px; }
 .talent-ranks h2,.talent-ranks p { width: 100%; margin: 4px 0; font-size: 12px; }
-.talent-ranks button { flex: 1 0 44%; padding: 7px; text-align: left; border: 2px solid var(--stage-color); border-radius: 4px; background: #a94d56; color: #fff; font: bold 10px 'Trebuchet MS'; cursor: pointer; }
+.talent-ranks button { flex: 1 0 44%; padding: 7px; text-align: left; border: 2px solid var(--stage-color); border-radius: 4px; background: #a94d56; color: #fff; font: bold 10px 'Ubuntu'; cursor: pointer; }
 .talent-ranks button:disabled { opacity: .62; cursor: default; }
 .talent-ranks button:not(:disabled) { background: #527b53; outline: 2px solid #fff2a8; }
 .admin-settings { border-top: 2px solid #4d809b; margin-top: 12px; padding-top: 10px; }

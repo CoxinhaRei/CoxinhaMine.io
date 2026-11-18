@@ -4,7 +4,7 @@ workshop.setAttribute('role','dialog');workshop.setAttribute('aria-label','Loja 
 workshop.innerHTML=`
   <header class="garden-panel-header"><h1>Loja de equipamentos</h1><button class="panel-close" aria-label="Fechar loja">×</button></header>
   <div class="workshop-wallet"><span>Oficina do jardim</span><b id="workshop-coins"></b></div>
-  <nav class="system-tabs shop-tabs"><button data-shop="pickaxe" class="active">Picaretas</button><button data-shop="weapon">Espadas</button><button data-shop="armor">Armaduras</button><button data-shop="utility">Utilidades</button></nav>
+  <nav class="system-tabs shop-tabs"><button data-shop="pickaxe" class="active">Picaretas</button><button data-shop="weapon">Espadas</button><button data-shop="armor">Armaduras</button></nav>
   <div class="workshop-body"><nav id="pickaxe-catalog" class="pickaxe-catalog" aria-label="Catálogo de equipamentos"></nav>
   <div class="recipe-detail"><div class="equipped-note">Equipada <strong id="workshop-equipped"></strong></div>
     <div class="pickaxe-hero"><img id="recipe-preview" alt=""><div><small id="recipe-kind"></small><h2 id="recipe-name"></h2><b id="recipe-power"></b></div></div>
