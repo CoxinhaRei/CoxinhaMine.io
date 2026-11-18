@@ -28,23 +28,25 @@ module.exports=function playerStore(db,game){
     state.talentPoints=Math.floor(safeNumber(raw.talentPoints,Math.max(0,state.level-1),0,1e7));
     state.talents={speed:Math.floor(safeNumber(raw.talents?.speed,0,0,11))};
     state.inventory=[];
-    for(const item of Array.isArray(raw.inventory) ? raw.inventory.slice(0,500) : []){
+    for(const item of Array.isArray(raw.inventory) ? raw.inventory.slice(0,1000) : []){
       if(item?.type==='material'){
         const rarity=game.rarities.find(r=>r.name===(item.oreRarity || item.name?.replace(/^Minério\s+/i,'') || item.id?.replace(/_material$/,'')));
-        const amount=Math.floor(safeNumber(item.amount,1,0,1e9));if(rarity && amount)state.inventory.push({id:rarity.name+'_material',type:'material',name:rarity.name,oreRarity:rarity.name,color:rarity.color,amount});
+        const amount=Math.floor(safeNumber(item.amount,1,0,1e12));if(rarity && amount)state.inventory.push({id:rarity.name+'_material',type:'material',name:rarity.name,chosenSerial:/^[a-f0-9-]{36}$/.test(item.chosenSerial||'')?item.chosenSerial:undefined,oreRarity:rarity.name,color:rarity.color,amount});
       }else if(item?.type==='component'){
         const rarity=game.rarities.find(r=>r.name===item.rarity),definition=game.creatures.find(c=>c.kind===item.kind);
-        if(rarity && definition)state.inventory.push({id:item.kind+'_'+rarity.name,type:'component',kind:item.kind,name:game.lootName(item.kind),rarity:rarity.name,color:rarity.color,amount:Math.floor(safeNumber(item.amount,1,1,1e9))});
+        if(rarity && definition)state.inventory.push({id:item.kind+'_'+rarity.name,type:'component',kind:item.kind,name:game.lootName(item.kind),chosenSerial:/^[a-f0-9-]{36}$/.test(item.chosenSerial||'')?item.chosenSerial:undefined,rarity:rarity.name,color:rarity.color,amount:Math.floor(safeNumber(item.amount,1,1,1e12))});
+      }else if(item?.type==='accessory'){const accessory=game.expansion.accessory(item.accessoryId,item.rarity,item.amount);if(accessory?.amount){if(/^[a-f0-9-]{36}$/.test(item.chosenSerial||''))accessory.chosenSerial=item.chosenSerial;state.inventory.push(accessory);};
       }else{
-        const list={weapon:game.swords,pickaxe:game.pickaxes,armor:game.armors,utility:game.utilities}[item?.type];
+        const list={weapon:game.swords,pickaxe:game.pickaxes,armor:game.armors,utility:game.legacyUtilities}[item?.type];
         const recipe=list?.find(r=>r.name===item.name);if(recipe && !state.inventory.some(i=>i.type===item.type && i.name===item.name))state.inventory.push({...recipe,type:item.type,amount:1});
       }
     }
-    state.equipment={weapon:null,pickaxe:{...game.pickaxes[0],type:'pickaxe'},armor:null,utility:null};
-    for(const [type,list] of Object.entries({weapon:game.swords,pickaxe:game.pickaxes,armor:game.armors,utility:game.utilities})){
+    state.equipment={weapon:{...game.swords[0],type:'weapon'},pickaxe:{...game.pickaxes[0],type:'pickaxe'},armor:null,utility:null};
+    for(const [type,list] of Object.entries({weapon:game.swords,pickaxe:game.pickaxes,armor:game.armors,utility:game.legacyUtilities})){
       const requested=raw.equipment?.[type],name=typeof requested==='string' ? requested : requested?.name;
       const gear=list.find(r=>r.name===name);if(gear){state.equipment[type]={...gear,type};if(!state.inventory.some(i=>i.type===type && i.name===name))state.inventory.push({...gear,type,amount:1});}
     }
+    const starter=state.equipment.weapon;if(starter.name===game.swords[0].name&&!state.inventory.some(i=>i.type==='weapon'&&i.name===starter.name))state.inventory.push({...starter,amount:1});
     state.journal={mined:0,kills:0,crafted:0,bossKills:0,seen:{},species:{},unlocked:[],...(raw.journal && typeof raw.journal==='object' ? clone(raw.journal) : {})};
     for(const key of ['mined','kills','crafted','bossKills'])state.journal[key]=Math.floor(safeNumber(state.journal[key]));
     state.journal.seen=state.journal.seen && typeof state.journal.seen==='object' ? state.journal.seen : {};
@@ -52,7 +54,8 @@ module.exports=function playerStore(db,game){
     state.journal.unlocked=Array.isArray(state.journal.unlocked) ? state.journal.unlocked.slice(0,100) : [];
     state.abilityReadyAt={};for(const type of ['weapon','pickaxe','utility'])state.abilityReadyAt[type]=safeNumber(raw.abilityReadyAt?.[type],0,0,Date.now()+120000);
     state.pendingCraft=raw.pendingCraft && typeof raw.pendingCraft.from==='string' ? clone(raw.pendingCraft) : null;
-    state.maxHp=100+(state.talentRanks.vitality || 0)*20;state.hp=state.maxHp;state.size=20;state.damage=10;
+    state.accessoryVersion=raw.accessoryVersion;state.accessories=Array.isArray(raw.accessories)?clone(raw.accessories):[];state.joinedAt=raw.joinedAt;state.playTimeMs=safeNumber(raw.playTimeMs);state.reviveReadyAt=safeNumber(raw.reviveReadyAt,0,0,Date.now()+180000);game.expansion.normalize(state);
+    state.maxHp=game.utility(state).health+100+(state.talentRanks.vitality || 0)*20;state.hp=state.maxHp;state.size=20;state.damage=10;
     state.x=50000;state.y=50000;state.realm='garden';state.dead=false;state.deathCause='';state.selectedSlot=2;state.vx=0;state.vy=0;
     return state;
   }

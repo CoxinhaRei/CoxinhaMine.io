@@ -21,8 +21,8 @@ function renderAdventureUi(){
     button.title=ability ? ability.name+' · '+ability.cooldown+'s de recarga' : 'Desbloqueia em equipamentos de Matéria Vermelha ou superiores.';
   }
   const lantern=document.getElementById('toggle-lantern');lantern.disabled=!ownsLantern();lantern.setAttribute('aria-pressed',String(!!player.lanternOn));lantern.querySelector('span').textContent=player.lanternOn ? 'Lanterna ligada' : 'Lanterna';
-  const distance=currentRealm==='garden' ? Math.hypot(player.x-CAVE_ENTRANCE.x,player.y-CAVE_ENTRANCE.y) : Math.hypot(player.x-750,player.y-750);
-  portalHint.hidden=!inGame || player.dead || distance>360 || cavePromptOpen;portalHint.textContent=currentRealm==='cave' ? '[E] Sair da caverna' : '[E] Entrar na caverna';
+  const portal=EXPANSION.portalsFor(currentRealm).find(p=>Math.hypot(player.x-p.x,player.y-p.y)<=360);
+  portalHint.hidden=!inGame || player.dead || !portal || cavePromptOpen;portalHint.textContent=portal?'[E] Viajar · '+EXPANSION.mapFor(portal.to).name:'';
 }
 function renderBestiary(content){
   const grid=document.createElement('div');grid.className='gallery-grid';content.append(grid);

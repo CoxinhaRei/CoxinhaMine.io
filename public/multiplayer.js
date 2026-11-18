@@ -1,23 +1,24 @@
 const multiplayer={authority:!!window.sharedWorldAvailable,ready:false,started:false,inLobby:false,lastMove:0,lastSave:0,realm:'garden',contribution:{},squadContribution:{},profileName:'',pendingJoin:false};
 const PROFILE_KEYS='coxinha_profiles_v2';
 const SESSION_KEY='coxinha_active_session_v4';
+const TAB_SESSION_KEY='coxinha_tab_session_v155';let accountCredentialsRam=null;
 let guestCredentials=null;
 function currentSession(){return guestCredentials || activeSession();}
 function playerDisplayName(p){return (p.name || 'Convidado')+(p.guest && p.name!=='Convidado' ? ' (Convidado)' : '');}
 function resetGuestSession(){
   guestCredentials=null;multiplayer.guest=false;multiplayer.ready=false;multiplayer.profileName='';window.accountProgressEnabled=false;
-  Object.assign(player,{name:'',guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:100,maxHp:100,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
+  Object.assign(player,{name:'',guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:100,maxHp:100,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
   const input=document.getElementById('nameInput');input.value='';input.readOnly=false;
   squadState={members:[]};renderSquad();
 }
 const networkMovement=new MovementNet.Predictor();window.networkMovement=networkMovement;
-function networkSpeed(){return 240*(1+talentRank('speed')*.08+(currentRealm==='cave' ? talentRank('sprint')*.04 : 0))*(1+utilityBonus('speed'));}
+function networkSpeed(){return (player.slowUntil>Date.now()?Math.max(.55,1-.45*(1-utilityBonus('slowResist'))):1)*240*(1+talentRank('speed')*.08+(currentRealm==='cave' ? talentRank('sprint')*.04 : 0))*(1+utilityBonus('speed'));}
 function movePredictedPlayer(state,x,y){
   moveWithWalls(state,x,y,20);
   for(const ore of ores){const minimum=ore.size+20;if(Math.abs(state.x-ore.x)>minimum || Math.abs(state.y-ore.y)>minimum)continue;const dx=state.x-ore.x,dy=state.y-ore.y,d=Math.hypot(dx,dy);if(d<minimum)moveWithWalls(state,ore.x+(d ? dx/d : 1)*(minimum+.1),ore.y+(d ? dy/d : 0)*(minimum+.1),20);}
 }
 function renderedPlayerPosition(){return {x:player.x+networkMovement.offsetX,y:player.y+networkMovement.offsetY};}
-function activeSession(){try{const session=JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');return session && /^[a-f0-9-]{36}$/.test(session.id) && /^[a-f0-9]{64}$/.test(session.token) ? session : null;}catch{return null;}}
+function activeSession(){try{const session=accountCredentialsRam||JSON.parse(sessionStorage.getItem(TAB_SESSION_KEY)||localStorage.getItem(SESSION_KEY)||'null');return session && /^[a-f0-9-]{36}$/.test(session.id) && /^[a-f0-9]{64}$/.test(session.token) ? session : null;}catch{return null;}}
 function isServerWorld(){return multiplayer.authority;}
 function profileKeys(){try{return Object.assign(Object.create(null),JSON.parse(localStorage.getItem(PROFILE_KEYS)||'{}'));}catch{return Object.create(null);}}
 function beginSharedSession({lobby=false}={}){
@@ -28,15 +29,15 @@ function beginSharedSession({lobby=false}={}){
   if(!credentials && !multiplayer.supportsGuests){multiplayer.started=false;if(typeof openAccountRequired==='function')openAccountRequired();return Promise.resolve(false);}
   multiplayer.pendingJoin=true;
   const realm=typeof selectedMenuRealm==='string' ? selectedMenuRealm : currentRealm;
-  multiplayer.joinPromise=new Promise(resolve=>socket.timeout(15000).emit(credentials ? 'joinGame' : 'guestJoin',{credentials,guest:!!guestCredentials,name:document.getElementById('nameInput').value,lobby,realm},(error,result)=>{
+  multiplayer.joinPromise=new Promise(resolve=>socket.timeout(15000).emit(credentials ? 'joinGame' : 'guestJoin',{credentials,guest:!!guestCredentials,name:document.getElementById('nameInput').value,lobby,realm,biome:window.selectedMenuBiome||'garden'},(error,result)=>{
     multiplayer.pendingJoin=false;
-    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(result?.code==='GUEST_EXPIRED'){resetGuestSession();multiplayer.inLobby=false;canvas.style.display='none';document.getElementById('game-hud').hidden=true;document.getElementById('menu').style.display='flex';}if(result?.code==='AUTH_REQUIRED'){localStorage.removeItem(SESSION_KEY);multiplayer.account=null;if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
+    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(result?.code==='GUEST_EXPIRED'){resetGuestSession();multiplayer.inLobby=false;canvas.style.display='none';document.getElementById('game-hud').hidden=true;document.getElementById('menu').style.display='flex';}if(result?.code==='AUTH_REQUIRED'){accountCredentialsRam=null;sessionStorage.removeItem(TAB_SESSION_KEY);localStorage.removeItem(SESSION_KEY);multiplayer.account=null;if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
     resolve(true);
   }));return multiplayer.joinPromise;
 }
 function applyServerPlayer(state){
   if(state.dead && !player.dead)enterDeath(state.deathCause);
-  const keys=['guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
+  const keys=['playTimeMs','reviveReadyAt','accessories','accessoryVersion','joinedAt','guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
   for(const key of keys)if(state[key]!==undefined)player[key]=state[key];
   player.progressionVersion=3;restoreEquipment();restoreArmor();
   if(typeof inventorySignature!=='undefined')inventorySignature='';if(typeof lastShopState!=='undefined')lastShopState='';
@@ -102,7 +103,7 @@ socket.on('disconnect',()=>{multiplayer.ready=false;multiplayer.pendingJoin=fals
 socket.on('sessionReplaced',()=>{sharedNotice('Este perfil entrou em outra aba. Use outro nome para testar um segundo jogador.');multiplayer.started=false;});
 socket.on('profileReady',data=>{
   multiplayer.guest=!!data.state.guest;guestCredentials=multiplayer.guest ? data.credentials : null;
-  multiplayer.account=data.account || null;window.accountProgressEnabled=!!data.account;
+  multiplayer.account=data.account || null;window.accountProgressEnabled=!!data.account;accountCredentialsRam=data.account?{...data.credentials,username:data.account.username,accountId:data.account.id}:null;if(accountCredentialsRam)sessionStorage.setItem(TAB_SESSION_KEY,JSON.stringify(accountCredentialsRam));else sessionStorage.removeItem(TAB_SESSION_KEY);
   if(data.account && data.credentials){const keys=profileKeys();for(const name of Object.keys(keys))if(keys[name]?.id===data.credentials.id)keys[name]=data.credentials;keys[data.state.name]=data.credentials;localStorage.setItem(PROFILE_KEYS,JSON.stringify(keys));}
   multiplayer.profileName=data.state.name;
   if(data.account && data.credentials)localStorage.setItem(SESSION_KEY,JSON.stringify({...data.credentials,username:data.account.username,accountId:data.account.id}));
@@ -127,14 +128,14 @@ function applyWorldSnapshot(snapshot){
   if(multiplayer.protocol>=5 && self?.epoch===multiplayer.movementEpoch)networkMovement.reconcile(player,self,snapshot.serverTime,networkSpeed(),movePredictedPlayer);
   if(history && self.epoch===multiplayer.movementEpoch && self.seq>(multiplayer.correctedSeq || 0)){multiplayer.correctedSeq=self.seq;const dx=self.x-history.x,dy=self.y-history.y;if(Math.hypot(dx,dy)>2){player.x+=dx;player.y+=dy;for(const [seq,point] of pendingMovement)if(seq>=self.seq){point.x+=dx;point.y+=dy;}}}
   multiplayer.contribution=snapshot.contribution;player.hp=snapshot.hp;player.maxHp=snapshot.maxHp;
-  multiplayer.squadContribution=snapshot.squadContribution || {};
+  multiplayer.forge=snapshot.forge||null;multiplayer.squadContribution=snapshot.squadContribution || {};player.slowUntil=snapshot.slowUntil||0;
   if(currentRealm==='cave' && multiplayer.mapVersion!==snapshot.mapVersion && Array.isArray(snapshot.mapDelta)){buildCaveMaze();for(const index of snapshot.mapDelta)CAVE.maze[index]=1;multiplayer.mapVersion=snapshot.mapVersion;caveMapImage=null;socket.emit('mapAck',{realm:currentRealm,version:snapshot.mapVersion});}
   if(snapshot.dead && !player.dead)enterDeath(snapshot.deathCause);
 }
 socket.on('worldSnapshot',applyWorldSnapshot);
-socket.on('worldFrame',frame=>{players=mergeRemotePlayers(frame.players);applyWorldSnapshot(frame.world);});
+socket.on('worldFrame',frame=>{if(frame.party&&window.receivePartyState155)window.receivePartyState155(frame.party);players=mergeRemotePlayers(frame.players);applyWorldSnapshot(frame.world);});
 socket.on('realmChanged',data=>{
-  const change=()=>{currentRealm=data.realm;multiplayer.movementEpoch=data.epoch;multiplayer.seq=0;multiplayer.correctedSeq=0;networkMovement.reset();multiplayer.lastSent=null;player.x=data.x;player.y=data.y;player.vx=0;player.vy=0;ores=[];mobs=[];projectiles=[];multiplayer.drops=[];pendingMovement.clear();clearBossMobEffects();heldKeys.clear();movementAimActive=false;multiplayer.mapVersion=-1;if(currentRealm==='cave')buildCaveMaze();};
+  const change=()=>{currentRealm=data.realm;multiplayer.movementEpoch=data.epoch;multiplayer.seq=0;multiplayer.correctedSeq=0;networkMovement.reset();multiplayer.lastSent=null;player.x=data.x;player.y=data.y;player.vx=0;player.vy=0;ores=[];mobs=[];players={};projectiles=[];particles=[];abilityEffects=[];multiplayer.forge=null;multiplayer.drops=[];pendingMovement.clear();clearBossMobEffects();heldKeys.clear();movementAimActive=false;multiplayer.mapVersion=-1;if(currentRealm==='cave')buildCaveMaze();};
   if(typeof irisTransition==='function')irisTransition(change);else change();
 });
 socket.on('entityHit',data=>{miningBurst(data.x,data.y,data.color,data.isMob ? 9 : 16);damageNumbers.push({x:data.x,y:data.y-25,text:Math.round(data.damage),life:.7});});
@@ -158,7 +159,7 @@ document.getElementById('import-player-save').onchange=async event=>{
   try{
     if(file.size>2000000)throw Error('Arquivo de backup muito grande.');const data=JSON.parse(await file.text());
     if(data.format!=='coxinha-profile-v2' || !data.state || typeof data.name!=='string' || !/^[a-f0-9-]{36}$/.test(data.credentials?.id || '') || !/^[a-f0-9]{64}$/.test(data.credentials?.token || ''))throw Error('Backup inválido.');
-    localStorage.setItem(SESSION_KEY,JSON.stringify({...data.credentials,username:data.name}));
+    sessionStorage.removeItem(TAB_SESSION_KEY);accountCredentialsRam=null;localStorage.setItem(SESSION_KEY,JSON.stringify({...data.credentials,username:data.name}));
     localStorage.setItem('coxinha_restore_name',data.name);location.reload();
   }catch(error){document.getElementById('save-tools-result').textContent=error.message;}
 };

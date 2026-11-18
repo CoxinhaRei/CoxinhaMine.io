@@ -138,7 +138,7 @@ function drawBossMobEffects(){
       const x=ability.kind==='acid' ? action.x : mob.x,y=ability.kind==='acid' ? action.y : mob.y,radius=ability.kind==='shield' ? mob.size+240 : ability.kind==='acid' ? 180 : mob.size+160;
       ctx.beginPath();ctx.arc(x,y,radius,0,Math.PI*2);ctx.stroke();
     }
-    ctx.setLineDash([]);ctx.font='bold 13px "Trebuchet MS"';ctx.textAlign='center';ctx.strokeStyle='#28342e';ctx.lineWidth=4;
+    ctx.setLineDash([]);ctx.font='bold 13px "Ubuntu"';ctx.textAlign='center';ctx.strokeStyle='#28342e';ctx.lineWidth=4;
     const label=ability.name+' · '+action.remaining.toFixed(1)+'s';ctx.strokeText(label,mob.x,mob.y-mob.size-32);ctx.fillText(label,mob.x,mob.y-mob.size-32);
   }
   ctx.restore();

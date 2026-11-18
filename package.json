@@ -1,11 +1,12 @@
 {
   "name": "CoxinhaMiner-io",
-  "version": "1.5.4",
+  "version": "1.5.5",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "guilds:reset": "node scripts/reset-guilds.js",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "dev": "node dev-server.js"
   },
   "engines": {
     "node": "24.x"

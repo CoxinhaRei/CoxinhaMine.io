@@ -84,7 +84,7 @@ function creatureAggressive(mob){
   return temperament==='hostile' || performance.now()<(mob.aggroUntil || 0);
 }
 function updateCreatureMovement(dt){
-  const safe=currentRealm==='garden' && getZone(player.x,player.y)==='P';
+  const safe=currentRealm!=='cave' && getZone(player.x,player.y)==='P';
   for(const mob of mobs){
     mob.kind=mob.kind || 'guardian';mob.name=mob.name || 'Guardião';
     const travelled=Math.hypot(mob.x-(mob.lastWalkX ?? mob.x),mob.y-(mob.lastWalkY ?? mob.y));
@@ -159,7 +159,7 @@ function drawCreatures(){
     drawCreatureModel(mob.kind || 'guardian',ctx,mob.x,mob.y,mob.size,mob.angle || 0,mob.walkPhase || 0,mob.moving);
     if(typeof drawEntityHealth==='function')drawEntityHealth(mob,mob.x,mob.y+mob.size+(mob.summoned ? 44 : 31),Math.min(190,Math.max(42,mob.size*1.8)),mob.rarity.color);
     ctx.fillStyle=mob.rarity.color;
-    if(settings.names){ctx.font='bold 12px "Trebuchet MS"';ctx.textAlign='center';const label=(isBossRarity(mob.rarity) && !mob.summoned ? '♛ ' : '')+(mob.name || 'Guardião')+' '+mob.rarity.name;ctx.strokeStyle='#1b382a';ctx.lineWidth=3;ctx.strokeText(label,mob.x,mob.y+mob.size+19);ctx.fillText(label,mob.x,mob.y+mob.size+19);if(mob.summoned){ctx.font='bold 10px "Trebuchet MS"';ctx.fillStyle='#ece2fa';ctx.fillText('Invocada · sem XP / drops',mob.x,mob.y+mob.size+33);}}
+    if(settings.names){ctx.font='bold 12px "Ubuntu"';ctx.textAlign='center';const label=(isBossRarity(mob.rarity) && !mob.summoned ? '♛ ' : '')+(mob.name || 'Guardião')+' '+mob.rarity.name;ctx.strokeStyle='#1b382a';ctx.lineWidth=3;ctx.strokeText(label,mob.x,mob.y+mob.size+19);ctx.fillText(label,mob.x,mob.y+mob.size+19);if(mob.summoned){ctx.font='bold 10px "Ubuntu"';ctx.fillStyle='#ece2fa';ctx.fillText('Invocada · sem XP / drops',mob.x,mob.y+mob.size+33);}}
   }
   ctx.restore();
 }
@@ -182,7 +182,7 @@ function drawDeadPlayer(x,y,entity=player){
   ctx.restore();
 }
 function drawLevelNameplate(x,y,level,index){
-  ctx.save();ctx.font='900 13px "Trebuchet MS"';ctx.textAlign='center';ctx.strokeStyle='#263b2d';ctx.lineWidth=3;
+  ctx.save();ctx.font='900 13px "Ubuntu"';ctx.textAlign='center';ctx.strokeStyle='#263b2d';ctx.lineWidth=3;
   const text='Lv. '+level;ctx.strokeText(text,x,y+43);ctx.fillStyle=rarities[Math.min(index,rarities.length-1)]?.color || '#fff';ctx.fillText(text,x,y+43);ctx.restore();
 }
 function miningBurst(x,y,color,count=14){
@@ -230,7 +230,7 @@ function drawAbilityEffects(){
     ctx.beginPath();ctx.arc(effect.x,effect.y,effect.radius*progress,0,Math.PI*2);ctx.stroke();
     for(let n=0;n<10;n++){const angle=n*Math.PI/5+progress;ctx.beginPath();ctx.moveTo(effect.x+Math.cos(angle)*25,effect.y+Math.sin(angle)*25);ctx.lineTo(effect.x+Math.cos(angle)*effect.radius*progress,effect.y+Math.sin(angle)*effect.radius*progress);ctx.stroke();}
   }
-  for(const number of damageNumbers){ctx.globalAlpha=Math.min(1,number.life*2);ctx.font='bold 14px "Trebuchet MS"';ctx.fillStyle='#fff4bc';ctx.textAlign='center';ctx.fillText(number.text,number.x,number.y);}
+  for(const number of damageNumbers){ctx.globalAlpha=Math.min(1,number.life*2);ctx.font='bold 14px "Ubuntu"';ctx.fillStyle='#fff4bc';ctx.textAlign='center';ctx.fillText(number.text,number.x,number.y);}
   ctx.restore();
 }
 window.addEventListener('keydown',event=>{

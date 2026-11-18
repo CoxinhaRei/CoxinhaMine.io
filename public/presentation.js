@@ -28,8 +28,8 @@ const presentationStyle=document.createElement('style');
 presentationStyle.textContent=`
   .rare-gradient{background-image:linear-gradient(#396f6fbb,#396f6fbb),var(--rare-gradient)!important;background-origin:padding-box,border-box;background-clip:padding-box,border-box;border-color:transparent!important;box-shadow:0 0 9px var(--rare-light),inset 0 0 12px #ffffff22;}
   .rare-gradient small{color:#fff!important;text-shadow:0 1px 2px #233;}
-  #network-status{position:fixed;bottom:3px;right:10px;z-index:4;color:#d6f6d4;font:bold 10px 'Trebuchet MS';text-shadow:1px 1px #243a2b;pointer-events:none;}
-  #network-notice{position:fixed;z-index:12;left:50%;top:88px;transform:translateX(-50%);max-width:85vw;padding:9px 16px;background:#274f40ed;color:#fff3bd;border:2px solid #a7cf8b;border-radius:7px;font:bold 13px 'Trebuchet MS';text-align:center;pointer-events:none;animation:notice-enter .22s ease-out;}
+  #network-status{position:fixed;bottom:3px;right:10px;z-index:4;color:#d6f6d4;font:bold 10px 'Ubuntu';text-shadow:1px 1px #243a2b;pointer-events:none;}
+  #network-notice{position:fixed;z-index:12;left:50%;top:88px;transform:translateX(-50%);max-width:85vw;padding:9px 16px;background:#274f40ed;color:#fff3bd;border:2px solid #a7cf8b;border-radius:7px;font:bold 13px 'Ubuntu';text-align:center;pointer-events:none;animation:notice-enter .22s ease-out;}
   #boss-participation{display:block;color:#d4fbef;font-size:11px;margin-top:4px;}
   .panel-exit-ghost{pointer-events:none!important;z-index:20!important;}
   .save-tools{border-top:2px solid #4d809b;padding-top:10px;margin-top:16px}.save-tools h2{font-size:16px}.save-tools p{font-size:12px;line-height:1.5}.save-tools button,.save-import{display:inline-block;padding:9px;background:#466e62;border:2px solid #b7dec2;border-radius:4px;color:#fff;cursor:pointer}.save-import input{display:block;max-width:240px;margin-top:8px}

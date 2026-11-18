@@ -19,7 +19,7 @@ function buildCaveMaze(){
   CAVE.deposits=[];
   const chamberRandom=seededRandom(2983);
   for(let y=15000;y<CAVE.height-12000;y+=20000)for(let x=15000;x<CAVE.width-12000;x+=20000){
-    const roll=chamberRandom(),index=roll<.002 ? 10 : roll<.025 ? 9 : roll<.10 ? 8 : -1;
+    const roll=chamberRandom(),index=roll<.0005 ? 10 : roll<.00625 ? 9 : roll<.025 ? 8 : -1;
     if(index<0)continue;
     const rarity=rarities[index],size=GAME_CATALOG.oreRadius(rarity.name);
     const deposit={id:'chamber-'+x+'-'+y,x,y,size,rarity,hp:rarity.hp,maxHp:rarity.hp,isBoss:true};
@@ -70,18 +70,17 @@ function switchRealm(next){
   if(isServerWorld()){socket.emit('changeRealm',next);cavePromptOpen=false;return;}
   clearBossMobEffects();
   realmStates[currentRealm]={ores,mobs,cells};
-  currentRealm=next;const state=realmStates[next];ores=state.ores;mobs=state.mobs;cells=state.cells;
+  currentRealm=next;const state=realmStates[next]||(realmStates[next]={ores:[],mobs:[],cells:{}});ores=state.ores;mobs=state.mobs;cells=state.cells;
   projectiles=[];particles=[];abilityEffects=[];nearestBoss=null;heldKeys.clear();movementAimActive=false;touch.active=false;
   player.vx=0;player.vy=0;cavePromptOpen=false;
   if(next==='cave'){buildCaveMaze();player.x=750;player.y=750;populateCave();}
-  else{player.x=CAVE_ENTRANCE.x-250;player.y=CAVE_ENTRANCE.y+150;}
+  else{player.x=50000;player.y=50000;}
   socket.emit('move',{x:player.x,y:player.y,realm:next});
 }
 function interactPortal(){
-  if(player.dead || isUiBlocking())return;
-  const distance=currentRealm==='garden' ? Math.hypot(player.x-CAVE_ENTRANCE.x,player.y-CAVE_ENTRANCE.y) : Math.hypot(player.x-750,player.y-750);
-  if(distance>360)return;
-  if(currentRealm==='cave')switchRealm('garden');else cavePromptOpen=true;
+ if(player.dead||isUiBlocking()||window.worldTransitioning)return;
+ const portal=EXPANSION.portalsFor(currentRealm).find(p=>Math.hypot(player.x-p.x,player.y-p.y)<=360);
+ if(portal)switchRealm(portal.to);
 }
 function populateCave(){
   if(isServerWorld())return;
@@ -96,7 +95,7 @@ function populateCave(){
     CAVE.populated.add(key);
     if(x<=3 && y<=3)continue;
     const rng=seededRandom(key+913),roll=rng();
-    const index=roll<.00003 ? 10 : roll<.001 ? 9 : roll<.008 ? 8 : roll<.035 ? 7 : roll<.15 ? 6 : roll<.4 ? 5 : 4;
+    const index=roll<.0000075 ? 10 : roll<.00025 ? 9 : roll<.002 ? 8 : roll<.00875 ? 7 : roll<.15 ? 6 : roll<.4 ? 5 : 4;
     const rarity=rarities[index],size=GAME_CATALOG.oreRadius(rarity.name),px=(x+.5)*CAVE.tile,py=(y+.5)*CAVE.tile;
     if(ores.some(o=>Math.hypot(o.x-px,o.y-py)<o.size+size+150))continue;
     // Giant deposits get reachable chambers; the remaining passages stay a maze.
@@ -117,9 +116,9 @@ function drawCaveEntrance(){
   if(Math.abs(x-player.x)>canvas.width/2+r || Math.abs(y-player.y)>canvas.height/2+r)return;
   ctx.save();ctx.fillStyle='#536054';ctx.beginPath();ctx.ellipse(x,y,r,r*.85,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='#111b23';ctx.beginPath();ctx.ellipse(x,y+15,r*.65,r*.6,0,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle='#f1dca0';ctx.strokeStyle='#263a29';ctx.lineWidth=4;ctx.font='bold 20px "Trebuchet MS"';ctx.textAlign='center';
+  ctx.fillStyle='#f1dca0';ctx.strokeStyle='#263a29';ctx.lineWidth=4;ctx.font='bold 20px "Ubuntu"';ctx.textAlign='center';
   ctx.strokeText('CAVERNA',x,y-r-35);ctx.fillText('CAVERNA',x,y-r-35);
-  ctx.font='bold 13px "Trebuchet MS"';ctx.fillText('Nível 90 · Matéria Vermelha+',x,y-r-10);
+  ctx.font='bold 13px "Ubuntu"';ctx.fillText('Nível 90 · Matéria Vermelha+',x,y-r-10);
   ctx.restore();
 }
 function drawCaveWorld(){
@@ -135,7 +134,6 @@ function drawCaveWorld(){
       ctx.fillStyle='#202329';ctx.fillRect(px,py,CAVE.tile,CAVE.tile);ctx.strokeStyle='#62606b';ctx.lineWidth=8;ctx.strokeRect(px+4,py+4,CAVE.tile-8,CAVE.tile-8);
     }
   }
-  ctx.fillStyle='#94dbb3';ctx.font='bold 18px "Trebuchet MS"';ctx.textAlign='center';ctx.fillText('SAÍDA · E',750,650);
 }
 function carveCaveChamber(px,py,radius){
   CAVE.revision=(CAVE.revision || 0)+1;

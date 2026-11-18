@@ -48,11 +48,11 @@ function renderCraftPanel(){
 
 const settingsPanel=createSystemPanel('settings','Configurações');
 settingsPanel.insertAdjacentHTML('beforeend',`<div class="settings-body"><label>Movimentação<select id="setting-controls"><option value="hybrid">WASD + mouse</option><option value="wasd">Somente WASD</option><option value="mouse">Somente mouse</option></select></label>
-  <label>Partículas de equipamentos<input type="checkbox" id="setting-particles"></label><label>Mostrar minimapa<input type="checkbox" id="setting-minimap"></label><label>Mostrar nomes<input type="checkbox" id="setting-names"></label><p>Preferências salvas neste navegador.</p></div>`);
+  <label>Partículas de equipamentos<input type="checkbox" id="setting-particles"></label><label>Mostrar minimapa<input type="checkbox" id="setting-minimap"></label><label>Mostrar nomes<input type="checkbox" id="setting-names"></label><p>Convidados também podem escolher os controles. Preferências salvas neste navegador.</p></div>`);
 for(const id of ['controls','particles','minimap','names']){
   const input=document.getElementById('setting-'+id);
   if(id==='controls')input.value=settings[id];else input.checked=settings[id];
-  input.onchange=()=>{settings[id]=id==='controls' ? input.value : input.checked;localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));};
+  input.onchange=()=>{settings[id]=id==='controls' ? input.value : input.checked;if(id==='controls'){heldKeys.clear();movementAimActive=false;mouse.down=mouse.right=false;if(typeof resetMobileInput==='function')resetMobileInput();}try{localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));}catch{}};
 }
 const galleryPanel=createSystemPanel('gallery','Galeria');
 galleryPanel.insertAdjacentHTML('beforeend',`<nav class="system-tabs"><button data-gallery="mobs" class="active">Mobs</button><button data-gallery="rarities">Raridades</button><button data-gallery="sprites">Sprites 2D</button></nav><div id="gallery-content" class="gallery-content"></div>`);
@@ -90,7 +90,7 @@ function renderGallery(){
 async function buildSpriteSheet(sheet){
   await Promise.all([...Object.values(pickaxeSprites),...SWORDS.map(s=>s.img),...ARMORS.map(a=>a.img),...UTILITIES.map(u=>u.img)].map(image=>image.decode ? image.decode().catch(()=>{}) : Promise.resolve()));
   const c=sheet.getContext('2d');c.fillStyle='#edf3d9';c.fillRect(0,0,sheet.width,sheet.height);
-  c.fillStyle='#254b3b';c.font='bold 24px Arial';c.fillText('COXINHAMINER.IO · SPRITES 2D',24,34);
+  c.fillStyle='#254b3b';c.font='bold 24px Ubuntu';c.fillText('COXINHAMINER.IO · SPRITES 2D',24,34);
   const assets=[...rarities.map((rarity,index)=>({name:rarity.name,kind:'MINÉRIO',rarity,index})),...PICKAXE_RECIPES.map(p=>({name:p.name,kind:'PICARETA',image:pickaxeSprites[p.name]})),...SWORDS.map(s=>({name:s.name,kind:'ESPADA',image:s.img})),...ARMORS.map(a=>({name:a.name,kind:'ARMADURA',image:a.img})),...UTILITIES.map(u=>({name:u.name,kind:'UTILIDADE',image:u.img}))];
   assets.forEach((asset,index)=>{
     const x=index%8*136,y=55+Math.floor(index/8)*158;
@@ -99,8 +99,8 @@ async function buildSpriteSheet(sheet){
     else if(asset.rarity){
       c.save();c.translate(x+68,y+58);const size=22+asset.index*14;c.scale(34/size,34/size);drawCrystal({id:'atlas-'+index,x:0,y:0,size,rarity:asset.rarity},c);c.restore();
     }
-    c.textAlign='center';c.fillStyle='#284a39';c.font='bold 9px Arial';c.fillText(asset.kind,x+68,y+111);
-    c.font='bold 11px Arial';c.fillText(asset.name,x+68,y+129);c.textAlign='left';
+    c.textAlign='center';c.fillStyle='#284a39';c.font='bold 9px Ubuntu';c.fillText(asset.kind,x+68,y+111);
+    c.font='bold 11px Ubuntu';c.fillText(asset.name,x+68,y+129);c.textAlign='left';
   });
   spriteSheet=sheet;
 }
@@ -123,31 +123,8 @@ function renderAchievements(){
 }
 
 const guildPanel=createSystemPanel('guild','Guilda');
-guildPanel.insertAdjacentHTML('beforeend',`<div class="guild-body"><p id="guild-connection"></p><div id="guild-current"></div><form id="guild-create"><h2>Criar guilda</h2><label>Nome<input id="guild-name" minlength="3" maxlength="24" required></label><label>Sigla<input id="guild-tag" minlength="2" maxlength="5" pattern="[A-Za-z0-9]{2,5}" required></label><button class="craft-pickaxe">Criar guilda</button></form><p id="guild-message" role="status"></p><h2>Guildas abertas</h2><div id="guild-directory"></div></div>`);
-document.getElementById('guild-create').onsubmit=event=>{event.preventDefault();if(!guildState.connected)return;socket.emit('guildAction',{action:'create',name:document.getElementById('guild-name').value,tag:document.getElementById('guild-tag').value});};
 let guildSignature='';
-function renderGuild(){
-  const signature=JSON.stringify(guildState);if(signature===guildSignature)return;guildSignature=signature;
-  const own=guildState.directory.find(g=>g.id===guildState.guildId);
-  document.getElementById('guild-connection').textContent=guildState.connected ? 'Guildas compartilhadas com os jogadores deste servidor.' : 'Conecte pelo servidor do jogo (npm start) para criar e entrar em guildas.';
-  document.getElementById('guild-create').hidden=!!own || !guildState.connected;
-  const current=document.getElementById('guild-current');current.replaceChildren();
-  if(own){
-    const title=document.createElement('h2');title.textContent='['+own.tag+'] '+own.name;
-    const roster=document.createElement('p');roster.textContent='Líder: '+own.owner+' · Membros: '+own.members.join(', ');
-    const leave=document.createElement('button');leave.className='leave-guild';leave.textContent='Sair da guilda';leave.onclick=()=>socket.emit('guildAction',{action:'leave'});
-    current.append(title,roster,leave);
-  }
-  const directory=document.getElementById('guild-directory');directory.replaceChildren();
-  if(!guildState.directory.length)directory.textContent='Nenhuma guilda criada ainda.';
-  for(const guild of guildState.directory){
-    const row=document.createElement('div');row.className='guild-row';
-    const title=document.createElement('b');title.textContent='['+guild.tag+'] '+guild.name;
-    const count=document.createElement('span');count.textContent=guild.members.length+'/50';
-    const button=document.createElement('button');button.textContent=own?.id===guild.id ? 'Sua guilda' : 'Entrar';button.disabled=!!own || !guildState.connected || guild.members.length>=50;
-    button.onclick=()=>socket.emit('guildAction',{action:'join',id:guild.id});row.append(title,count,button);directory.append(row);
-  }
-}
+function renderGuild(){if(typeof renderGuildHub155==='function')renderGuildHub155();}
 
 const gameChat=document.createElement('section');gameChat.id='game-chat';gameChat.hidden=true;
 gameChat.innerHTML='<div id="game-chat-log" role="log" aria-live="polite"></div><form id="game-chat-form"><input id="game-chat-input" placeholder="ENTER para conversar" maxlength="220" aria-label="Mensagem de chat"><button aria-label="Enviar mensagem">➤</button></form>';
@@ -193,6 +170,7 @@ function renderSystems(){
 
 // Public release notes. Earlier version groupings are reconstructed from project history.
 const CHANGELOG_ENTRIES = [
+  {version:'1.5.5',title:['Mega atualização','Mega update'],groups:[{title:['Novidades','What’s new'],items:[['Novos jogadores começam com espada e picareta de madeira. Tutorial rápido de cinco passos para PC e celular: movimento, mineração, combate, equipamentos e salvamento. Pode pular ou rever em Como jogar / ?.','New players start with a wooden sword and pickaxe. Five-step desktop/mobile quick guide: movement, mining, combat, equipment and saving. Skip it or reopen it with How to play / ?.'],['Perfis renovados com retrato, XP, equipamentos, estatísticas e coleção por raridade. Fichas em Ubuntu mostram bônus de acessórios, origem/receitas dos drops e vida/dano/descrição das criaturas ao passar o mouse, focar ou tocar.','Refreshed profiles with portraits, XP, gear, statistics and rarity collections. Ubuntu information cards show accessory bonuses, drop sources/recipes and creature health, damage and descriptions on hover, focus or touch.'],['Chosen, 20 acessórios passivos e Relicário do Retorno, rankings e perfis, novo craft e galeria por abates.','Chosen, 20 passive accessories and the Revival Reliquary, rankings and profiles, reworked crafting and kill gallery.'],['Seis mapas separados: Jardim, Praia, Jungle, Floresta de Gelo, Deserto e Caverna. Portais ficam longe do spawn; o menu sorteia lugares automaticamente com fade e mobs animados, sem controles de câmera.','Six separate maps: Garden, Beach, Jungle, Ice Forest, Desert and Cave. Portals are far from spawn; the menu automatically picks random landmarks with fades and walking creatures, without camera controls.'],['Mobs do Jardim redesenhados com carapaças, olhos e pernas animadas. Acessórios ficam na mesma fileira horizontal dos equipamentos; Craft tem fundo preto e borda cinza. Guildas têm criação por /guild-create-Nome-SIGLA, convites do dono, ranking e busca por jogadores.','Garden creatures redesigned with shells, eyes and animated legs. Accessories share the horizontal equipment hotbar; crafting has a black background and gray border. Guilds add chat creation, owner invitations, total-level rankings and player search.']]}]},
   {version:'1.5.4',title:['Exploração mais leve','Smoother exploration'],groups:[
     {title:['Patch · Convidados','Patch · Guests'],items:[
       ['Agora é possível jogar como convidado, sem criar conta. O personagem começa do zero e só existe durante a sessão.','You can now play as a guest without creating an account. Each guest starts fresh and exists only for the current session.'],

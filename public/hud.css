@@ -1,6 +1,6 @@
 /* Garden HUD shared by desktop and touch screens. */
 :root { color-scheme: light; }
-body { font-family: Arial, sans-serif; }
+body { font-family: Ubuntu, sans-serif; }
 #mobileUI { display: none; }
 #game-hud[hidden] { display: none; }
 #game-hud { position: fixed; inset: 0; pointer-events: none; color: white; font-weight: bold; }
@@ -41,6 +41,6 @@ body { font-family: Arial, sans-serif; }
 .hud-tip { position: absolute; bottom: 5px; left: 66px; font-size: 10px; text-shadow: 1px 1px #173b2b; }
 #menu { background: #1ba65c; background-image: radial-gradient(circle at 20% 30%, #169753 3px, transparent 4px), radial-gradient(circle at 70% 60%, #28b16b 6px, transparent 7px); background-size: 90px 100px, 130px 120px; gap: 12px; z-index: 10; }
 #menu h1 { font-size: clamp(32px, 6vw, 62px); margin: 0 0 18px; color: white; -webkit-text-stroke: 1px #183d28; text-shadow: 3px 3px #183d28; }
-#menu input { padding: 10px; border-radius: 5px; border: 3px solid #168647; background: #edf6dd; text-align: center; font: bold 18px Arial; max-width: 220px; }
-#menu > button { padding: 8px 30px; background: #45d42c; border: 4px solid #16a524; border-radius: 7px; color: white; text-shadow: 1px 2px #264925; font: bold 22px Arial; cursor: pointer; }
+#menu input { padding: 10px; border-radius: 5px; border: 3px solid #168647; background: #edf6dd; text-align: center; font: bold 18px Ubuntu; max-width: 220px; }
+#menu > button { padding: 8px 30px; background: #45d42c; border: 4px solid #16a524; border-radius: 7px; color: white; text-shadow: 1px 2px #264925; font: bold 22px Ubuntu; cursor: pointer; }
 @media(max-width: 600px) { .status-bars { width: 124px; } .hud-map { right: 8px; top: 10px; } .hud-tip { display: none; } .equipment-hotbar { bottom: 12px; gap: 5px; } }

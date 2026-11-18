@@ -8,13 +8,13 @@
 <meta name="google-site-verification" content="fSFItpvWf2dieWJv2I8rTJKxz8oWWe0CePS2lvw7ZCY" />
 
 <style>
-body{margin:0;overflow:hidden;background:#111;font-family:Arial;}
+body{margin:0;overflow:hidden;background:#111;font-family:Ubuntu;}
 #menu{
 position:absolute;width:100%;height:100%;
 background:#222;display:flex;flex-direction:column;
 justify-content:center;align-items:center;
 }
-canvas{display:none;}
+#game{display:none;}
 #mobileUI{
 position:absolute;
 bottom:20px;
@@ -34,13 +34,16 @@ opacity:0;
 pointer-events:none;
 }
 </style>
-<link rel="stylesheet" href="hud.css?v=1.5.4-guestpatch1">
-<link rel="stylesheet" href="workshop.css?v=1.5.4-guestpatch1">
-<link rel="stylesheet" href="systems.css?v=1.5.4-guestpatch1">
-<link rel="stylesheet" href="adventure.css?v=1.5.4-guestpatch1">
-<link rel="stylesheet" href="account-menu.css?v=1.5.4-guestpatch1">
-<link rel="stylesheet" href="mobile-play.css?v=1.5.4-guestpatch1">
-<link rel="stylesheet" href="region-client.css?v=1.5.4-guestpatch1">
+<link rel="stylesheet" href="hud.css?v=1.5.5-r1">
+<link rel="stylesheet" href="workshop.css?v=1.5.5-r1">
+<link rel="stylesheet" href="systems.css?v=1.5.5-r1">
+<link rel="stylesheet" href="adventure.css?v=1.5.5-r1">
+<link rel="stylesheet" href="account-menu.css?v=1.5.5-r1">
+<link rel="stylesheet" href="mobile-play.css?v=1.5.5-r1">
+<link rel="stylesheet" href="region-client.css?v=1.5.5-r1">
+<link rel="stylesheet" href="expansion.css?v=1.5.5-r1">
+<link rel="stylesheet" href="item-profile.css?v=1.5.5-r1">
+<link rel="stylesheet" href="tutorial.css?v=1.5.5-r1">
 </head>
 
 <body>
@@ -71,9 +74,10 @@ pointer-events:none;
 <canvas id="game"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="region-client.js?v=1.5.4-guestpatch1"></script>
-<script src="movement-net.js?v=1.5.4-guestpatch1"></script>
-<script src="game-catalog.js?v=1.5.4-guestpatch1"></script>
+<script src="region-client.js?v=1.5.5-r1"></script>
+<script src="movement-net.js?v=1.5.5-r1"></script>
+<script src="game-catalog.js?v=1.5.5-r1"></script>
+<script src="expansion.js?v=1.5.5-r1"></script>
 
 <script>
 // ===== SAFE START =====
@@ -509,6 +513,7 @@ function drawPlayer(x, y, entity=player){
   const dx=Math.cos(aim),dy=Math.sin(aim);
   const distance=Math.hypot(dx,dy)||1;
   ctx.save();
+  if(typeof drawAttachedAccessories==='function')drawAttachedAccessories(x,y,entity);
   if(playerBodyImg.complete && playerBodyImg.naturalWidth) ctx.drawImage(playerBodyImg,x-size/2,y-size/2,size,size);
   if(playerEyesImg.complete && playerEyesImg.naturalWidth) ctx.drawImage(playerEyesImg,x-size/2+dx/distance*4,y-size/2+dy/distance*4,size,size);
   drawPlayerArmor(x,y,entity);
@@ -546,7 +551,7 @@ function saveGame(){
       maxHp: player.maxHp,
       progressionVersion: player.progressionVersion,
       abilityReadyAt: player.abilityReadyAt,
-      journal: player.journal,
+      journal: player.journal,accessories:player.accessories,accessoryVersion:player.accessoryVersion,joinedAt:player.joinedAt,
       pendingCraft: player.pendingCraft,
       
       x: player.x,
@@ -594,7 +599,7 @@ function drawOres(){
     drawRock(ore);
     const width = ore.size * 2;
     if(typeof drawEntityHealth==='function')drawEntityHealth(ore,ore.x,ore.y+ore.size+29,Math.min(180,Math.max(35,width)),ore.rarity.color);
-    ctx.font = "bold 11px Arial";
+    ctx.font = "bold 11px Ubuntu";
     ctx.fillStyle=ore.rarity.color;
     ctx.textAlign = "center";
     if(settings.names)ctx.fillText(ore.rarity.name, ore.x, ore.y+ore.size+18);
@@ -697,9 +702,8 @@ function drawWorld(){
   // chão base
   if(typeof drawGardenGrass==='function')drawGardenGrass();else{ctx.fillStyle="#21b966";ctx.fillRect(0,0,WORLD_SIZE,WORLD_SIZE);}
 
-  drawRiver();
-  drawCity();
-  drawCaveEntrance();
+  if(currentRealm==='garden'){drawRiver();drawCity();}else if(typeof drawRealmLanding==='function')drawRealmLanding();
+  if(typeof drawRealmPortals==='function')drawRealmPortals();
 }
 function getValidPosition(){
 
@@ -781,61 +785,61 @@ function loadGame(){
     console.error("Erro ao carregar save:", err);
   }
 }
-function drawCity(){
+function drawCity(brush=ctx){
   const x = CITY.x - CITY.size / 2;
   const y = CITY.y - CITY.size / 2;
-  ctx.save();
-  ctx.fillStyle = "#5a8b65";
-  ctx.fillRect(x - 22, y - 22, CITY.size + 44, CITY.size + 44);
-  ctx.fillStyle = "#a1a99a";
-  ctx.fillRect(x, y, CITY.size, CITY.size);
-  ctx.strokeStyle = "#8b9589";
-  ctx.lineWidth = 2;
+  brush.save();
+  brush.fillStyle = "#5a8b65";
+  brush.fillRect(x - 22, y - 22, CITY.size + 44, CITY.size + 44);
+  brush.fillStyle = "#a1a99a";
+  brush.fillRect(x, y, CITY.size, CITY.size);
+  brush.strokeStyle = "#8b9589";
+  brush.lineWidth = 2;
   for(let offset = 0; offset <= CITY.size; offset += 80){
-    ctx.beginPath();
-    ctx.moveTo(x + offset, y);
-    ctx.lineTo(x + offset, y + CITY.size);
-    ctx.moveTo(x, y + offset);
-    ctx.lineTo(x + CITY.size, y + offset);
-    ctx.stroke();
+    brush.beginPath();
+    brush.moveTo(x + offset, y);
+    brush.lineTo(x + offset, y + CITY.size);
+    brush.moveTo(x, y + offset);
+    brush.lineTo(x + CITY.size, y + offset);
+    brush.stroke();
   }
   // Four garden beds frame the shared arrival point.
   for(const dx of [-1, 1]){
     for(const dy of [-1, 1]){
       const bx = CITY.x + dx * 410;
       const by = CITY.y + dy * 410;
-      ctx.fillStyle = "#62785a";
-      ctx.fillRect(bx - 125, by - 125, 250, 250);
-      ctx.fillStyle = "#408553";
-      ctx.fillRect(bx - 110, by - 110, 220, 220);
+      brush.fillStyle = "#62785a";
+      brush.fillRect(bx - 125, by - 125, 250, 250);
+      brush.fillStyle = "#408553";
+      brush.fillRect(bx - 110, by - 110, 220, 220);
       for(let n = 0; n < 9; n++){
         const fx = bx - 70 + (n % 3) * 70;
         const fy = by - 70 + Math.floor(n / 3) * 70;
-        ctx.fillStyle = n % 2 ? "#f5cb65" : "#efa7b9";
-        ctx.beginPath();
-        ctx.arc(fx, fy, 13, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#fff2b0";
-        ctx.beginPath();
-        ctx.arc(fx, fy, 5, 0, Math.PI * 2);
-        ctx.fill();
+        brush.fillStyle = n % 2 ? "#f5cb65" : "#efa7b9";
+        brush.beginPath();
+        brush.arc(fx, fy, 13, 0, Math.PI * 2);
+        brush.fill();
+        brush.fillStyle = "#fff2b0";
+        brush.beginPath();
+        brush.arc(fx, fy, 5, 0, Math.PI * 2);
+        brush.fill();
       }
     }
   }
-  ctx.fillStyle = "#c1c5ae";
-  ctx.beginPath();
-  ctx.arc(CITY.x, CITY.y, 145, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.strokeStyle = "#e8e1bb";
-  ctx.lineWidth = 8;
-  ctx.stroke();
-  ctx.fillStyle = "#61735d";
-  ctx.font = "bold 24px Arial";
-  ctx.textAlign = "center";
-  ctx.fillText("PRAÇA CENTRAL", CITY.x, CITY.y - 185);
-  ctx.font = "14px Arial";
-  ctx.fillText("Ponto de encontro", CITY.x, CITY.y - 160);
-  ctx.restore();
+  brush.fillStyle = "#c1c5ae";
+  brush.beginPath();
+  brush.arc(CITY.x, CITY.y, 145, 0, Math.PI * 2);
+  brush.fill();
+  brush.strokeStyle = "#e8e1bb";
+  brush.lineWidth = 8;
+  brush.stroke();
+  brush.fillStyle = "#61735d";
+  brush.font = "bold 24px Ubuntu";
+  brush.textAlign = "center";
+  brush.fillText("PRAÇA CENTRAL", CITY.x, CITY.y - 185);
+  brush.font = "14px Ubuntu";
+  brush.fillText("Ponto de encontro", CITY.x, CITY.y - 160);
+  brush.restore();
 }
 
 function drawRiver(){
@@ -859,7 +863,7 @@ function drawTooltip(){
   let text2 = "Valor: " + (hoveredItem.value * 5);
   let text3 = "Qtd: " + (hoveredItem.amount || 1);
 
-  ctx.font = "14px Arial";
+  ctx.font = "14px Ubuntu";
 
   let padding = 8;
   let width = Math.max(
@@ -947,7 +951,7 @@ function loop(){
     const mobDelta = Math.min(.15,Math.max(.001,(now-lastMobFrame)/1000));
     lastMobFrame = now;
     ctx.globalAlpha = 1;
-    ctx.font='bold 13px "Trebuchet MS"';
+    ctx.font='bold 13px "Ubuntu"';
     ctx.clearRect(0,0,canvas.width,canvas.height);
     updateSpawnSystem();
     updateAdventure(mobDelta);
@@ -982,28 +986,16 @@ function loop(){
 
       drawPlayer(p.x, p.y, p);
 
-      ctx.fillStyle="black";
-      if(settings.names)ctx.fillText((p.guildTag ? "["+p.guildTag+"] " : "")+playerDisplayName(p),p.x-19,p.y-29);
-
-      ctx.fillStyle="white";
-      if(settings.names)ctx.fillText((p.guildTag ? "["+p.guildTag+"] " : "")+playerDisplayName(p),p.x-20,p.y-30);
-
-      drawLevelNameplate(p.x,p.y,p.level || 1,p.rarityIndex || 0);
-      if(typeof drawEntityHealth==='function')drawEntityHealth(p,p.x,p.y+53,64,'#a9ee6b');
+      if(typeof drawPlayerLabels==='function')drawPlayerLabels(p.x,p.y,p);
+      if(typeof drawEntityHealth==='function')drawEntityHealth(p,p.x,p.y+35+25/cameraZoom(),64/cameraZoom(),'#a9ee6b');
     }
 
 
     // ===== PLAYER LOCAL =====
     drawPlayer(renderPosition.x, renderPosition.y);
 
-    ctx.fillStyle="black";
-    if(settings.names)ctx.fillText(playerDisplayName(player),renderPosition.x-19,renderPosition.y-29);
-
-    ctx.fillStyle="white";
-    if(settings.names)ctx.fillText(playerDisplayName(player),renderPosition.x-20,renderPosition.y-30);
-
-    drawLevelNameplate(renderPosition.x,renderPosition.y,player.level,highestOwnedRarity());
-    if(typeof drawEntityHealth==='function')drawEntityHealth(player,renderPosition.x,renderPosition.y+53,72,'#a9ee6b');
+    if(typeof drawPlayerLabels==='function')drawPlayerLabels(renderPosition.x,renderPosition.y,{...player,guildTag:guildState.directory.find(g=>g.id===guildState.guildId)?.tag,rarityIndex:highestOwnedRarity()});
+    if(typeof drawEntityHealth==='function')drawEntityHealth(player,renderPosition.x,renderPosition.y+35+25/cameraZoom(),72/cameraZoom(),'#a9ee6b');
 
     ctx.restore();
     drawCaveDarkness();
@@ -1042,24 +1034,41 @@ async function startGame(){
 }
 </script>
 
-<script src="progression.js?v=1.5.4-guestpatch1"></script>
-<script src="systems.js?v=1.5.4-guestpatch1"></script>
-<script src="adventure.js?v=1.5.4-guestpatch1"></script>
-<script src="gear.js?v=1.5.4-guestpatch1"></script>
-<script src="cave.js?v=1.5.4-guestpatch1"></script>
-<script src="boss-mobs.js?v=1.5.4-guestpatch1"></script>
-<script src="workshop.js?v=1.5.4-guestpatch1"></script>
-<script src="hud.js?v=1.5.4-guestpatch1"></script>
-<script src="panels.js?v=1.5.4-guestpatch1"></script>
-<script src="admin-ui.js?v=1.5.4-guestpatch1"></script>
-<script src="inventory.js?v=1.5.4-guestpatch1"></script>
-<script src="adventure-ui.js?v=1.5.4-guestpatch1"></script>
-<script src="multiplayer.js?v=1.5.4-guestpatch1"></script>
-<script src="account-menu.js?v=1.5.4-guestpatch1"></script>
-<script src="secure-ui.js?v=1.5.4-guestpatch1"></script>
-<script src="mobile-play.js?v=1.5.4-guestpatch1"></script>
-<script src="world-presentation.js?v=1.5.4-guestpatch1"></script>
-<script src="presentation.js?v=1.5.4-guestpatch1"></script>
+<script src="progression.js?v=1.5.5-r1"></script>
+<script src="systems.js?v=1.5.5-r1"></script>
+<script src="adventure.js?v=1.5.5-r1"></script>
+<script src="gear.js?v=1.5.5-r1"></script>
+<script src="cave.js?v=1.5.5-r1"></script>
+<script src="boss-mobs.js?v=1.5.5-r1"></script>
+<script src="expansion-game.js?v=1.5.5-r1"></script>
+<script src="garden-models.js?v=1.5.5-r1"></script>
+<script src="realm-scenery.js?v=1.5.5-r1"></script>
+<script src="workshop.js?v=1.5.5-r1"></script>
+<script src="equipment-slots.js?v=1.5.5-r1"></script>
+<script src="item-details.js?v=1.5.5-r1"></script>
+<script src="item-tooltips.js?v=1.5.5-r1"></script>
+<script src="profile-view.js?v=1.5.5-r1"></script>
+<script src="inspection-shortcuts.js?v=1.5.5-r1"></script>
+<script src="hud.js?v=1.5.5-r1"></script>
+<script src="panels.js?v=1.5.5-r1"></script>
+<script src="admin-ui.js?v=1.5.5-r1"></script>
+<script src="inventory.js?v=1.5.5-r1"></script>
+<script src="adventure-ui.js?v=1.5.5-r1"></script>
+<script src="multiplayer.js?v=1.5.5-r1"></script>
+<script src="account-menu.js?v=1.5.5-r1"></script>
+<script src="secure-ui.js?v=1.5.5-r1"></script>
+<script src="mobile-play.js?v=1.5.5-r1"></script>
+<script src="world-presentation.js?v=1.5.5-r1"></script>
+<script src="presentation.js?v=1.5.5-r1"></script>
+<script src="expansion-ui.js?v=1.5.5-r1"></script>
+<script src="social-ui.js?v=1.5.5-r1"></script>
+<script src="realms-ui.js?v=1.5.5-r1"></script>
+<script src="menu-tour.js?v=1.5.5-r1"></script>
+<script src="menu-preview.js?v=1.5.5-r1"></script>
+<script src="guild-ui.js?v=1.5.5-r1"></script>
+<script src="quick-tutorial.js?v=1.5.5-r1"></script>
+<script src="tutorial-ui.js?v=1.5.5-r1"></script>
 </body>
 </html>
+
 

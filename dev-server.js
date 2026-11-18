@@ -1,0 +1,3 @@
+// Local-only preview: never reads the production Redis environment variables.
+const path=require('path'),openStorage=require('./storage');
+(async()=>{const env={DATA_DIR:path.join(__dirname,'dev-data'),SERVER_REGION:'GLOBAL',SERVER_LOCATION:'Prévia local 1.5.5'};const storage=await openStorage(env),server=await require('./server').createGameServer({env,storage});server.http.listen(process.env.PORT||3000,'127.0.0.1',()=>console.log('1.5.5 local: http://127.0.0.1:'+(process.env.PORT||3000)+' · dados isolados em dev-data'));for(const signal of ['SIGINT','SIGTERM'])process.on(signal,async()=>{await server.close();process.exit(0);});})().catch(e=>{console.error(e);process.exitCode=1;});

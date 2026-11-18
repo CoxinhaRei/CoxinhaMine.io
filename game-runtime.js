@@ -16,7 +16,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
   const root=path.join(__dirname,'public');
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
-  for(const file of ['game-catalog.js',null,'progression.js','systems.js','adventure.js','gear.js','cave.js','boss-mobs.js'])vm.runInContext(file ? fs.readFileSync(path.join(root,file),'utf8') : inline,context,{filename:file || 'game-inline.js'});
+  for(const file of ['game-catalog.js','expansion.js',null,'progression.js','systems.js','adventure.js','gear.js','cave.js','boss-mobs.js','expansion-game.js','garden-models.js','realm-scenery.js'])vm.runInContext(file ? fs.readFileSync(path.join(root,file),'utf8') : inline,context,{filename:file || 'game-inline.js'});
   context.realmName=realm;
   return vm.runInContext(`
     currentRealm=realmName;
@@ -29,7 +29,8 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
       get hazards(){return bossMobHazards;},get effects(){return bossMobEffects;},get rarities(){return rarities;},
       get creatures(){return CREATURES;},get cave(){return CAVE;},get portal(){return CAVE_ENTRANCE;},
       lootName(kind){return GAME_CATALOG.MOB_LOOT[kind] || 'Fragmento';},
-      get swords(){return SWORDS;},get pickaxes(){return pickaxes;},get armors(){return ARMORS;},get utilities(){return UTILITIES;},
+      get expansion(){return EXPANSION;},
+      get swords(){return SWORDS;},get pickaxes(){return pickaxes;},get armors(){return ARMORS;},get utilities(){return UTILITIES;},get legacyUtilities(){return legacyUtilityDefinitions;},
       fresh(){return JSON.parse(JSON.stringify(template));},
       bind(state){player=state;},
       normalize(state){player=state;normalizeProgression();normalizeSystems();normalizeAdventure();restoreEquipment();return player;},
@@ -44,23 +45,29 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
       bossStep(mob,state,dt){player=state;updateBossMobAbilities(dt,[mob],true);},
       tickEffects(dt){player={dead:true,x:0,y:0};updateBossMobHazards(dt);},
       rank(state,id){return state.talentRanks?.[id] || 0;},
-      utility(state){return UTILITIES.find(u=>u.name===state.equipment.utility?.name) || {};},
-      armor(state){return ARMORS.find(a=>a.name===state.equipment.armor?.name)?.defense || 0;},
+      utility(state){return EXPANSION.bonuses(state);},
+      armor(state){return 1-(1-(ARMORS.find(a=>a.name===state.equipment.armor?.name)?.defense || 0))*(1-EXPANSION.bonuses(state).defense);},
       rarityIndex(state){player=state;return highestOwnedRarity();},
       ability:equipmentAbility,
       moveEntity(entity,x,y,radius){moveWithWalls(entity,x,y,radius);},
       giveMaterial(state,rarity,amount){player=state;addOreMaterial(rarity,amount);},
       levelUp(state){player=state;checkLevelUp();},
       achievements(state){player=state;checkAchievements();},xpForLevel
-      ,tickPlayer(state){player=state;tickOreCraft();}
+      ,tickPlayer(state){player=state;tickOreCraft();const max=100+(state.talentRanks?.vitality||0)*20+EXPANSION.bonuses(state).health;state.maxHp=max;state.hp=Math.min(max,state.hp); }
       ,command(state,kind,data={}){
         player=state;
+        if(kind==='accessoryMake')return EXPANSION.make(state,data.id);
+        if(kind==='expansionFusion')return data.rarity!=='ALEPH' && EXPANSION.fuse(state,data);
+        if(kind==='forgeChosen'){const ok=EXPANSION.fuse(state,{...data,rarity:'ALEPH'});if(ok)state.pendingCraft.forge=true;return ok;}
+        if(kind==='accessoryEquip')return EXPANSION.equip(state,data.slot,data.item);
+        if(kind==='gear' && data.type==='utility')return false;
         if(kind==='pickaxe')return craftPickaxe(data.name);
         if(kind==='weapon')return craftSword(data.name);
         if(kind==='gear')return craftGear((data.type==='armor' ? ARMORS : UTILITIES).find(r=>r.name===data.name));
         if(kind==='talent')return unlockTalent(data.id);
-        if(kind==='fusion')return startOreCraft(data.name);
+        if(kind==='fusion')return data.name!=='ALEPH' && startOreCraft(data.name);
         if(kind==='equip'){
+          if(!['weapon','pickaxe','armor'].includes(data.type))return false;
           const list={weapon:SWORDS,pickaxe:pickaxes,armor:ARMORS,utility:UTILITIES}[data.type],definition=list?.find(r=>r.name===data.name);
           if(!definition || !player.inventory.some(i=>i.type===data.type && i.name===data.name))return false;
           player.equipment[data.type]={...definition,type:data.type};player.selectedSlot={weapon:0,armor:1,pickaxe:2,utility:3}[data.type];return true;
