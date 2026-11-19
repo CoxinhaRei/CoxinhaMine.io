@@ -128,7 +128,7 @@ function drawCaveWorld(){
   for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){
     const px=x*CAVE.tile,py=y*CAVE.tile;
     if(caveTileOpen(x,y)){
-      ctx.fillStyle=MAP_ATLAS.at('cave',px+CAVE.tile/2,py+CAVE.tile/2).color;ctx.fillRect(px,py,CAVE.tile,CAVE.tile);
+      ctx.fillStyle='#454248';ctx.fillRect(px,py,CAVE.tile,CAVE.tile);
       ctx.fillStyle='#535058';for(let n=0;n<6;n++)ctx.fillRect(px+40+(n*71)%400,py+30+(n*113)%420,7,5);
     }else{
       ctx.fillStyle='#202329';ctx.fillRect(px,py,CAVE.tile,CAVE.tile);ctx.strokeStyle='#62606b';ctx.lineWidth=8;ctx.strokeRect(px+4,py+4,CAVE.tile-8,CAVE.tile-8);

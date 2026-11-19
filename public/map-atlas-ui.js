@@ -1,4 +1,4 @@
-// The terrain, minimap and authoritative spawn rules share MAP_ATLAS.
+// Region colors belong only to the minimap and atlas; native biome ground stays unchanged.
 const atlasMapCache=new Map();
 const atlasWalls={garden:'#214f39',beach:'#386b80',jungle:'#173e35',ice:'#487287',desert:'#80613e',cave:'#20232c'};
 const groundBeforeAtlas=RealmScenery.ground;
@@ -6,10 +6,7 @@ RealmScenery.ground=function(c,realm,left,top,width,height){
  groundBeforeAtlas(c,realm,left,top,width,height);const m=MAP_ATLAS.build(realm),tile=m.tile;
  for(let y=Math.max(0,Math.floor(top/tile));y<=Math.min(m.rows-1,Math.ceil((top+height)/tile));y++)for(let x=Math.max(0,Math.floor(left/tile));x<=Math.min(m.cols-1,Math.ceil((left+width)/tile));x++){
   const i=y*m.cols+x,px=x*tile,py=y*tile;c.save();
-  if(m.open[i]){
-   c.globalAlpha=m.tiers[i]===8?1:.82;c.fillStyle=MAP_ATLAS.COLORS[m.tiers[i]];c.fillRect(px,py,tile+1,tile+1);c.globalAlpha=1;
-   c.strokeStyle='#234b3524';c.lineWidth=3;for(let n=0;n<18;n++){const lx=px+45+(n*197+x*37)%900,ly=py+45+(n*317+y*43)%900;c.beginPath();if(realm==='beach'||realm==='desert'){c.ellipse(lx,ly,15,4,-.1,0,Math.PI);}else{c.moveTo(lx-5,ly+5);c.lineTo(lx,ly-6);c.lineTo(lx+4,ly+4);c.lineTo(lx+9,ly-2);}c.stroke();}
-  }else{
+  if(!m.open[i]){
    c.fillStyle=atlasWalls[realm];c.fillRect(px,py,tile+1,tile+1);c.strokeStyle=realm==='ice'?'#c6e1e650':'#bdca9a35';c.lineWidth=6;
    for(const [dx,dy,ax,ay,bx,by] of [[-1,0,0,0,0,tile],[1,0,tile,0,tile,tile],[0,-1,0,0,tile,0],[0,1,0,tile,tile,tile]])if(m.open[(y+dy)*m.cols+x+dx]){c.beginPath();c.moveTo(px+ax,py+ay);c.lineTo(px+bx,py+by);c.stroke();}
    c.fillStyle=realm==='beach'?'#b2dddc25':realm==='desert'?'#d3af6b30':realm==='ice'?'#afdeea35':'#79b57724';for(let n=0;n<5;n++){const lx=px+150+(n*223+x*17)%700,ly=py+150+(n*347+y*19)%700;c.beginPath();c.ellipse(lx,ly,90+n*12,55+n*9,n*.8,0,Math.PI*2);c.fill();}
