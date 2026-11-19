@@ -1,5 +1,6 @@
 (function(root){
  'use strict';
+ const arcana=typeof module!=='undefined'&&module.exports?require('./arcana-catalog'):root.ARCANA;
  const atlas=typeof module!=='undefined'&&module.exports?require('./map-atlas'):root.MAP_ATLAS;
  const RARITIES=['Comum','Incomum','Raro','Épico','Lendário','Mítico','ULTRA','SUPER','ABSOLUT','QUANTIUM','ALEPH','CHOSEN'];
  const SCALE=[1,1.25,1.6,2.1,2.8,3.8,5.3,7.3,10,14,20,30],CHANCES=[.8,.65,.5,.35,.25,.15,.1,.08,.05,.001,1];
@@ -46,6 +47,7 @@
   ['scorpion','Talismã do Escorpião','scorpion','sting',{damage:.05,vampirism:.001}],['sun','Élitro Solar','scarab','wings',{speed:.025,xp:.025}],['storm','Olho da Tempestade','sandTornado','eye',{range:10,slowResist:.03}],['magnet','Magneto Cósmico','guardian','magnet',{pickup:18,vision:12,mining:.04}]
  ].map(([id,name,kind,model,bonuses])=>({id,name,kind,model,bonuses,materials:8,components:3}));
  ACCESSORIES.push({id:'revival',name:'Relicário do Retorno',kind:'invertedBeetle',model:'revive',bonuses:{health:2},materials:8,components:3,revive:true});
+ ACCESSORIES.push({id:'orb',name:'Orbe Mágica',kind:'frog',model:'orb',bonuses:{},materials:12,components:5},...arcana.EGGS.map(e=>({...e,model:'egg',bonuses:{},materials:10,components:5})));
  const LEGACY={'Lanterna':['moth','Raro'],'Lente de Libélula':['wings','Épico'],'Botas de Gafanhoto':['wings','Lendário'],'Núcleo de Escavação':['mandible','Mítico'],'Observatório Astral':['moth','ULTRA'],'Asas de Fóton':['wings','SUPER'],'Magneto Cósmico':['magnet','ABSOLUT'],'Reator Quantium':['core','QUANTIUM'],'Olho de Aleph':['storm','ALEPH']};
  const num=(v,max=Number.MAX_SAFE_INTEGER)=>Math.min(max,Math.max(0,Math.floor(Number(v)||0)));
  const tier=name=>RARITIES.findIndex(r=>r===name),key=item=>item.type+':'+(item.accessoryId || item.kind || '')+':'+(item.oreRarity || item.rarity || item.name);

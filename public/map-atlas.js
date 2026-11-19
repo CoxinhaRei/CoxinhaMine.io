@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- const SIZE=150000,TILE=1000,VERSION=2;
+ const SIZE=150000,TILE=1000,VERSION=4;
  const TIERS=['Comum','Incomum','Raro','Épico','Lendário','Mítico','ULTRA','SUPER','ABSOLUT'];
  const COLORS=['#99dc83','#f4e38d','#85a9ed','#b492e1','#ed9692','#97d8d3','#e7a4cf','#7ce3ee','#f4f3ed'];
  const LAYOUTS={
@@ -36,10 +36,43 @@
     for(let gy=Math.max(1,Math.floor((y-r)/TILE));gy<=Math.min(rows-2,Math.ceil((y+r)/TILE));gy++)for(let gx=Math.max(1,Math.floor((x-r)/TILE));gx<=Math.min(cols-2,Math.ceil((x+r)/TILE));gx++){const i=gy*cols+gx;if(Math.hypot((gx+.5)*TILE-x,(gy+.5)*TILE-y)<r&&[i-1,i+1,i-cols,i+cols].every(j=>tiers[j]===tiers[i]))open[i]=0;}
    }
   }
-  const result={realm,version:VERSION,...d,cols,rows,tile:TILE,open,tiers,points,names:layout.names};cache.set(realm,result);return result;
+  // Regional walls follow the actual shared borders. One or more wide gates
+  // connect every adjacent pair; grass and rarity ownership do not change.
+  const borders=new Map();
+  for(let y=1;y<rows-1;y++)for(let x=1;x<cols-1;x++){
+   const i=y*cols+x;for(const [dx,dy] of [[1,0],[0,1]]){const j=i+dy*cols+dx;if(tiers[i]===tiers[j])continue;const a=Math.min(tiers[i],tiers[j]),b=Math.max(tiers[i],tiers[j]),key=a+':'+b;if(!borders.has(key))borders.set(key,[]);borders.get(key).push({a,b,x:(x+.5+dx*.5)*TILE,y:(y+.5+dy*.5)*TILE,nx:dx,ny:dy});open[i]=0;open[j]=0;}
+  }
+  const gates=[];
+  function clearCircle(x,y,r){for(let gy=Math.max(1,Math.floor((y-r)/TILE));gy<=Math.min(rows-2,Math.ceil((y+r)/TILE));gy++)for(let gx=Math.max(1,Math.floor((x-r)/TILE));gx<=Math.min(cols-2,Math.ceil((x+r)/TILE));gx++)if(Math.hypot((gx+.5)*TILE-x,(gy+.5)*TILE-y)<=r)open[gy*cols+gx]=1;}
+  for(const [pair,edges] of borders){
+   const inner=edges.filter(e=>{if(e.x<4000||e.y<4000||e.x>d.width-4000||e.y>d.height-4000)return false;for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const tier=tiers[(Math.floor(e.y/TILE)+dy)*cols+Math.floor(e.x/TILE)+dx];if(tier!==e.a&&tier!==e.b)return false;}return true;});
+   const candidates=inner.length?inner:edges,count=edges.length>32?2:1;
+   for(let n=0;n<count;n++){const e=candidates[Math.min(candidates.length-1,Math.floor(candidates.length*(n+1)/(count+1)))],gate={...e,id:'gate-'+pair.replace(':','-')+'-'+n,radius:2400};if(gates.some(g=>g.a===e.a&&g.b===e.b&&Math.hypot(g.x-e.x,g.y-e.y)<4500))continue;clearCircle(gate.x,gate.y,gate.radius);gates.push(gate);}
+  }
+  const arrival=spawn(realm);clearCircle(arrival.x,arrival.y,1800);
+  for(const p of points)if(!open[Math.floor(p.y/TILE)*cols+Math.floor(p.x/TILE)]){let nearest;for(const edges of borders.values())for(const e of edges)if((e.a===p.tier||e.b===p.tier)&&(!nearest||Math.hypot(e.x-p.x,e.y-p.y)<Math.hypot(nearest.x-p.x,nearest.y-p.y)))nearest=e;if(nearest){const gate={...nearest,id:'gate-landmark-'+p.tier,radius:2400};clearCircle(gate.x,gate.y,gate.radius);gates.push(gate);}}
+  if(realm!=='cave')for(let n=0;n<5;n++){const a=-Math.PI/2+n*Math.PI*2/5;clearCircle(SIZE/2+Math.cos(a)*SIZE*.34,SIZE/2+Math.sin(a)*SIZE*.34,1600);}
+  if(realm==='garden')clearCircle(SIZE-2000,2000,1200);
+  if(realm!=='cave'){
+   // Clearings are cut inside the existing territories. Unused land stays wall,
+   // never an implicit white region; corridors preserve the shared border gates.
+   const old=open.slice(),floor=new Uint8Array(open.length),home=Math.floor(arrival.y/TILE)*cols+Math.floor(arrival.x/TILE),parents=new Int32Array(open.length).fill(-1),q=[home];parents[home]=home;
+   for(let n=0;n<q.length;n++){const i=q[n],x=i%cols,y=Math.floor(i/cols);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy,j=yy*cols+xx;if(xx>=0&&yy>=0&&xx<cols&&yy<rows&&old[j]&&parents[j]<0){parents[j]=i;q.push(j);}}}
+   function paint(x,y,r,tier){for(let gy=Math.max(1,Math.floor((y-r)/TILE));gy<=Math.min(rows-2,Math.ceil((y+r)/TILE));gy++)for(let gx=Math.max(1,Math.floor((x-r)/TILE));gx<=Math.min(cols-2,Math.ceil((x+r)/TILE));gx++){const i=gy*cols+gx;if(old[i]&&(tier===undefined||tiers[i]===tier)&&Math.hypot((gx+.5)*TILE-x,(gy+.5)*TILE-y)<=r)floor[i]=1;}}
+   const chambers=[...points.map(p=>({...p,r:p.tier===0?14500:10500+p.tier*650})),{x:ax*d.width,y:ay*d.height,tier:8,r:36000}];
+   for(const p of chambers){paint(p.x,p.y,p.r,p.tier);for(let n=0;n<3;n++){const a=n*2.1+layout.seed;paint(p.x+Math.cos(a)*p.r*.55,p.y+Math.sin(a)*p.r*.55,p.r*.65,p.tier);}}
+   const places=[...chambers,...gates,...Array.from({length:5},(_,n)=>{const a=-Math.PI/2+n*Math.PI*2/5;return {x:SIZE/2+Math.cos(a)*SIZE*.34,y:SIZE/2+Math.sin(a)*SIZE*.34};})];if(realm==='garden')places.push({x:SIZE-2000,y:2000});
+   for(const p of places){let i=Math.floor(p.y/TILE)*cols+Math.floor(p.x/TILE);if(parents[i]<0){let best=Infinity;for(const j of q){const d=((j%cols+.5)*TILE-p.x)**2+((Math.floor(j/cols)+.5)*TILE-p.y)**2;if(d<best){best=d;i=j;}}}for(let n=0;n<old.length&&i!==home&&parents[i]>=0;n++){paint((i%cols+.5)*TILE,(Math.floor(i/cols)+.5)*TILE,1800);i=parents[i];}paint(p.x,p.y,1900);}
+   paint(arrival.x,arrival.y,2500);open.set(floor);
+  }
+  // Remove only tiny floor fragments clipped off at wall junctions.
+  const start=Math.floor(arrival.y/TILE)*cols+Math.floor(arrival.x/TILE),seen=new Uint8Array(open.length),queue=[start];seen[start]=1;
+  for(let n=0;n<queue.length;n++){const i=queue[n],x=i%cols,y=Math.floor(i/cols);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy,j=yy*cols+xx;if(xx>=0&&yy>=0&&xx<cols&&yy<rows&&open[j]&&!seen[j]){seen[j]=1;queue.push(j);}}}
+  for(let n=0;n<open.length;n++)if(!seen[n])open[n]=0;
+  const result={realm,version:VERSION,...d,cols,rows,tile:TILE,open,tiers,points,gates,names:layout.names};cache.set(realm,result);return result;
  }
  function at(realm,x,y){const map=build(realm),gx=Math.floor(x/TILE),gy=Math.floor(y/TILE),index=gy*map.cols+gx,tier=gx<0||gy<0||gx>=map.cols||gy>=map.rows?0:map.tiers[index],s=spawn(realm),safe=realm==='cave'?x<2000&&y<2000:Math.hypot(x-s.x,y-s.y)<1200;return {tier,rarity:TIERS[tier],name:safe?(realm==='garden'?'Praça central':realm==='cave'?'Entrada do Labirinto':'Refúgio · '+({beach:'Praia',jungle:'Jungle',ice:'Floresta de Gelo',desert:'Deserto'}[realm]||'Jardim')):map.names[tier],color:COLORS[tier],safe,open:gx>=0&&gy>=0&&gx<map.cols&&gy<map.rows&&!!map.open[index]};}
- function blocked(realm,x,y,radius=0){if(realm==='cave')return false;const m=build(realm);for(let gy=Math.floor((y-radius)/TILE);gy<=Math.floor((y+radius)/TILE);gy++)for(let gx=Math.floor((x-radius)/TILE);gx<=Math.floor((x+radius)/TILE);gx++){if(gx>=0&&gy>=0&&gx<m.cols&&gy<m.rows&&m.open[gy*m.cols+gx])continue;const nx=Math.max(gx*TILE,Math.min((gx+1)*TILE,x)),ny=Math.max(gy*TILE,Math.min((gy+1)*TILE,y));if(Math.hypot(nx-x,ny-y)<=radius)return true;}return false;}
+ function blocked(realm,x,y,radius=0){const m=build(realm);for(let gy=Math.floor((y-radius)/TILE);gy<=Math.floor((y+radius)/TILE);gy++)for(let gx=Math.floor((x-radius)/TILE);gx<=Math.floor((x+radius)/TILE);gx++){if(gx>=0&&gy>=0&&gx<m.cols&&gy<m.rows&&m.open[gy*m.cols+gx])continue;const nx=Math.max(gx*TILE,Math.min((gx+1)*TILE,x)),ny=Math.max(gy*TILE,Math.min((gy+1)*TILE,y));if(Math.hypot(nx-x,ny-y)<=radius)return true;}return false;}
  function roll(realm,x,y,random=Math.random){const r=at(realm,x,y);if(r.safe||!r.open)return -1;return rollTier(r.tier,random);}
  function rollTier(tier,random=Math.random){const n=random();if(tier===8)return n<.01?9:n<.21?7:8;if(tier===7)return n<.84?7:6;return n<.84?tier:Math.max(0,tier-1);}
  function pool(realm,tier){const base={garden:[['ladybug','ant'],['bee','ladybug'],['beetle','bee'],['spider','ant'],['centipede','beetle'],['bee','spider'],['centipede','spider'],['beetle','bee'],['ladybug','beetle','centipede']],beach:[['hermit'],['crab'],['turtle'],['hermit','crab'],['turtle','crab'],['hermit','turtle'],['crab','turtle'],['turtle','hermit'],['crab','hermit','turtle']],jungle:[['frog'],['dragonfly'],['mantis'],['spider'],['mantis','frog'],['dragonfly','spider'],['mantis','spider'],['frog','mantis'],['mantis','dragonfly','frog','spider']],ice:[['icebeetle'],['snowmoth'],['icebeetle'],['snowmoth'],['icebeetle','snowmoth'],['iceTornado'],['snowmoth','iceTornado'],['icebeetle','iceTornado'],['icebeetle','snowmoth','iceTornado']],desert:[['scarab'],['scorpion'],['scarab'],['scorpion'],['sandTornado'],['scarab','sandTornado'],['scorpion','sandTornado'],['scarab','scorpion'],['scarab','scorpion','sandTornado']]};return realm==='cave'?['guardian']:(base[realm]||base.garden)[Math.max(0,Math.min(8,tier))];}

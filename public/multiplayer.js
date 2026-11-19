@@ -7,7 +7,7 @@ function currentSession(){return guestCredentials || activeSession();}
 function playerDisplayName(p){return (p.name || 'Convidado')+(p.developerTest?' [DEV]':'')+(p.guest && p.name!=='Convidado' ? ' (Convidado)' : '');}
 function resetGuestSession(){
   guestCredentials=null;multiplayer.guest=false;multiplayer.ready=false;multiplayer.profileName='';window.accountProgressEnabled=false;
-  Object.assign(player,{name:'',developerTest:false,guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:100,maxHp:100,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
+  Object.assign(player,{magic:{awakened:false,ranks:{},selected:'spark'},mana:100,maxMana:100,name:'',developerTest:false,guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:100,maxHp:100,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
   const input=document.getElementById('nameInput');input.value='';input.readOnly=false;
   squadState={members:[]};renderSquad();
 }
@@ -37,7 +37,7 @@ function beginSharedSession({lobby=false}={}){
 }
 function applyServerPlayer(state){
   if(state.dead && !player.dead)enterDeath(state.deathCause);
-  const keys=['developerTest','playTimeMs','reviveReadyAt','accessories','accessoryVersion','joinedAt','guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
+  const keys=['magic','mana','maxMana','developerTest','playTimeMs','reviveReadyAt','accessories','accessoryVersion','joinedAt','guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
   for(const key of keys)if(state[key]!==undefined)player[key]=state[key];
   player.progressionVersion=3;restoreEquipment();restoreArmor();
   if(typeof inventorySignature!=='undefined')inventorySignature='';if(typeof lastShopState!=='undefined')lastShopState='';
@@ -61,7 +61,7 @@ function sendPlayerMovement(){
 const pendingMovement=new Map();
 function mergeNetworkEntities(previous,incoming){const existing=new Map(previous.map(e=>[e.id,e])),now=performance.now();return incoming.map(data=>{const item=existing.get(data.id);if(!item || Math.hypot(item.x-data.x,item.y-data.y)>1400)return {...data};const from={x:item.x,y:item.y,angle:item.angle || 0,walkPhase:item.walkPhase || 0};Object.assign(item,data);item._from=from;item._to={x:data.x,y:data.y,angle:data.angle || 0,walkPhase:data.walkPhase || 0};item._received=now;item.x=from.x;item.y=from.y;return item;});}
 function mergeRemotePlayers(packet){const list=mergeNetworkEntities(Object.entries(players).map(([id,p])=>({...p,id})),Object.entries(packet || {}).map(([id,p])=>({...p,id})));return Object.fromEntries(list.map(p=>[p.id,p]));}
-function interpolateNetwork(now){for(const entity of [...mobs,...Object.values(players),...projectiles]){if(!entity._from)continue;const t=Math.min(1,(now-entity._received)/100),a=entity._from,b=entity._to;entity.x=a.x+(b.x-a.x)*t;entity.y=a.y+(b.y-a.y)*t;entity.angle=a.angle+Math.atan2(Math.sin(b.angle-a.angle),Math.cos(b.angle-a.angle))*t;entity.walkPhase=a.walkPhase+(b.walkPhase-a.walkPhase)*t;}}
+function interpolateNetwork(now){for(const entity of [...mobs,...(multiplayer.allies||[]),...Object.values(players),...projectiles]){if(!entity._from)continue;const t=Math.min(1,(now-entity._received)/100),a=entity._from,b=entity._to;entity.x=a.x+(b.x-a.x)*t;entity.y=a.y+(b.y-a.y)*t;entity.angle=a.angle+Math.atan2(Math.sin(b.angle-a.angle),Math.cos(b.angle-a.angle))*t;entity.walkPhase=a.walkPhase+(b.walkPhase-a.walkPhase)*t;}}
 function requestPlayerAction(kind,data={}){
   if(!multiplayer.ready || !socket.connected || player.dead)return false;
   socket.emit('playerAction',{kind,data});return true;
@@ -128,6 +128,7 @@ function applyWorldSnapshot(snapshot){
   if(multiplayer.protocol>=5 && self?.epoch===multiplayer.movementEpoch)networkMovement.reconcile(player,self,snapshot.serverTime,networkSpeed(),movePredictedPlayer);
   if(history && self.epoch===multiplayer.movementEpoch && self.seq>(multiplayer.correctedSeq || 0)){multiplayer.correctedSeq=self.seq;const dx=self.x-history.x,dy=self.y-history.y;if(Math.hypot(dx,dy)>2){player.x+=dx;player.y+=dy;for(const [seq,point] of pendingMovement)if(seq>=self.seq){point.x+=dx;point.y+=dy;}}}
   multiplayer.contribution=snapshot.contribution;player.hp=snapshot.hp;player.maxHp=snapshot.maxHp;
+  multiplayer.allies=mergeNetworkEntities(multiplayer.allies||[],snapshot.allies||[]);multiplayer.magicEffects=snapshot.magicEffects||[];multiplayer.magicBolts=snapshot.magicBolts||[];multiplayer.mentor=snapshot.mentor||null;player.mana=snapshot.mana||0;player.maxMana=snapshot.maxMana||100;multiplayer.magicReadyIn=snapshot.magicReadyIn||0;
   multiplayer.forge=snapshot.forge||null;multiplayer.squadContribution=snapshot.squadContribution || {};player.slowUntil=snapshot.slowUntil||0;
   if(currentRealm==='cave' && multiplayer.mapVersion!==snapshot.mapVersion && Array.isArray(snapshot.mapDelta)){buildCaveMaze();for(const index of snapshot.mapDelta)CAVE.maze[index]=1;multiplayer.mapVersion=snapshot.mapVersion;caveMapImage=null;socket.emit('mapAck',{realm:currentRealm,version:snapshot.mapVersion});}
   if(snapshot.dead && !player.dead)enterDeath(snapshot.deathCause);
@@ -135,7 +136,7 @@ function applyWorldSnapshot(snapshot){
 socket.on('worldSnapshot',applyWorldSnapshot);
 socket.on('worldFrame',frame=>{if(frame.party&&window.receivePartyState155)window.receivePartyState155(frame.party);players=mergeRemotePlayers(frame.players);applyWorldSnapshot(frame.world);});
 socket.on('realmChanged',data=>{
-  const change=()=>{currentRealm=data.realm;multiplayer.movementEpoch=data.epoch;multiplayer.seq=0;multiplayer.correctedSeq=0;networkMovement.reset();multiplayer.lastSent=null;player.x=data.x;player.y=data.y;player.vx=0;player.vy=0;ores=[];mobs=[];players={};projectiles=[];particles=[];abilityEffects=[];multiplayer.forge=null;multiplayer.drops=[];pendingMovement.clear();clearBossMobEffects();heldKeys.clear();movementAimActive=false;multiplayer.mapVersion=-1;if(currentRealm==='cave')buildCaveMaze();};
+  const change=()=>{currentRealm=data.realm;multiplayer.movementEpoch=data.epoch;multiplayer.seq=0;multiplayer.correctedSeq=0;networkMovement.reset();multiplayer.lastSent=null;player.x=data.x;player.y=data.y;player.vx=0;player.vy=0;ores=[];mobs=[];players={};projectiles=[];particles=[];abilityEffects=[];multiplayer.forge=null;multiplayer.allies=[];multiplayer.magicEffects=[];multiplayer.magicBolts=[];multiplayer.mentor=null;multiplayer.drops=[];pendingMovement.clear();clearBossMobEffects();heldKeys.clear();movementAimActive=false;multiplayer.mapVersion=-1;if(currentRealm==='cave')buildCaveMaze();};
   if(typeof irisTransition==='function')irisTransition(change);else change();
 });
 socket.on('entityHit',data=>{miningBurst(data.x,data.y,data.color,data.isMob ? 9 : 16);damageNumbers.push({x:data.x,y:data.y-25,text:Math.round(data.damage),life:.7});});

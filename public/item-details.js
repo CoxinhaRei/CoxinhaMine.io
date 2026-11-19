@@ -16,6 +16,8 @@
       info.description='Concede estes bônus enquanto está equipado em um slot de acessório.';
       info.rows=Object.entries(def.bonuses).map(([key,value])=>[labels[key]||key,'+'+number(value*E.SCALE[tier]*(percent.has(key)?100:1))+(percent.has(key)?'%':key==='regen'?' vida/s':['vision','range','pickup'].includes(key)?' unidades':'')]);
       info.note='Os bônus aumentam com a raridade. O total equipado respeita os limites de cada atributo.';
+      if(def.id==='orb'){info.kind='Foco de magia';info.description='Equipe em um slot e desperte sua magia com o Sábio do Dossel na Jungle.';info.rows.push(['Escala arcana',requireArcanaDetail(tier)],['Mana máxima',String(100+tier*24)]);info.note='A raridade aumenta dano, alcance e tamanho das magias. Conjurar consome mana.';}
+      if(def.model==='egg'){info.kind='Acessório de invocação';info.description='Invoca automaticamente aliados laranja que atacam criaturas. Eles atravessam jogadores e não dão XP nem drops.';info.rows.push(['Aliados por ovo',String(def.count)],['Vida e tamanho','70% do mob de mesma raridade'],['Recarga após cada morte',def.cooldown+' s']);info.note='Até 24 aliados ativos por jogador. Remover o ovo ou sair do mapa desfaz suas invocações.';}
       if(def.revive){const spec=E.reviveSpec({level:1,accessories:[{accessoryId:def.id,rarity}]});info.rows.push(['Ressuscitar aliado',number(spec.duration/1000)+' s de canalização'],['Recarga',number(spec.cooldown/1000)+' s'],['Vida ao ressuscitar',number(spec.health*100)+'%']);info.note='Use perto de um aliado caído no mesmo mapa. Mover-se ou receber dano interrompe a canalização.';}
     }else if(item.type==='component'){
       const creature=creatures.find(c=>c.kind===item.kind),recipes=E.ACCESSORIES.filter(a=>a.kind===item.kind);
@@ -39,5 +41,6 @@
     if(item.amount!==undefined)info.rows.unshift(['Quantidade',number(item.amount)]);
     return info;
   }
+  function requireArcanaDetail(tier){const a=typeof module!=='undefined'&&module.exports?require('./arcana-catalog'):root.ARCANA;return number(a.POWER[tier])+'× de poder';}
   const api={describe,number};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ItemDetails=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

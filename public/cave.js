@@ -9,19 +9,21 @@ function buildCaveMaze(){
   grid[CAVE.columns+1]=1;
   while(stack.length){
     const [x,y]=stack[stack.length-1];
-    const choices=[[2,0],[-2,0],[0,2],[0,-2]].filter(([dx,dy])=>x+dx>0 && y+dy>0 && x+dx<CAVE.columns-1 && y+dy<CAVE.rows-1 && !grid[(y+dy)*CAVE.columns+x+dx]);
+    const choices=[[2,0],[-2,0],[0,2],[0,-2]].filter(([dx,dy])=>x+dx>0 && y+dy>0 && x+dx<CAVE.columns-1 && y+dy<CAVE.rows-1 && !grid[(y+dy)*CAVE.columns+x+dx] && !MAP_ATLAS.blocked('cave',(x+dx+.5)*CAVE.tile,(y+dy+.5)*CAVE.tile) && !MAP_ATLAS.blocked('cave',(x+dx/2+.5)*CAVE.tile,(y+dy/2+.5)*CAVE.tile));
     if(!choices.length){stack.pop();continue;}
     const [dx,dy]=choices[Math.floor(rng()*choices.length)];
     grid[(y+dy/2)*CAVE.columns+x+dx/2]=1;grid[(y+dy)*CAVE.columns+x+dx]=1;stack.push([x+dx,y+dy]);
   }
   for(let y=1;y<=3;y++)for(let x=1;x<=3;x++)grid[y*CAVE.columns+x]=1;
   CAVE.maze=grid;
+  for(const gate of MAP_ATLAS.build('cave').gates)carveCaveChamber(gate.x,gate.y,gate.radius-200);
   CAVE.deposits=[];
   const chamberRandom=seededRandom(2983);
   for(let y=15000;y<CAVE.height-12000;y+=20000)for(let x=15000;x<CAVE.width-12000;x+=20000){
     const roll=chamberRandom(),index=MAP_ATLAS.at('cave',x,y).tier===8 ? (roll<.008?9:roll<.30?8:roll<.40?7:-1) : -1;
     if(index<0)continue;
     const rarity=rarities[index],size=GAME_CATALOG.oreRadius(rarity.name);
+    if(MAP_ATLAS.blocked('cave',x,y,size+150))continue;
     const deposit={id:'chamber-'+x+'-'+y,x,y,size,rarity,hp:rarity.hp,maxHp:rarity.hp,isBoss:true};
     CAVE.deposits.push(deposit);carveCaveChamber(x,y,size+600);
   }
@@ -100,6 +102,7 @@ function populateCave(){
     if(ores.some(o=>Math.hypot(o.x-px,o.y-py)<o.size+size+150))continue;
     // Giant deposits get reachable chambers; the remaining passages stay a maze.
     if(size>200){
+      if(MAP_ATLAS.blocked('cave',px,py,size+350))continue;
       if(px<size+1000 || py<size+1000 || px>CAVE.width-size-1000 || py>CAVE.height-size-1000 || Math.hypot(px-player.x,py-player.y)<size+350)continue;
       carveCaveChamber(px,py,size+350);
     }
@@ -138,7 +141,7 @@ function drawCaveWorld(){
 function carveCaveChamber(px,py,radius){
   CAVE.revision=(CAVE.revision || 0)+1;
   for(let y=Math.floor((py-radius)/CAVE.tile);y<=Math.ceil((py+radius)/CAVE.tile);y++)for(let x=Math.floor((px-radius)/CAVE.tile);x<=Math.ceil((px+radius)/CAVE.tile);x++){
-    if(x>0 && y>0 && x<CAVE.columns-1 && y<CAVE.rows-1 && Math.hypot((x+.5)*CAVE.tile-px,(y+.5)*CAVE.tile-py)<radius+CAVE.tile*.7)CAVE.maze[y*CAVE.columns+x]=1;
+    if(x>0 && y>0 && x<CAVE.columns-1 && y<CAVE.rows-1 && Math.hypot((x+.5)*CAVE.tile-px,(y+.5)*CAVE.tile-py)<radius+CAVE.tile*.7 && !MAP_ATLAS.blocked('cave',(x+.5)*CAVE.tile,(y+.5)*CAVE.tile))CAVE.maze[y*CAVE.columns+x]=1;
   }
   caveMapImage=null;
 }
