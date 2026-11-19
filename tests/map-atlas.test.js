@@ -5,13 +5,31 @@ async function server(t){const s=await createGameServer({env:{},storage:{db:low(
 test('six original maps are deterministic, expanded, connected, have every tier and make white Absolut the largest territory',()=>{
  const hashes=new Set();for(const realm of Object.keys(atlas.LAYOUTS)){
   const m=atlas.build(realm),spawn=atlas.spawn(realm),counts=Array(9).fill(0);assert.equal(m.width,realm==='cave'?300000:150000);assert.equal(m.height,150000);assert.deepEqual(E.mapFor(realm).spawn,spawn);
-  for(let n=0;n<m.open.length;n++)if(m.open[n])counts[m.tiers[n]]++;assert.ok(counts.every(n=>n>0),realm+' has all tiers');assert.ok(counts[8]>Math.max(...counts.slice(0,8))*3,realm+' white area dominates');assert.equal(atlas.COLORS[8],'#f4f3ed');
+  for(let n=0;n<m.open.length;n++)if(m.open[n])counts[m.tiers[n]]++;assert.ok(counts.every(n=>n>0),realm+' has all tiers');assert.ok(counts[8]>Math.max(...counts.slice(0,8)),realm+' white area is the largest single region');assert.ok(counts[8]/m.open.length<.25,realm+' Absolut is not the background of the map');assert.equal(atlas.COLORS[8],'#f4f3ed');
   if(realm!=='cave'){const visited=reachable(m,Math.floor(spawn.y/m.tile)*m.cols+Math.floor(spawn.x/m.tile));assert.equal(visited.size,counts.reduce((a,b)=>a+b),realm+' has no unreachable islands');for(const p of [...m.points,...E.portalsFor(realm)])assert.equal(atlas.blocked(realm,p.x,p.y,20),false,realm+' landmark or portal reachable');}
   hashes.add(crypto.createHash('sha256').update(m.open).update(m.tiers).digest('hex'));
  }assert.equal(hashes.size,6);
 });
 test('browser and server generate exactly the same terrain instead of random per-player maps',()=>{
  const context=vm.createContext({});vm.runInContext(fs.readFileSync(require.resolve('../public/map-atlas'),'utf8'),context);for(const realm of Object.keys(atlas.LAYOUTS)){const client=context.MAP_ATLAS.build(realm),host=atlas.build(realm);assert.deepEqual(Buffer.from(client.open),Buffer.from(host.open));assert.deepEqual(Buffer.from(client.tiers),Buffer.from(host.tiers));}
+});
+test('all nine regions meet at shared borders and each rarity occupies exactly one connected part of each map',()=>{
+ for(const realm of Object.keys(atlas.LAYOUTS)){
+  const m=atlas.build(realm),components=Array(9).fill(0),seen=new Set();let borders=0;
+  for(let i=0;i<m.tiers.length;i++){
+   if(i%m.cols>0&&i%m.cols<m.cols-2&&i>=m.cols&&i<m.tiers.length-m.cols&&m.tiers[i]!==m.tiers[i+1]){borders++;assert.ok(m.open[i]&&m.open[i+1]||realm==='cave','territory borders meet without a wall gap');}
+   if(seen.has(i))continue;const tier=m.tiers[i],q=[i];seen.add(i);components[tier]++;
+   for(let n=0;n<q.length;n++){const k=q[n],x=k%m.cols,y=Math.floor(k/m.cols);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy,j=yy*m.cols+xx;if(xx>=0&&yy>=0&&xx<m.cols&&yy<m.rows&&!seen.has(j)&&m.tiers[j]===tier){seen.add(j);q.push(j);}}}
+  }
+  assert.deepEqual(components,Array(9).fill(1),realm+' has one contiguous territory per rarity, including Absolut');assert.ok(borders>100);assert.equal(seen.size,m.cols*m.rows,'every tile has a territory');if(realm!=='cave')assert.ok(m.open.reduce((a,b)=>a+b,0)/m.open.length>.95,'no empty spaces between colored regions');
+ }
+});
+test('region colors never paint the actual ground or the cave floor',()=>{
+ const source=fs.readFileSync(require.resolve('../public/map-atlas-ui'),'utf8').split('function atlasMapImage')[0],calls=[];
+ const c={fillStyle:'',save(){},restore(){},fillRect(...args){calls.push({color:this.fillStyle,args});},beginPath(){},moveTo(){},lineTo(){},stroke(){},ellipse(){},fill(){}};
+ const context=vm.createContext({MAP_ATLAS:atlas,RealmScenery:{ground(c,realm,left,top,width,height){c.fillStyle='#21b966';c.fillRect(left,top,width,height);}}});vm.runInContext(source,context);
+ for(const tier of [0,8]){const m=atlas.build('garden');let p;for(let i=0;i<m.open.length;i++)if(m.tiers[i]===tier&&m.open[i]&&!atlas.blocked('garden',(i%m.cols+.5)*m.tile,(Math.floor(i/m.cols)+.5)*m.tile,2000)){p={x:(i%m.cols+.5)*m.tile,y:(Math.floor(i/m.cols)+.5)*m.tile};break;}calls.length=0;context.RealmScenery.ground(c,'garden',p.x-20,p.y-20,40,40);assert.deepEqual(calls.map(a=>a.color),['#21b966']);}
+ for(const name of ['cave.js','realm-scenery.js']){const text=fs.readFileSync(require.resolve('../public/'+name),'utf8');assert.equal(text.includes("MAP_ATLAS.at('cave',px+CAVE.tile/2,py+CAVE.tile/2).color"),false);assert.ok(text.includes("fillStyle='#454248'"));}
 });
 test('territory rarity rolls are exact; Absolut allows only 79% Absolut, 20% Super and 1% Quantium, with no crafted/admin tiers',()=>{
  for(let tier=0;tier<=8;tier++){const counts={};for(let n=0;n<10000;n++){const result=atlas.rollTier(tier,()=>(n+.5)/10000);counts[result]=(counts[result]||0)+1;assert.ok(result<=9);}
@@ -24,7 +42,7 @@ test('every biome actually spawns creatures in every territory, with species, ra
  for(const realm of Object.keys(atlas.LAYOUTS)){
   const world=s.worlds[realm],g=world.game,map=atlas.build(realm),profile=s.store.create('Atlas '+realm).profile,actor={profile,state:profile.state,inLobby:false,socket:{id:'atlas-'+realm,emit(){}}};s.actors[actor.socket.id]=actor;
   for(let tier=0;tier<=8;tier++){
-   let p=tier<8?map.points[tier]:{x:map.width*.77,y:map.height*.72};if(tier===8&&realm!=='cave'){const candidates=[];for(let y=1;y<map.rows-1;y++)for(let x=1;x<map.cols-1;x++){const wx=(x+.5)*map.tile,wy=(y+.5)*map.tile;if(map.tiers[y*map.cols+x]===8&&map.open[y*map.cols+x]&&!atlas.blocked(realm,wx,wy,4000))candidates.push({x:wx,y:wy});}candidates.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));assert.ok(candidates.length);p=candidates[0];}if(realm==='cave'){let found=false;for(let d=0;d<20&&!found;d++)for(let x=-d;x<=d&&!found;x++)for(const y of [-d,d]){const px=Math.floor(p.x/500)+x,py=Math.floor(p.y/500)+y;if(g.tileOpen(px,py)){p={x:(px+.5)*500,y:(py+.5)*500};found=true;break;}}}
+   let p=tier<8?map.points[tier]:{x:atlas.LAYOUTS[realm].absolute[0][0]*map.width,y:atlas.LAYOUTS[realm].absolute[0][1]*map.height};if(tier===8&&realm!=='cave'){const candidates=[];for(let y=1;y<map.rows-1;y++)for(let x=1;x<map.cols-1;x++){const wx=(x+.5)*map.tile,wy=(y+.5)*map.tile;if(map.tiers[y*map.cols+x]===8&&map.open[y*map.cols+x]&&!atlas.blocked(realm,wx,wy,4000))candidates.push({x:wx,y:wy});}candidates.sort((a,b)=>Math.hypot(a.x-p.x,a.y-p.y)-Math.hypot(b.x-p.x,b.y-p.y));assert.ok(candidates.length);p=candidates[0];}if(realm==='cave'){let found=false;for(let d=0;d<20&&!found;d++)for(let x=-d;x<=d&&!found;x++)for(const y of [-d,d]){const px=Math.floor(p.x/500)+x,py=Math.floor(p.y/500)+y;if(g.tileOpen(px,py)){p={x:(px+.5)*500,y:(py+.5)*500};found=true;break;}}}
    Object.assign(actor.state,{realm,x:p.x,y:p.y,hp:100000});g.mobs=[];g.ores=[];world.dormantOres.clear();world.dormantMobs.clear();
    for(let n=0;n<4;n++)world.spawnAround(actor);
    assert.ok(g.mobs.length>=2,realm+' tier '+tier+' really spawns mobs');
