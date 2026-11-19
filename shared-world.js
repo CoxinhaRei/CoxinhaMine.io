@@ -9,10 +9,11 @@ class SharedWorld{
     this.realm=realm;this.actors=actors;this.store=store;this.io=io;this.contributions=new Map();this.squadCredits=new Map();this.drops=[];this.revision=0;this.nextSpawn=0;this.dormantOres=new Map();this.dormantMobs=new Map();this.nextMaintenance=0;this.oreRevision=0;
     this.game=createRuntime(realm,(state,amount,dx,dy,cause)=>this.hurt(state,amount,dx,dy,cause));
     const home=expansion.LANDMARKS.desert.find(p=>p.id==='forge');this.forge=realm==='desert'?{id:'chosen-forge',name:'Coxinha Forjadora',x:home.x,y:home.y,homeX:home.x,homeY:home.y,size:340,roam:1200,speed:42,targetX:home.x,targetY:home.y,angle:0,timer:0}:null;
+    this.arcana=new (require('./arcana'))(this);
     this.baseMaze=realm==='cave' ? this.game.cave.maze.slice() : null;this.mapVersion=-1;this.mapDelta=[];
   }
   announceSpawn(entity,isMob){
-    if(!entity || entity.spawnAnnounced || entity.summoned || entity.noRewards || this.game.rarities.findIndex(r=>r.name===entity.rarity?.name)<8)return;
+    if(!entity || entity.spawnAnnounced || entity.summoned || entity.noRewards || this.game.rarities.findIndex(r=>r.name===entity.rarity?.name)<9)return;
     entity.spawnAnnounced=true;this.io.emit('rareSpawn',{entity:isMob?entity.name||'Criatura':'Minério',type:isMob?'mob':'minério',rarity:entity.rarity.name,realm:this.realm,biome:this.realm==='cave'?'Caverna':expansion.mapFor(this.realm).name});
   }
   tickForge(dt){const f=this.forge;if(!f)return;const nearby=(this.tickLive||this.live()).find(a=>Math.hypot(a.state.x-f.x,a.state.y-f.y)<f.size+300);if(nearby){f.angle=Math.atan2(nearby.state.y-f.y,nearby.state.x-f.x);return;}f.timer-=dt;const distance=Math.hypot(f.targetX-f.x,f.targetY-f.y);if(f.timer<=0||distance<10){const angle=Math.random()*Math.PI*2,r=Math.sqrt(Math.random())*f.roam;f.targetX=f.homeX+Math.cos(angle)*r;f.targetY=f.homeY+Math.sin(angle)*r;f.timer=4+Math.random()*5;}const dx=f.targetX-f.x,dy=f.targetY-f.y,d=Math.hypot(dx,dy)||1,step=Math.min(d,f.speed*dt);f.x+=dx/d*step;f.y+=dy/d*step;f.angle=Math.atan2(dy,dx);}
@@ -151,6 +152,7 @@ class SharedWorld{
         if(x<mob.size+600||y<mob.size+600||x>g.cave.width-mob.size-600||y>g.cave.height-mob.size-600)continue;
         if(!g.tileOpen(Math.floor(x/500),Math.floor(y/500)))continue;
         if(g.wall(x,y,mob.size*.75))g.carveChamber(x,y,mob.size+550);
+        if(g.wall(x,y,mob.size*.75))continue;
       }else if(!catalog.gardenOrePositionValid(x,y,mob.size,atlas.SIZE)||atlas.blocked(this.realm,x,y,mob.size*.75))continue;
       mob.regionTier=area.tier;g.mobs.push(mob);this.announceSpawn(mob,true);nearby++;
     }
@@ -267,7 +269,7 @@ class SharedWorld{
     const squadContribution={},team=this.squads?.groupFor(actor.profile.id);
     if(team)for(const [id,groups] of this.squadCredits){const entity=entities.get(id),credit=groups.get(team.id)?.get(actor.profile.id);if(entity && credit)squadContribution[id]=credit/entity.maxHp;}
     if(this.baseMaze && this.mapVersion!==(g.cave.revision || 0)){this.mapVersion=g.cave.revision || 0;this.mapDelta=[];for(let i=0;i<this.baseMaze.length;i++)if(g.cave.maze[i] && !this.baseMaze[i])this.mapDelta.push(i);}
-    return {forge:this.forge&&near(this.forge)?{id:this.forge.id,name:this.forge.name,x:this.forge.x,y:this.forge.y,size:this.forge.size,angle:this.forge.angle}:null,slowUntil:s.slowUntil||0,realm:this.realm,revision:this.revision,serverTime:Date.now(),self:{x:s.x,y:s.y,vx:s.vx || 0,vy:s.vy || 0,seq:actor.moveSeq || 0,epoch:actor.movementEpoch || 1},mapVersion:this.mapVersion,mapDelta:actor.mapAckRealm===this.realm && actor.mapAckVersion===this.mapVersion ? undefined : this.mapDelta,...this.orePacket(actor,clean),mobs:g.mobs.filter(near).map(clean),projectiles:g.projectiles.filter(near).map(p=>({id:p.id,owner:p.owner,x:p.x,y:p.y,vx:p.vx,vy:p.vy,r:p.r,life:p.life,rotation:p.rotation,kind:p.kind})),hazards:g.hazards.filter(near),effects:g.effects.filter(near),drops:this.drops.filter(near).map(d=>({id:d.id,x:d.x,y:d.y,item:d.item,createdAt:d.createdAt,expiresAt:d.expiresAt,eligible:d.claims.has(actor.profile.id)})),contribution,squadContribution,hp:s.hp,maxHp:s.maxHp,dead:s.dead,deathCause:s.deathCause};
+    return {...this.arcana.snapshot(actor),forge:this.forge&&near(this.forge)?{id:this.forge.id,name:this.forge.name,x:this.forge.x,y:this.forge.y,size:this.forge.size,angle:this.forge.angle}:null,slowUntil:s.slowUntil||0,realm:this.realm,revision:this.revision,serverTime:Date.now(),self:{x:s.x,y:s.y,vx:s.vx || 0,vy:s.vy || 0,seq:actor.moveSeq || 0,epoch:actor.movementEpoch || 1},mapVersion:this.mapVersion,mapDelta:actor.mapAckRealm===this.realm && actor.mapAckVersion===this.mapVersion ? undefined : this.mapDelta,...this.orePacket(actor,clean),mobs:g.mobs.filter(near).map(clean),projectiles:g.projectiles.filter(near).map(p=>({id:p.id,owner:p.owner,x:p.x,y:p.y,vx:p.vx,vy:p.vy,r:p.r,life:p.life,rotation:p.rotation,kind:p.kind})),hazards:g.hazards.filter(near),effects:g.effects.filter(near),drops:this.drops.filter(near).map(d=>({id:d.id,x:d.x,y:d.y,item:d.item,createdAt:d.createdAt,expiresAt:d.expiresAt,eligible:d.claims.has(actor.profile.id)})),contribution,squadContribution,hp:s.hp,maxHp:s.maxHp,dead:s.dead,deathCause:s.deathCause};
   }
 }
 module.exports=SharedWorld;

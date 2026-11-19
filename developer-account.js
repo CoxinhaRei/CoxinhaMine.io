@@ -13,6 +13,7 @@ function grant(profile,game,store){
   for(const rarity of E.RARITIES)journal.oreTiers[rarity]=Math.max(1,journal.oreTiers[rarity]||0);
   journal.unlocked=[...new Set([...(journal.unlocked||[]),...game.achievementsList.map(a=>a.id)])];
   const raw={...old,inventory,level:Math.max(475,old.level||1),progressionVersion:3,coins:Math.max(1e9,old.coins||0),talentPoints:Math.max(1000000,old.talentPoints||0),talentRanks:Object.fromEntries(game.talentsList.map(t=>[t.id,11])),talents:{speed:11},accessoryVersion:1,journal,guildId:null,pendingCraft:null};
+  raw.magic={awakened:true,ranks:Object.fromEntries(require('./public/arcana-catalog').SPELLS.map(s=>[s.id,11])),selected:'beam'};raw.mana=364;
   if(first){raw.equipment={weapon:'Solar',armor:'Solar',pickaxe:'Solar'};raw.accessories=[];raw.xp=0;}
   profile.state=store.sanitize(raw);profile.state.guildId=null;profile.developerLoadoutVersion=1;store.save(profile);return profile;
 }
