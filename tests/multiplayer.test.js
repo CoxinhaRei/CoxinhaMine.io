@@ -26,11 +26,11 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   assert.equal(a.profile.state.level,231);assert.equal(a.profile.state.coins,12345);
   const world=server.worlds.garden;world.nextSpawn=Infinity;world.game.ores=[];world.game.mobs=[];
   for(const actor of Object.values(server.actors))actor.state.hurtUntil=Date.now()+100000;
-  Object.assign(server.actors[a.id].state,{x:61600,y:50000});Object.assign(server.actors[b.id].state,{x:61600,y:50100});a.emit('move',{x:61600,y:50000,aimAngle:0,selectedSlot:2});b.emit('move',{x:61600,y:50100,aimAngle:Math.PI/2,selectedSlot:2});
-  await until(()=>server.actors[a.id]?.state.x===61600 && server.actors[b.id]?.state.y===50100,'player movement');
+  Object.assign(server.actors[a.id].state,{x:80600,y:75000});Object.assign(server.actors[b.id].state,{x:80600,y:75100});a.emit('move',{x:80600,y:75000,aimAngle:0,selectedSlot:2});b.emit('move',{x:80600,y:75100,aimAngle:Math.PI/2,selectedSlot:2});
+  await until(()=>server.actors[a.id]?.state.x===80600 && server.actors[b.id]?.state.y===75100,'player movement');
   await until(()=>a.people[b.id]?.aimAngle===Math.PI/2 && b.people[a.id]?.aimAngle===0,'independent cursors');
   assert.equal(a.people[b.id].pickaxe,'Solar');assert.equal(b.people[a.id].pickaxe,'Diamante');
-  function ore(id,hp){const entity={id,x:62000,y:50000,size:320,rarity:world.game.rarities[7],hp,maxHp:hp,isBoss:true};world.game.ores.push(entity);return entity;}
+  function ore(id,hp){const entity={id,x:81000,y:75000,size:320,rarity:world.game.rarities[7],hp,maxHp:hp,isBoss:true};world.game.ores.push(entity);return entity;}
   const first=ore('shared-test',2000000),xpBefore=server.actors[a.id].state.xp;
   a.emit('attack',{type:'pickaxe',targetId:first.id,damage:1e15});await until(()=>first.hp<first.maxHp,'first hit');
   assert.equal(first.maxHp-first.hp,45010,'server calculates canonical tool damage');
@@ -45,13 +45,13 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   const second=ore('exact-threshold',900200);await delay(365);a.emit('attack',{type:'pickaxe',targetId:second.id});await until(()=>second.hp===855190,'exact 5 percent hit');
   while(second.hp>0){b.emit('attack',{type:'pickaxe',targetId:second.id});await delay(365);}
   await until(()=>a.loots.length===2,'exact threshold reward');assert.equal(a.loots[1].qualified,true);
-  const resource=ore('pickaxe-only',2000000),enemy=world.game.createCreature('spider',world.game.rarities[7],62000,50200);enemy.hp=enemy.maxHp=10000000;enemy.noBossAbilities=true;enemy.speed=0;world.game.mobs.push(enemy);
+  const resource=ore('pickaxe-only',2000000),enemy=world.game.createCreature('spider',world.game.rarities[7],81000,75200);enemy.hp=enemy.maxHp=10000000;enemy.noBossAbilities=true;enemy.speed=0;world.game.mobs.push(enemy);
   a.emit('attack',{type:'pickaxe',targetId:enemy.id});await delay(100);assert.equal(enemy.hp,enemy.maxHp,'pickaxe cannot attack mob');
-  a.emit('move',{x:61600,y:50000,aimAngle:0,selectedSlot:0});await delay(80);a.emit('attack',{type:'weapon',targetId:resource.id});await delay(100);assert.equal(resource.hp,resource.maxHp,'sword cannot mine');
+  a.emit('move',{x:80600,y:75000,aimAngle:0,selectedSlot:0});await delay(80);a.emit('attack',{type:'weapon',targetId:resource.id});await delay(100);assert.equal(resource.hp,resource.maxHp,'sword cannot mine');
   a.emit('useAbility','pickaxe');await until(()=>resource.hp<resource.maxHp,'pickaxe ability');assert.equal(enemy.hp,enemy.maxHp,'pickaxe ability excludes mobs');
   const oreAfter=resource.hp;a.emit('useAbility','weapon');await until(()=>enemy.hp<enemy.maxHp,'sword ability');assert.equal(resource.hp,oreAfter,'sword ability excludes ores');
   const alpha=server.actors[a.id],coins=alpha.state.coins;a.emit('savePlayer',{coins:1e12,level:99999});await delay(100);assert.equal(alpha.state.coins,coins);assert.notEqual(alpha.state.level,99999);
-  const helper=world.game.createCreature('spider',world.game.rarities[5],62000,50500);helper.summoned=true;helper.noRewards=true;helper.summonerId=enemy.id;world.game.mobs.push(helper);
+  const helper=world.game.createCreature('spider',world.game.rarities[5],81000,75500);helper.summoned=true;helper.noRewards=true;helper.summonerId=enemy.id;world.game.mobs.push(helper);
   const beforeHelper=JSON.stringify([alpha.state.xp,alpha.state.coins,alpha.state.inventory,alpha.state.journal.kills]);world.damage(alpha,helper,helper.maxHp,true);
   assert.equal(JSON.stringify([alpha.state.xp,alpha.state.coins,alpha.state.inventory,alpha.state.journal.kills]),beforeHelper,'summoned mobs never grant rewards');
   const creds=a.profile.credentials,expectedLevel=alpha.state.level,expectedCoins=alpha.state.coins;
@@ -62,11 +62,11 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   db.set('guilds',{ghost:{id:'ghost',members:['Alpha']}}).set(['profiles',creds.id,'state','guildId'],'ghost').write();
   const before=JSON.stringify(db.get(['profiles',creds.id,'state','inventory']).value());assert.equal(resetGuilds(db),1);assert.deepEqual(db.get('guilds').value(),{});assert.equal(db.get(['profiles',creds.id,'state','guildId']).value(),null);assert.equal(JSON.stringify(db.get(['profiles',creds.id,'state','inventory']).value()),before);
   const g=server.worlds.garden.game;
-  for(const definition of g.creatures){const common=g.createCreature(definition.kind,g.rarities[0],60000,50000),superMob=g.createCreature(definition.kind,g.rarities[7],60000,50000);assert.ok(common.hp>definition.hp);assert.ok(superMob.hp>=500000);assert.equal(superMob.size,Math.min(360,25*Math.pow(1.32,7))*3);assert.equal(superMob.damage,definition.damage*Math.pow(1.4,7));}
-  assert.equal(g.zone(5000,50000),'U');assert.equal(catalog.ORE_HP[7],18000000);assert.ok(g.pickaxes[5].power>=45000);assert.ok(g.armors.find(a=>a.name==='Diamante').aura);
+  for(const definition of g.creatures){const common=g.createCreature(definition.kind,g.rarities[0],79000,75000),superMob=g.createCreature(definition.kind,g.rarities[7],79000,75000);assert.ok(common.hp>definition.hp);assert.ok(superMob.hp>=500000);assert.equal(superMob.size,Math.min(360,25*Math.pow(1.32,7))*3);assert.equal(superMob.damage,definition.damage*Math.pow(1.4,7));}
+  assert.equal(g.zone(5000,75000),'Z8');assert.equal(catalog.ORE_HP[7],18000000);assert.ok(g.pickaxes[5].power>=45000);assert.ok(g.armors.find(a=>a.name==='Diamante').aura);
   const caveFriend=await login(url,'Gamma');sockets.push(caveFriend);
   for(const socket of [resumed,caveFriend]){
-    Object.assign(server.actors[socket.id].state,{x:99000,y:1000});socket.emit('move',{x:99000,y:1000,aimAngle:0,selectedSlot:2});await until(()=>server.actors[socket.id].state.x===99000,'portal approach');socket.emit('changeRealm','cave');await until(()=>socket.world?.realm==='cave','shared cave entry');
+    const gate=require('../public/expansion').portalsFor('garden').find(p=>p.to==='cave');Object.assign(server.actors[socket.id].state,{x:gate.x,y:gate.y});socket.emit('move',{x:gate.x,y:gate.y,aimAngle:0,selectedSlot:2});await until(()=>server.actors[socket.id].state.x===gate.x,'portal approach');socket.emit('changeRealm','cave');await until(()=>socket.world?.realm==='cave','shared cave entry');
     server.actors[socket.id].state.hurtUntil=Date.now()+100000;
   }
   await until(()=>resumed.world.ores.length>0 && caveFriend.world.ores.length>0,'cave population');

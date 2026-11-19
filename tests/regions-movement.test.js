@@ -43,7 +43,7 @@ test('same account transfers across real Socket.IO servers, keeps latest save an
  assert.equal((await call(other,'accountRegister',{nickname:'AnotherRegionHero',password:'regional-test-password',lobby:true})).ok,true);
  const raceA=await client(t,br),raceB=await client(t,us),registration={nickname:'UniqueAcrossRegions',password:'regional-test-password',lobby:true};const race=await Promise.all([call(raceA,'accountRegister',registration),call(raceB,'accountRegister',registration)]);assert.equal(race.filter(r=>r.ok).length,1,'nickname uniqueness is atomic across regions');
  us.actors[b.id].state.coins=777;us.store.save(us.actors[b.id].profile);assert.equal((await call(b,'leaveServer',{})).ok,true);assert.equal((await call(a,'joinGame',{credentials,lobby:true})).ok,true);assert.equal(a.profile.state.coins,777);
- const health=await (await fetch('http://127.0.0.1:'+us.http.address().port+'/health')).json();assert.equal(health.region,'US');assert.equal(health.sharedSaves,true);assert.equal(health.build,'release-155-savecheck1');
+ const health=await (await fetch('http://127.0.0.1:'+us.http.address().port+'/health')).json();assert.equal(health.region,'US');assert.equal(health.sharedSaves,true);assert.equal(health.build,'release-155-maps1');
 });
 
 test('analytic movement matches 30/60/144 FPS; replay acknowledges pending input and smooths visual correction',()=>{
@@ -59,7 +59,7 @@ test('input commands resist duplicate packets, stale epochs, forged positions an
  assert.equal((await call(s,'accountRegister',{nickname:'SmoothHero',password:'movement-test-password',lobby:false})).ok,true);const actor=server.actors[s.id],epoch=actor.movementEpoch,start=actor.state.x;
  const packet={x:99999,y:99999,realm:'garden',epoch,commands:[{seq:1,steps:[{dx:1,dy:0,dt:.1}]}]};s.emit('move',packet);await delay(40);const first=actor.state.x;assert.ok(first>start && first<start+25);s.emit('move',packet);await delay(40);assert.equal(actor.state.x,first,'resends do not move twice');
  s.emit('move',{...packet,epoch:epoch-1,commands:[{seq:2,steps:[{dx:1,dy:0,dt:.15}]}]});await delay(30);assert.equal(actor.state.x,first,'old map input rejected');
- for(let n=2;n<25;n++)s.emit('move',{...packet,commands:[{seq:n,steps:Array.from({length:16},()=>({dx:1,dy:0,dt:.15}))}]});await delay(80);assert.ok(actor.state.x-start<160,'server caps simulated time to elapsed time plus a small jitter allowance');assert.equal(actor.state.y,50000);
+ for(let n=2;n<25;n++)s.emit('move',{...packet,commands:[{seq:n,steps:Array.from({length:16},()=>({dx:1,dy:0,dt:.15}))}]});await delay(80);assert.ok(actor.state.x-start<160,'server caps simulated time to elapsed time plus a small jitter allowance');assert.equal(actor.state.y,75000);
 });
 
 test('movement replay stays continuous with delayed snapshots, jitter and lost movement packets',()=>{
@@ -78,8 +78,8 @@ test('movement replay stays continuous with delayed snapshots, jitter and lost m
 test('explored ores sleep outside all players; HP, contribution, other players, bosses and loot survive unloading',async t=>{
  const db=low(new Memory()),server=await createGameServer({storage:{db,flush:async()=>true,mode:'memory',close(){}}});t.after(()=>server.close());const world=server.worlds.garden,g=world.game;world.nextSpawn=Infinity;g.ores=[];g.mobs=[];
  function actor(name,x,y){const profile=server.store.create(name).profile;Object.assign(profile.state,{realm:'garden',x,y,hurtUntil:Date.now()+1e9});const a={state:profile.state,profile,inLobby:false,socket:{id:name,emit(){}},viewRadius:1800,contacts:{old:1,future:Date.now()+100000},seenCreatures:new Set(['expired-mob'])};server.actors[name]=a;return a;}
- const a=actor('ExplorerOne',61000,50000),b=actor('ExplorerTwo',20000,20000),ore=(id,x,y,rarity=g.rarities[0])=>({id,x,y,size:18,hp:65,maxHp:150,rarity});
- const far=ore('damaged-history',10000,10000),local=ore('local',61200,50000),remote=ore('second-player',20200,20000),boss={...ore('distant-boss',90000,90000,g.rarities[7]),size:320,isBoss:true};g.ores=[far,local,remote,boss];
+ const a=actor('ExplorerOne',80000,75000),b=actor('ExplorerTwo',20000,20000),ore=(id,x,y,rarity=g.rarities[0])=>({id,x,y,size:18,hp:65,maxHp:150,rarity});
+ const far=ore('damaged-history',10000,10000),local=ore('local',80200,75000),remote=ore('second-player',20200,20000),boss={...ore('distant-boss',90000,90000,g.rarities[7]),size:320,isBoss:true};g.ores=[far,local,remote,boss];
  world.contributions.set(far.id,new Map([[a.profile.id,85]]));world.contributions.set('removed-entity',new Map([[a.profile.id,1]]));world.squadCredits.set('removed-entity',new Map());
  world.drops=[{id:'existing-drop',x:10000,y:10000,createdAt:Date.now(),expiresAt:Date.now()+180000,claims:new Set([a.profile.id])}];
  const now=Date.now();world.maintainActiveAreas([a,b],now);assert.ok(!g.ores.includes(far));assert.equal(world.dormantOres.get(far.id).ore,far);assert.ok(g.ores.includes(remote),'another player keeps their own area loaded');assert.ok(g.ores.includes(boss),'boss is not despawned');assert.equal(world.drops.length,1);assert.equal(world.contributions.get(far.id).get(a.profile.id),85);assert.equal(world.contributions.has('removed-entity'),false);assert.equal(world.squadCredits.has('removed-entity'),false);assert.equal(a.seenCreatures.size,0);assert.ok(!('old' in a.contacts));assert.ok('future' in a.contacts);
@@ -88,7 +88,7 @@ test('explored ores sleep outside all players; HP, contribution, other players, 
 });
 
 test('long exploration bounds inactive history and keeps spatial spawning non-overlapping',async t=>{
- const db=low(new Memory()),server=await createGameServer({storage:{db,flush:async()=>true,mode:'memory',close(){}}});t.after(()=>server.close());const world=server.worlds.garden,g=world.game,profile=server.store.create('LongExplorer').profile,a={state:profile.state,profile,inLobby:false,socket:{id:'explorer',emit(){}},viewRadius:1800};server.actors.explorer=a;Object.assign(a.state,{realm:'garden',x:61000,y:50000});g.ores=[];g.mobs=[];let now=Date.now();
+ const db=low(new Memory()),server=await createGameServer({storage:{db,flush:async()=>true,mode:'memory',close(){}}});t.after(()=>server.close());const world=server.worlds.garden,g=world.game,profile=server.store.create('LongExplorer').profile,a={state:profile.state,profile,inLobby:false,socket:{id:'explorer',emit(){}},viewRadius:1800};server.actors.explorer=a;Object.assign(a.state,{realm:'garden',x:80000,y:75000});g.ores=[];g.mobs=[];let now=Date.now();
  for(let n=0;n<90;n++){
   a.state.x=10000+(n%30)*2700;a.state.y=15000+Math.floor(n/30)*25000;world.maintainActiveAreas([a],now+=1001);world.spawnAround(a);
   assert.ok(g.ores.every(o=>o.isBoss || Math.hypot(o.x-a.state.x,o.y-a.state.y)<5000+o.size));assert.ok(world.dormantOres.size<=4000);
@@ -100,8 +100,8 @@ test('long exploration bounds inactive history and keeps spatial spawning non-ov
 
 test('ore snapshots retry until acknowledged, omit static payload afterward, and invalidate on HP/removal/epoch',{timeout:15000},async t=>{
  const db=low(new Memory()),server=await listen(await createGameServer({storage:{db,flush:async()=>true,mode:'memory',close(){}}}));t.after(()=>server.close());const s=await client(t,server,{auth:{oreCache:true}});
- assert.equal((await call(s,'accountRegister',{nickname:'OreCacheHero',password:'ore-cache-test-password',lobby:false})).ok,true);const a=server.actors[s.id],world=server.worlds.garden,g=world.game;Object.assign(a.state,{x:61000,y:50000,hurtUntil:Date.now()+1e9});
- g.ores=Array.from({length:100},(_,i)=>({id:'cache-ore-'+i,x:59000+(i%10)*450,y:48000+Math.floor(i/10)*450,size:18,hp:150,maxHp:150,rarity:g.rarities[0]}));
+ assert.equal((await call(s,'accountRegister',{nickname:'OreCacheHero',password:'ore-cache-test-password',lobby:false})).ok,true);const a=server.actors[s.id],world=server.worlds.garden,g=world.game;Object.assign(a.state,{x:80000,y:75000,hurtUntil:Date.now()+1e9});
+ g.ores=Array.from({length:100},(_,i)=>({id:'cache-ore-'+i,x:78000+(i%10)*450,y:73000+Math.floor(i/10)*450,size:18,hp:150,maxHp:150,rarity:g.rarities[0]}));
  const first=world.snapshot(a);assert.ok(first.ores.length>20);assert.ok(Array.isArray(world.snapshot(a).ores),'dropped first packet does not lose the world');
  s.emit('oreAck',{realm:'cave',epoch:a.movementEpoch,seq:first.oreSeq});await delay(30);assert.ok(Array.isArray(world.snapshot(a).ores),'wrong realm ack ignored');
  s.emit('oreAck',{realm:'garden',epoch:a.movementEpoch-1,seq:first.oreSeq});await delay(30);assert.ok(Array.isArray(world.snapshot(a).ores),'old scene ack ignored');
