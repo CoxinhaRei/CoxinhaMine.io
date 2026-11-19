@@ -4,7 +4,7 @@ async function setup(t,realm='jungle',level=100){const s=await createGameServer(
 test('Orbs scale all four spells through Chosen and eggs have the requested species counts',()=>{
  assert.equal(A.EGGS.find(e=>e.kind==='ant').count,4);assert.equal(A.EGGS.find(e=>e.kind==='sandTornado').count,4);assert.equal(A.EGGS.find(e=>e.kind==='beetle').count,1);
  for(const spell of A.SPELLS)for(let tier=1;tier<12;tier++){assert.ok(A.spec(spell.id,tier).damage>A.spec(spell.id,tier-1).damage);assert.ok(A.spec(spell.id,tier).width>A.spec(spell.id,tier-1).width);}
- const context=vm.createContext({});vm.runInContext(fs.readFileSync(require.resolve('../public/arcana-catalog'),'utf8'),context);assert.deepEqual(JSON.parse(JSON.stringify(context.ARCANA.SPELLS)),A.SPELLS);
+ const context=vm.createContext({});vm.runInContext(fs.readFileSync(require.resolve('../public/body-physics'),'utf8'),context);vm.runInContext(fs.readFileSync(require.resolve('../public/arcana-catalog'),'utf8'),context);assert.deepEqual(JSON.parse(JSON.stringify(context.ARCANA.SPELLS)),A.SPELLS);
  const state={level:100,inventory:[E.accessory('orb','ALEPH')],accessories:[{accessoryId:'orb',rarity:'ALEPH'}]};assert.equal(A.orb(state,E),10);state.inventory=[];assert.equal(A.orb(state,E),-1,'forged equipment references never grant magic');
 });
 test('only the Jungle mentor awakens magic once, grants an equippable Orb, and learned ranks survive saving without guest leakage',async t=>{

@@ -72,7 +72,7 @@ class SharedWorld{
     this.emit('abilityEffect',{...ability,x:state.x,y:state.y,life:1.2,maxLife:1.2,type,owner:actor.socket.id});
     this.store.save(actor.profile);actor.socket.emit('playerState',this.store.clientState(actor.profile));return true;
   }
-  damage(actor,entity,amount,isMob){
+  damage(actor,entity,amount,isMob,options={}){
     if(entity.hp<=0)return;
     const actual=Math.min(entity.hp,Math.max(0,amount)*(isMob && entity.shieldTime>0 ? .25 : 1));
     entity.hp-=actual;
@@ -87,7 +87,7 @@ class SharedWorld{
       const credit=groups.get(squad.id);for(const id of squad.members)credit.set(id,(credit.get(id)||0)+actual);
     }
     const surface=this.game.surface(entity,actor.state);
-    this.emit('entityHit',{id:entity.id,x:surface.x,y:surface.y,color:entity.rarity.color,damage:actual,hp:entity.hp,isMob});
+    if(!options.silentHit)this.emit('entityHit',{id:entity.id,x:surface.x,y:surface.y,color:entity.rarity.color,damage:actual,hp:entity.hp,isMob});
     if(entity.hp>0)return;
     if(isMob)this.game.removeMobAndSummons(entity);else this.game.ores=this.game.ores.filter(e=>e.id!==entity.id);
     if(!entity.noRewards && !entity.summoned){
@@ -136,7 +136,7 @@ class SharedWorld{
       if((this.oreCellCounts.get(key) || 0)>=4)continue;
       const nearby=[...index.query(cx*600+300,cy*600+300,2400)],ore=g.spawnGardenCell(cx,cy,nearby);
       if(ore && (!this.portalClear(ore)||this.live().some(a=>Math.hypot(a.state.x-ore.x,a.state.y-ore.y)<ore.size+350)||(this.forge && Math.hypot(ore.x-this.forge.homeX,ore.y-this.forge.homeY)<ore.size+this.forge.roam+800))){g.ores=g.ores.filter(o=>o!==ore);continue;}
-      if(ore){this.announceSpawn(ore,false);index.insert({id:ore.id,x:ore.x,y:ore.y,radius:ore.size,rarity:ore.rarity});this.oreCellCounts.set(key,(this.oreCellCounts.get(key) || 0)+1);this.physicsOreCount=g.ores.length;}
+      if(ore){this.announceSpawn(ore,false);index.insert({id:ore.id,x:ore.x,y:ore.y,radius:ore.size,rarity:ore.rarity,state:ore});this.oreCellCounts.set(key,(this.oreCellCounts.get(key) || 0)+1);this.physicsOreCount=g.ores.length;}
     }
     if(atlas.at(this.realm,state.x,state.y).tier===8 && Math.random()<.01)this.addBoss('QUANTIUM',actor);
   }
@@ -193,7 +193,7 @@ class SharedWorld{
   tick(dt=.05){
     const g=this.game,live=this.live(),now=Date.now();
     this.tickLive=live;this.tickForge(dt);
-    if(!live.length){this.drops=this.drops.filter(d=>d.expiresAt>now && d.claims.size);this.tickLive=null;return;}
+    if(!live.length){this.arcana.tick(dt);this.drops=this.drops.filter(d=>d.expiresAt>now && d.claims.size);this.tickLive=null;return;}
     this.maintainActiveAreas(live,now);
     if(now>this.nextSpawn){this.nextSpawn=now+1000;for(const actor of live)this.spawnAround(actor);if(this.realm!=='cave'){if(Math.random()<.005)this.addBoss('SUPER');if(Math.random()<.0025)this.addBoss('ABSOLUT');if(Math.random()<.000075)this.addBoss('QUANTIUM');if(Math.random()<.0000005)this.addBoss('ALEPH');}}
     const parents=new Set(g.mobs.filter(m=>!m.summoned && m.hp>0).map(m=>m.id));
@@ -232,7 +232,7 @@ class SharedWorld{
       }
       if(this.safe(s))s.hp=Math.min(s.maxHp,s.hp+8*dt);else s.hp=Math.min(s.maxHp,s.hp+((s.talentRanks?.regeneration || 0)*.35+g.utility(s).regen)*dt);
     }
-    resolveWorldCollisions(this,live);
+    this.arcana.tick(dt);resolveWorldCollisions(this,this.live());
     for(const actor of live)this.collectDrops(actor,now);
     this.drops=this.drops.filter(d=>d.expiresAt>now && d.claims.size).slice(-512);
     this.tickLive=null;this.revision++;
