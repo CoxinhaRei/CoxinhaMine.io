@@ -7,7 +7,7 @@ function drawMenuShot155(c,shot,map,w,h,time){
  if(map.id==='cave'){buildCaveMaze();RealmScenery.caveFloor(c,left,top,viewWidth,viewHeight);}
  else{
   RealmScenery.ground(c,map.id,left,top,viewWidth,viewHeight);
-  if(map.id==='garden'){c.fillStyle='#1e90ff';c.fillRect(49940,top,120,viewHeight);drawCity(c);}else drawRealmLanding(c,map.id,shot,viewWidth);
+  if(map.id==='garden'){c.fillStyle='#1e90ff';c.fillRect(WORLD_SIZE/2-60,top,120,viewHeight);drawCity(c);}else drawRealmLanding(c,map.id,shot,viewWidth);
  }
  RealmScenery.visible(map.id,c,shot,viewWidth,viewHeight,time);
  drawRealmPortals(c,map.id,shot,viewWidth,viewHeight,time);

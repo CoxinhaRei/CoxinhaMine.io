@@ -1,13 +1,14 @@
 const createRuntime=require('./game-runtime');
 const catalog=require('./public/game-catalog');
 const expansion=require('./public/expansion');
+const atlas=require('./public/map-atlas');
 const {resolveWorldCollisions,segmentHitsCircle,oreIndex}=require('./world-physics');
 
 class SharedWorld{
   constructor(realm,actors,store,io){
-    this.realm=realm;this.actors=actors;this.store=store;this.io=io;this.contributions=new Map();this.squadCredits=new Map();this.drops=[];this.revision=0;this.nextSpawn=0;this.dormantOres=new Map();this.nextMaintenance=0;this.oreRevision=0;
+    this.realm=realm;this.actors=actors;this.store=store;this.io=io;this.contributions=new Map();this.squadCredits=new Map();this.drops=[];this.revision=0;this.nextSpawn=0;this.dormantOres=new Map();this.dormantMobs=new Map();this.nextMaintenance=0;this.oreRevision=0;
     this.game=createRuntime(realm,(state,amount,dx,dy,cause)=>this.hurt(state,amount,dx,dy,cause));
-    this.forge=realm==='desert'?{id:'chosen-forge',name:'Coxinha Forjadora',x:52500,y:50000,homeX:52500,homeY:50000,size:340,roam:1200,speed:42,targetX:52500,targetY:50000,angle:0,timer:0}:null;
+    const home=expansion.LANDMARKS.desert.find(p=>p.id==='forge');this.forge=realm==='desert'?{id:'chosen-forge',name:'Coxinha Forjadora',x:home.x,y:home.y,homeX:home.x,homeY:home.y,size:340,roam:1200,speed:42,targetX:home.x,targetY:home.y,angle:0,timer:0}:null;
     this.baseMaze=realm==='cave' ? this.game.cave.maze.slice() : null;this.mapVersion=-1;this.mapDelta=[];
   }
   announceSpawn(entity,isMob){
@@ -125,43 +126,62 @@ class SharedWorld{
   }
   spawnAround(actor){
     const g=this.game,state=actor.state;g.bind(state);
-    if(this.realm==='cave'){g.populateCave(state);g.ores=g.ores.filter(o=>this.portalClear(o));for(const ore of g.ores)this.announceSpawn(ore,false);for(const mob of g.mobs)this.announceSpawn(mob,true);return;}
+    if(this.realm==='cave'){g.populateCave(state);g.ores=g.ores.filter(o=>this.portalClear(o));for(const ore of g.ores)this.announceSpawn(ore,false);for(const mob of g.mobs)this.announceSpawn(mob,true);this.spawnTerritoryMobs(actor);return;}
+    this.spawnTerritoryMobs(actor);
+    if(atlas.at(this.realm,state.x,state.y).tier===8)this.addBoss('ABSOLUT',actor);
     const index=oreIndex(this);
     for(let x=state.x-2000;x<state.x+2000;x+=600)for(let y=state.y-2000;y<state.y+2000;y+=600){
       const cx=Math.floor(x/600),cy=Math.floor(y/600),key=cx+','+cy;
       if((this.oreCellCounts.get(key) || 0)>=4)continue;
-      const nearby=[...index.query(cx*600+300,cy*600+300,800)],ore=g.spawnGardenCell(cx,cy,nearby);
-      if(ore && (!this.portalClear(ore)||(this.forge && Math.hypot(ore.x-this.forge.homeX,ore.y-this.forge.homeY)<ore.size+this.forge.roam+800))){g.ores=g.ores.filter(o=>o!==ore);continue;}
+      const nearby=[...index.query(cx*600+300,cy*600+300,2400)],ore=g.spawnGardenCell(cx,cy,nearby);
+      if(ore && (!this.portalClear(ore)||this.live().some(a=>Math.hypot(a.state.x-ore.x,a.state.y-ore.y)<ore.size+350)||(this.forge && Math.hypot(ore.x-this.forge.homeX,ore.y-this.forge.homeY)<ore.size+this.forge.roam+800))){g.ores=g.ores.filter(o=>o!==ore);continue;}
       if(ore){this.announceSpawn(ore,false);index.insert({id:ore.id,x:ore.x,y:ore.y,radius:ore.size,rarity:ore.rarity});this.oreCellCounts.set(key,(this.oreCellCounts.get(key) || 0)+1);this.physicsOreCount=g.ores.length;}
     }
-    let nearby=g.mobs.filter(m=>!m.summoned && Math.hypot(m.x-state.x,m.y-state.y)<3000+m.size).length;
-    for(let attempt=0;attempt<30 && nearby<12 && g.mobs.length<180;attempt++){
-      const biomeSpawn=expansion.mapFor(this.realm).spawn,localDistance=Math.hypot(state.x-biomeSpawn.x,state.y-biomeSpawn.y),index=expansion.mobRarityTier(localDistance);
-      const biome=expansion.mapFor(this.realm),pool=g.creatures.filter(c=>biome.mobs.includes(c.kind)),definition=pool[Math.floor(Math.random()*pool.length)],kind=definition.kind==='beetle'&&Math.random()<.00025?'invertedBeetle':definition.kind,mob=g.createCreature(kind,g.rarities[index],0,0);
-      const angle=Math.random()*Math.PI*2,distance=(g.zone(state.x,state.y)==='P'?1600:650)+mob.size+Math.random()*850;mob.x=state.x+Math.cos(angle)*distance;mob.y=state.y+Math.sin(angle)*distance;
-      if(!catalog.gardenOrePositionValid(mob.x,mob.y,mob.size,100000) || g.ores.some(o=>Math.hypot(o.x-mob.x,o.y-mob.y)<o.size+mob.size*.7))continue;
-      g.mobs.push(mob);this.announceSpawn(mob,true);nearby++;
+    if(atlas.at(this.realm,state.x,state.y).tier===8 && Math.random()<.01)this.addBoss('QUANTIUM',actor);
+  }
+  spawnTerritoryMobs(actor){
+    const g=this.game,s=actor.state,region=atlas.at(this.realm,s.x,s.y),target=region.tier>=7?8:12;
+    let nearby=g.mobs.filter(m=>!m.summoned&&Math.hypot(m.x-s.x,m.y-s.y)<4000+m.size).length;
+    for(let attempt=0;attempt<90&&nearby<target&&g.mobs.length<180;attempt++){
+      const angle=Math.random()*Math.PI*2,distance=(region.safe?1600:500)+Math.random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=atlas.roll(this.realm,x,y);
+      if(tier<0||!area.open)continue;
+      const pool=atlas.pool(this.realm,area.tier),definition=pool[Math.floor(Math.random()*pool.length)],kind=definition==='beetle'&&Math.random()<.00025?'invertedBeetle':definition,mob=g.createCreature(kind,g.rarities[tier],x,y);
+      if(Math.hypot(x-s.x,y-s.y)<mob.size+500||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+mob.size*.75)||g.mobs.some(o=>Math.hypot(o.x-x,o.y-y)<(o.size+mob.size)*.75))continue;
+      if(this.realm==='cave'){
+        if(x<mob.size+600||y<mob.size+600||x>g.cave.width-mob.size-600||y>g.cave.height-mob.size-600)continue;
+        if(!g.tileOpen(Math.floor(x/500),Math.floor(y/500)))continue;
+        if(g.wall(x,y,mob.size*.75))g.carveChamber(x,y,mob.size+550);
+      }else if(!catalog.gardenOrePositionValid(x,y,mob.size,atlas.SIZE)||atlas.blocked(this.realm,x,y,mob.size*.75))continue;
+      mob.regionTier=area.tier;g.mobs.push(mob);this.announceSpawn(mob,true);nearby++;
     }
   }
-  addBoss(name){
-    const g=this.game,rarity=g.rarities.find(r=>r.name===name);if(!rarity || g.ores.some(o=>o.rarity.name===name))return;
-    const size=catalog.oreRadius(name),left=Math.random()<.5;
-    const x=left ? size+500 : 100000-size-500,y=size+500+Math.random()*(100000-size*2-1000);
-    if(catalog.gardenOrePositionValid(x,y,size)&&this.portalClear({x,y,size})&&(!this.forge||Math.hypot(x-this.forge.homeX,y-this.forge.homeY)>size+this.forge.roam+800)){const ore={id:'ore-'+require('crypto').randomUUID(),x,y,size,hp:rarity.hp,maxHp:rarity.hp,rarity,isBoss:true};g.ores.push(ore);this.announceSpawn(ore,false);}
+  addBoss(name,actor){
+    const g=this.game,rarity=g.rarities.find(r=>r.name===name),spacing=name==='ABSOLUT'?7500:22000;if(!rarity||g.ores.filter(o=>o.isBoss).length>=96||g.ores.some(o=>o.rarity.name===name&&(!actor||Math.hypot(o.x-actor.state.x,o.y-actor.state.y)<spacing+o.size)))return;
+    const size=catalog.oreRadius(name),desired=name==='SUPER'||name==='ALEPH'?7:8;
+    for(let n=0;n<36;n++){
+      const a=Math.random()*Math.PI*2,d=size+2000+Math.random()*3000,x=actor?actor.state.x+Math.cos(a)*d:size+500+Math.random()*(atlas.SIZE-size*2-1000),y=actor?actor.state.y+Math.sin(a)*d:size+500+Math.random()*(atlas.SIZE-size*2-1000);
+      if(atlas.at(this.realm,x,y).tier!==desired||atlas.blocked(this.realm,x,y,size)||!catalog.gardenOrePositionValid(x,y,size,atlas.SIZE)||!this.portalClear({x,y,size})||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+size+150)||g.mobs.some(m=>Math.hypot(m.x-x,m.y-y)<m.size+size+150)||this.live().some(a=>Math.hypot(a.state.x-x,a.state.y-y)<size+500))continue;
+      if(this.forge&&Math.hypot(x-this.forge.homeX,y-this.forge.homeY)<size+this.forge.roam+800)continue;
+      const ore={id:'ore-'+require('crypto').randomUUID(),x,y,size,hp:rarity.hp,maxHp:rarity.hp,rarity,isBoss:true};g.ores.push(ore);this.announceSpawn(ore,false);return ore;
+    }
   }
   portalClear(entity){return expansion.portalsFor(this.realm).every(p=>Math.hypot(entity.x-p.x,entity.y-p.y)>entity.size+p.r+220);}
   maintainActiveAreas(live,now=Date.now()){
     if(now<this.nextMaintenance)return;this.nextMaintenance=now+1000;
     const g=this.game,near=ore=>live.some(a=>Math.hypot(ore.x-a.state.x,ore.y-a.state.y)<Math.max(5000,(a.viewRadius || 3000)+1200)+ore.size),important=ore=>ore.isBoss || g.rarities.findIndex(r=>r.name===ore.rarity?.name)>=7;
-    let changed=false;const kept=[];
-    for(const ore of g.ores){if(important(ore) || near(ore))kept.push(ore);else{this.dormantOres.set(ore.id,{ore,since:now});changed=true;}}
+    let changed=false,keptBosses=0;const kept=[];
+    for(const ore of g.ores){if(near(ore)||(important(ore)&&keptBosses++<64))kept.push(ore);else{this.dormantOres.set(ore.id,{ore,since:now});changed=true;}}
     for(const [id,entry] of this.dormantOres){
       if(entry.ore.hp<=0 || now-entry.since>600000){g.forgetDormantOre(entry.ore);this.dormantOres.delete(id);continue;}
       if(near(entry.ore)){kept.push(entry.ore);this.dormantOres.delete(id);changed=true;}
     }
     while(this.dormantOres.size>4000){const id=this.dormantOres.keys().next().value;g.forgetDormantOre(this.dormantOres.get(id).ore);this.dormantOres.delete(id);}
     if(changed)g.ores=kept;
-    const existing=new Set([...g.ores,...g.mobs,...[...this.dormantOres.values()].map(entry=>entry.ore)].map(e=>e.id)),mobs=new Set(g.mobs.map(m=>m.id));
+    const mobNear=mob=>live.some(a=>Math.hypot(a.state.x-mob.x,a.state.y-mob.y)<7000+mob.size),awake=[];
+    for(const mob of g.mobs){if(mobNear(mob)||mob.summoned)awake.push(mob);else this.dormantMobs.set(mob.id,{mob,since:now});}
+    for(const [id,entry] of this.dormantMobs){if(now-entry.since>600000||entry.mob.hp<=0){this.dormantMobs.delete(id);continue;}if(mobNear(entry.mob)){awake.push(entry.mob);this.dormantMobs.delete(id);}}
+    while(this.dormantMobs.size>256)this.dormantMobs.delete(this.dormantMobs.keys().next().value);g.mobs=awake;
+    const existing=new Set([...g.ores,...g.mobs,...[...this.dormantMobs.values()].map(entry=>entry.mob),...[...this.dormantOres.values()].map(entry=>entry.ore)].map(e=>e.id)),mobs=new Set(g.mobs.map(m=>m.id));
     for(const ledger of [this.contributions,this.squadCredits])for(const id of ledger.keys())if(!existing.has(id))ledger.delete(id);
     for(const actor of this.active()){
       if(actor.seenCreatures)for(const id of actor.seenCreatures)if(!mobs.has(id))actor.seenCreatures.delete(id);
@@ -196,6 +216,7 @@ class SharedWorld{
       const previousX=projectile.x,previousY=projectile.y;
       projectile.x+=projectile.vx*dt;projectile.y+=projectile.vy*dt;projectile.life-=dt;
       if(this.realm==='cave' && !g.tileOpen(Math.floor(projectile.x/500),Math.floor(projectile.y/500)))projectile.life=0;
+      if(this.realm!=='cave' && atlas.blocked(this.realm,projectile.x,projectile.y,projectile.r))projectile.life=0;
       for(const actor of live)if(projectile.life>0 && segmentHitsCircle(previousX,previousY,projectile.x,projectile.y,actor.state.x,actor.state.y,projectile.r+20)){this.hurt(actor.state,projectile.damage,projectile.vx,projectile.vy,'projétil de '+projectile.cause);projectile.life=0;break;}
     }
     g.projectiles=g.projectiles.filter(p=>p.life>0 && owners.has(p.owner)).slice(-600);

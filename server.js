@@ -59,7 +59,7 @@ async function createGameServer(options={}){
   const metrics={tickMs:0,slowTicks:0};
   app.get('/servers',(_request,response)=>{response.set('Cache-Control','no-store');response.json({...regions.public(),protocol:6,sharedSaves:!!persistence.shared});});
   app.get('/ping',(_request,response)=>{response.set({'Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});response.json({ok:!persistence.lastError,region:regions.id,location:regions.location,protocol:6,sharedSaveId:regions.sharedSaveId,sharedSaves:!!persistence.shared});});
-  app.get('/health',(_request,response)=>response.json({ok:true,version:'1.5.5',build:'release-155-savecheck1',developerAccountReady:developerStatus.ready,protocol:6,region:regions.id,location:regions.location,sharedSaves:!!persistence.shared,accounts:true,squads:true,accountRequired:false,guests:true,durable,players:Object.values(actors).filter(a=>!a.inLobby).length,persistence:persistence.mode,saveError:!!persistence.lastError,saveErrorCode:persistence.lastError?saveDiagnostics.code({code:persistence.lastErrorCode}):null,worldRevision:worlds.garden.revision,tickMs:Math.round(metrics.tickMs*100)/100,slowTicks:metrics.slowTicks,entities:Object.fromEntries(Object.entries(worlds).map(([name,world])=>[name,{activeOres:world.game.ores.length,dormantOres:world.dormantOres.size,mobs:world.game.mobs.length,projectiles:world.game.projectiles.length}]))}));
+  app.get('/health',(_request,response)=>response.json({ok:true,version:'1.5.5',build:'release-155-maps1',developerAccountReady:developerStatus.ready,protocol:6,region:regions.id,location:regions.location,sharedSaves:!!persistence.shared,accounts:true,squads:true,accountRequired:false,guests:true,durable,players:Object.values(actors).filter(a=>!a.inLobby).length,persistence:persistence.mode,saveError:!!persistence.lastError,saveErrorCode:persistence.lastError?saveDiagnostics.code({code:persistence.lastErrorCode}):null,worldRevision:worlds.garden.revision,tickMs:Math.round(metrics.tickMs*100)/100,slowTicks:metrics.slowTicks,entities:Object.fromEntries(Object.entries(worlds).map(([name,world])=>[name,{activeOres:world.game.ores.length,dormantOres:world.dormantOres.size,mobs:world.game.mobs.length,projectiles:world.game.projectiles.length}]))}));
   function unbind(socket,{preserveSquad=false,discard=false}={}){
     const actor=actors[socket.id];if(!actor)return;
     if(!discard)store.save(actor.profile);delete actors[socket.id];delete guildPlayers[socket.id];
@@ -194,11 +194,11 @@ async function createGameServer(options={}){
       if((data.realm && data.realm!==actor.state.realm) || (data.epoch!==undefined && data.epoch!==actor.movementEpoch) || (actor.moveSeq>0 && Date.now()-actor.lastMove<20))return;
       const s=actor.state,now=Date.now(),dt=Math.max(.01,Math.min(.5,(now-actor.lastMove)/1000));actor.lastMove=now;
       if(!s.dead){
-        const width=s.realm==='cave' ? 200000 : 100000,x=Math.max(20,Math.min(width-20,data.x)),y=Math.max(20,Math.min(99980,data.y));
+        const dimensions=expansion.mapFor(s.realm),x=Math.max(20,Math.min(dimensions.w-20,data.x)),y=Math.max(20,Math.min(dimensions.h-20,data.y));
         const dx=x-s.x,dy=y-s.y,distance=Math.hypot(dx,dy),utility=worlds[s.realm].game.utility(s);
         const speed=240*(1+(s.talentRanks.speed || 0)*.08+(s.realm==='cave' ? (s.talentRanks.sprint || 0)*.04 : 0))*(1+(utility.speed || 0))*(s.slowUntil>Date.now()?Math.max(.55,1-.45*(1-(utility.slowResist||0))):1),limit=speed*dt+12,factor=distance>limit ? limit/distance : 1;
         const nx=s.x+dx*factor,ny=s.y+dy*factor;
-        if(s.realm!=='cave' || !worlds.cave.game.wall(nx,ny,20)){s.vx=(nx-s.x)/dt;s.vy=(ny-s.y)/dt;s.moving=distance>.2;s.x=nx;s.y=ny;}
+        const previousX=s.x,previousY=s.y;movePlayerBody(worlds[s.realm],s,nx,ny);s.vx=(s.x-previousX)/dt;s.vy=(s.y-previousY)/dt;s.moving=Math.hypot(s.x-previousX,s.y-previousY)>.2;
       }
       actor.moveSeq=Number.isSafeInteger(data.seq) ? data.seq : actor.moveSeq || 0;
       if(Number.isFinite(data.viewRadius))actor.viewRadius=Math.max(1200,Math.min(6500,data.viewRadius));
@@ -231,8 +231,8 @@ async function createGameServer(options={}){
     });
     socket.on('respawn',()=>{
       const a=actors[socket.id];if(!a || !a.state.dead)return;
-      Object.assign(a.state,{dead:false,hp:a.state.maxHp,deathCause:'',realm:'garden',x:50000,y:50000,vx:0,vy:0,hurtUntil:Date.now()+2000});
-      a.movementEpoch++;a.oreCacheKey=null;a.oreAck=-1;a.moveSeq=0;a.moveBudget=.15;a.lastMove=Date.now();socket.emit('realmChanged',{realm:'garden',x:50000,y:50000,epoch:a.movementEpoch});sendState(a);store.save(a.profile);
+      Object.assign(a.state,{dead:false,hp:a.state.maxHp,deathCause:'',realm:'garden',x:expansion.mapFor('garden').spawn.x,y:expansion.mapFor('garden').spawn.y,vx:0,vy:0,hurtUntil:Date.now()+2000});
+      a.movementEpoch++;a.oreCacheKey=null;a.oreAck=-1;a.moveSeq=0;a.moveBudget=.15;a.lastMove=Date.now();socket.emit('realmChanged',{realm:'garden',x:expansion.mapFor('garden').spawn.x,y:expansion.mapFor('garden').spawn.y,epoch:a.movementEpoch});sendState(a);store.save(a.profile);
     });
     attachChat(socket,{actors,publicPlayer,squads,persistence,guilds});
     resurrection.attach(socket);

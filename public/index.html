@@ -34,17 +34,18 @@ opacity:0;
 pointer-events:none;
 }
 </style>
-<link rel="stylesheet" href="hud.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="workshop.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="systems.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="adventure.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="account-menu.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="mobile-play.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="region-client.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="expansion.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="item-profile.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="tutorial.css?v=1.5.5-devaccount1">
-<link rel="stylesheet" href="craft-ui.css?v=1.5.5-devaccount1">
+<link rel="stylesheet" href="hud.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="workshop.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="systems.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="adventure.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="account-menu.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="mobile-play.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="region-client.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="expansion.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="item-profile.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="tutorial.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="craft-ui.css?v=1.5.5-maps1">
+<link rel="stylesheet" href="map-atlas.css?v=1.5.5-maps1">
 </head>
 
 <body>
@@ -75,10 +76,11 @@ pointer-events:none;
 <canvas id="game"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="region-client.js?v=1.5.5-devaccount1"></script>
-<script src="movement-net.js?v=1.5.5-devaccount1"></script>
-<script src="game-catalog.js?v=1.5.5-devaccount1"></script>
-<script src="expansion.js?v=1.5.5-devaccount1"></script>
+<script src="region-client.js?v=1.5.5-maps1"></script>
+<script src="movement-net.js?v=1.5.5-maps1"></script>
+<script src="game-catalog.js?v=1.5.5-maps1"></script>
+<script src="map-atlas.js?v=1.5.5-maps1"></script>
+<script src="expansion.js?v=1.5.5-maps1"></script>
 
 <script>
 // ===== SAFE START =====
@@ -107,7 +109,7 @@ function loadImg(src){
 
 const playerEyesImg = new Image();
 playerEyesImg.src = "sprites/player_eyes.png";
-const WORLD_SIZE = 100000; // gigante
+const WORLD_SIZE = MAP_ATLAS.SIZE; // gigante
 let currentRealm = 'garden';
 const realmStates = {garden:{ores:[],mobs:[],cells:{}},cave:{ores:[],mobs:[],cells:{}}};
 const ZONE_CHANCES = {
@@ -431,7 +433,7 @@ function spawnOreInCell(cx, cy, nearby=ores){
   let rarity = getRandomRarityFromZone(zone) || rarities[0];
   let index = rarities.indexOf(rarity);
   const size=GAME_CATALOG.oreRadius(rarity.name);
-  if(!GAME_CATALOG.gardenOrePositionValid(x,y,size,WORLD_SIZE))return;
+  if(!GAME_CATALOG.gardenOrePositionValid(x,y,size,WORLD_SIZE) || MAP_ATLAS.blocked(currentRealm,x,y,size) || mobs.some(m=>Math.hypot(m.x-x,m.y-y)<m.size+size+100) || Math.hypot(x-player.x,y-player.y)<size+350)return;
 
   for(let o of nearby){
     if(GAME_CATALOG.orePositionsOverlap(x,y,size,o)){
@@ -460,6 +462,7 @@ function spawnOreInCell(cx, cy, nearby=ores){
     id: Math.random().toString(36).substr(2,9),
     x,
     y,
+    isBoss:index>=7,
     size,
     hp: rarity.hp,
     maxHp: rarity.hp,
@@ -483,6 +486,7 @@ function checkLevelUp(){
   }
 }
 function getRandomRarityFromZone(zone){
+  if(/^Z[0-8]$/.test(zone))return rarities[MAP_ATLAS.rollTier(Number(zone.slice(1)))];
 
   let chances = ZONE_CHANCES[zone];
   if(!chances) return rarities[0];
@@ -722,27 +726,7 @@ function drawHotbar(){
 function drawTalents(){
   renderTalentTree();
 }
-function getZone(x, y){
-  if(currentRealm==='cave' || Math.min(x,y,WORLD_SIZE-x,WORLD_SIZE-y)<8000)return 'U';
-
-  let dx = x - WORLD_SIZE/2;
-  let dy = y - WORLD_SIZE/2;
-
-  let dist = Math.sqrt(dx*dx + dy*dy);
-
-  if(dist < 1000) return "P";
-  if(dist < 4000) return "G";
-  if(dist < 8000) return "Y";
-  if(dist < 12000) return "B";
-  if(dist < 26000) return "R";
-  if(dist < 50000) return "M";
-
-  // 🌌 ZONA ULTRA (EXTREMO DO MAPA)
-  if(dist < 100000) return "U";
-
-  // fora disso ainda é Ultra (caos total)
-  return "U";
-}
+function getZone(x, y){const area=MAP_ATLAS.at(currentRealm,x,y);return area.safe?'P':'Z'+area.tier;}
 function resizeCanvas(){
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -851,9 +835,9 @@ function drawRiver(){
 
   ctx.fillRect(
     WORLD_SIZE/2 - riverWidth/2,
-    0,
+    WORLD_SIZE/2-7000,
     riverWidth,
-    WORLD_SIZE
+    14000
   );
 }
 function drawTooltip(){
@@ -1035,42 +1019,43 @@ async function startGame(){
 }
 </script>
 
-<script src="progression.js?v=1.5.5-devaccount1"></script>
-<script src="systems.js?v=1.5.5-devaccount1"></script>
-<script src="adventure.js?v=1.5.5-devaccount1"></script>
-<script src="gear.js?v=1.5.5-devaccount1"></script>
-<script src="cave.js?v=1.5.5-devaccount1"></script>
-<script src="boss-mobs.js?v=1.5.5-devaccount1"></script>
-<script src="expansion-game.js?v=1.5.5-devaccount1"></script>
-<script src="garden-models.js?v=1.5.5-devaccount1"></script>
-<script src="realm-scenery.js?v=1.5.5-devaccount1"></script>
-<script src="workshop.js?v=1.5.5-devaccount1"></script>
-<script src="equipment-slots.js?v=1.5.5-devaccount1"></script>
-<script src="item-details.js?v=1.5.5-devaccount1"></script>
-<script src="item-tooltips.js?v=1.5.5-devaccount1"></script>
-<script src="profile-view.js?v=1.5.5-devaccount1"></script>
-<script src="inspection-shortcuts.js?v=1.5.5-devaccount1"></script>
-<script src="hud.js?v=1.5.5-devaccount1"></script>
-<script src="panels.js?v=1.5.5-devaccount1"></script>
-<script src="admin-ui.js?v=1.5.5-devaccount1"></script>
-<script src="inventory.js?v=1.5.5-devaccount1"></script>
-<script src="adventure-ui.js?v=1.5.5-devaccount1"></script>
-<script src="multiplayer.js?v=1.5.5-devaccount1"></script>
-<script src="account-menu.js?v=1.5.5-devaccount1"></script>
-<script src="secure-ui.js?v=1.5.5-devaccount1"></script>
-<script src="mobile-play.js?v=1.5.5-devaccount1"></script>
-<script src="world-presentation.js?v=1.5.5-devaccount1"></script>
-<script src="presentation.js?v=1.5.5-devaccount1"></script>
-<script src="expansion-ui.js?v=1.5.5-devaccount1"></script>
-<script src="craft-layout.js?v=1.5.5-devaccount1"></script>
-<script src="craft-ui.js?v=1.5.5-devaccount1"></script>
-<script src="social-ui.js?v=1.5.5-devaccount1"></script>
-<script src="realms-ui.js?v=1.5.5-devaccount1"></script>
-<script src="menu-tour.js?v=1.5.5-devaccount1"></script>
-<script src="menu-preview.js?v=1.5.5-devaccount1"></script>
-<script src="guild-ui.js?v=1.5.5-devaccount1"></script>
-<script src="quick-tutorial.js?v=1.5.5-devaccount1"></script>
-<script src="tutorial-ui.js?v=1.5.5-devaccount1"></script>
+<script src="progression.js?v=1.5.5-maps1"></script>
+<script src="systems.js?v=1.5.5-maps1"></script>
+<script src="adventure.js?v=1.5.5-maps1"></script>
+<script src="gear.js?v=1.5.5-maps1"></script>
+<script src="cave.js?v=1.5.5-maps1"></script>
+<script src="boss-mobs.js?v=1.5.5-maps1"></script>
+<script src="expansion-game.js?v=1.5.5-maps1"></script>
+<script src="garden-models.js?v=1.5.5-maps1"></script>
+<script src="realm-scenery.js?v=1.5.5-maps1"></script>
+<script src="workshop.js?v=1.5.5-maps1"></script>
+<script src="equipment-slots.js?v=1.5.5-maps1"></script>
+<script src="item-details.js?v=1.5.5-maps1"></script>
+<script src="item-tooltips.js?v=1.5.5-maps1"></script>
+<script src="profile-view.js?v=1.5.5-maps1"></script>
+<script src="inspection-shortcuts.js?v=1.5.5-maps1"></script>
+<script src="hud.js?v=1.5.5-maps1"></script>
+<script src="panels.js?v=1.5.5-maps1"></script>
+<script src="admin-ui.js?v=1.5.5-maps1"></script>
+<script src="inventory.js?v=1.5.5-maps1"></script>
+<script src="adventure-ui.js?v=1.5.5-maps1"></script>
+<script src="multiplayer.js?v=1.5.5-maps1"></script>
+<script src="account-menu.js?v=1.5.5-maps1"></script>
+<script src="secure-ui.js?v=1.5.5-maps1"></script>
+<script src="mobile-play.js?v=1.5.5-maps1"></script>
+<script src="world-presentation.js?v=1.5.5-maps1"></script>
+<script src="presentation.js?v=1.5.5-maps1"></script>
+<script src="expansion-ui.js?v=1.5.5-maps1"></script>
+<script src="craft-layout.js?v=1.5.5-maps1"></script>
+<script src="craft-ui.js?v=1.5.5-maps1"></script>
+<script src="social-ui.js?v=1.5.5-maps1"></script>
+<script src="realms-ui.js?v=1.5.5-maps1"></script>
+<script src="menu-tour.js?v=1.5.5-maps1"></script>
+<script src="menu-preview.js?v=1.5.5-maps1"></script>
+<script src="guild-ui.js?v=1.5.5-maps1"></script>
+<script src="quick-tutorial.js?v=1.5.5-maps1"></script>
+<script src="tutorial-ui.js?v=1.5.5-maps1"></script>
+<script src="map-atlas-ui.js?v=1.5.5-maps1"></script>
 </body>
 </html>
 

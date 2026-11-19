@@ -56,7 +56,7 @@ module.exports=function playerStore(db,game){
     state.pendingCraft=raw.pendingCraft && typeof raw.pendingCraft.from==='string' ? clone(raw.pendingCraft) : null;
     state.accessoryVersion=raw.accessoryVersion;state.accessories=Array.isArray(raw.accessories)?clone(raw.accessories):[];state.joinedAt=raw.joinedAt;state.playTimeMs=safeNumber(raw.playTimeMs);state.reviveReadyAt=safeNumber(raw.reviveReadyAt,0,0,Date.now()+180000);game.expansion.normalize(state);
     state.maxHp=game.utility(state).health+100+(state.talentRanks.vitality || 0)*20;state.hp=state.maxHp;state.size=20;state.damage=10;
-    state.x=50000;state.y=50000;state.realm='garden';state.dead=false;state.deathCause='';state.selectedSlot=2;state.vx=0;state.vy=0;
+    const arrival=game.expansion.mapFor('garden').spawn;state.x=arrival.x;state.y=arrival.y;state.realm='garden';state.dead=false;state.deathCause='';state.selectedSlot=2;state.vx=0;state.vy=0;
     return state;
   }
   function join(data={}){

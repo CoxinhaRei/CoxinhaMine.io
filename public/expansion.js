@@ -1,5 +1,6 @@
 (function(root){
  'use strict';
+ const atlas=typeof module!=='undefined'&&module.exports?require('./map-atlas'):root.MAP_ATLAS;
  const RARITIES=['Comum','Incomum','Raro','Épico','Lendário','Mítico','ULTRA','SUPER','ABSOLUT','QUANTIUM','ALEPH','CHOSEN'];
  const SCALE=[1,1.25,1.6,2.1,2.8,3.8,5.3,7.3,10,14,20,30],CHANCES=[.8,.65,.5,.35,.25,.15,.1,.08,.05,.001,1];
  const BIOMES=[
@@ -8,8 +9,8 @@
   {id:'jungle',name:'Jungle',color:'#247350',texture:'#123e394f',x:0,y:70000,w:70000,h:30000,spawn:{x:50000,y:85000},mobs:['mantis','dragonfly','frog','spider']},
   {id:'ice',name:'Floresta de Gelo',color:'#bcdfe7',texture:'#537eac38',x:0,y:0,w:70000,h:25000,spawn:{x:45000,y:14000},mobs:['icebeetle','snowmoth','iceTornado']},
   {id:'desert',name:'Deserto',color:'#dcb271',texture:'#946b3638',x:70000,y:0,w:30000,h:100000,spawn:{x:85000,y:50000},mobs:['scorpion','scarab','sandTornado']}
- ].map(b=>({...b,x:0,y:0,w:100000,h:100000,spawn:{x:50000,y:50000}}));
- const MAPS=[...BIOMES,{id:'cave',name:'Caverna',color:'#343640',texture:'#a6a1b238',w:200000,h:100000,spawn:{x:750,y:750},mobs:['guardian']}];
+ ].map(b=>({...b,x:0,y:0,w:atlas.SIZE,h:atlas.SIZE,spawn:atlas.spawn(b.id)}));
+ const MAPS=[...BIOMES,{id:'cave',name:'Caverna',color:'#343640',texture:'#a6a1b238',w:atlas.SIZE*2,h:atlas.SIZE,spawn:{x:750,y:750},mobs:['guardian']}];
  const mapFor=id=>MAPS.find(m=>m.id===id)||MAPS[0];
  const LANDMARKS={
   garden:[{id:'city',name:'Praça central',x:50000,y:50000,model:'city',radius:1100},{id:'bridge',name:'Ponte das Flores',x:50000,y:52800,model:'bridge',radius:700},{id:'glade',name:'Clareira das Joaninhas',x:53600,y:50600,model:'flowers',radius:720}],
@@ -22,10 +23,13 @@
  function portalsFor(realm){
   if(realm==='cave')return [{id:'cave-return',to:'garden',x:8750,y:5750,r:110}];
   const destinations=MAPS.filter(m=>m.id!==realm);
-  const portals=destinations.map((m,n)=>{const angle=-Math.PI/2+n*Math.PI*2/destinations.length;return {id:realm+'-to-'+m.id,to:m.id,x:50000+Math.cos(angle)*34000,y:50000+Math.sin(angle)*34000,r:100};});
-  if(realm==='garden')portals.push({id:'garden-cave-entrance',to:'cave',x:99000,y:1000,r:150});
+  const portals=destinations.map((m,n)=>{const angle=-Math.PI/2+n*Math.PI*2/destinations.length;return {id:realm+'-to-'+m.id,to:m.id,x:atlas.SIZE/2+Math.cos(angle)*atlas.SIZE*.34,y:atlas.SIZE/2+Math.sin(angle)*atlas.SIZE*.34,r:100};});
+  if(realm==='garden')portals.push({id:'garden-cave-entrance',to:'cave',x:atlas.SIZE-2000,y:2000,r:150});
   return portals;
  }
+ for(const [realm,places] of Object.entries(LANDMARKS))if(realm!=='cave')for(const p of places){p.x+=atlas.SIZE/2-50000;p.y+=atlas.SIZE/2-50000;}
+ const districtModels={garden:['flowers','bridge','ruins','pond','flowers','ruins','flowers'],beach:['shells','coast','shells','coast','shells','coast','shells'],jungle:['pond','ruins','pond','ruins','pond','ruins','pond'],ice:['iceForest','frozenLake','iceForest','frozenLake','iceForest','frozenLake','iceForest'],desert:['oasis','ruins','oasis','ruins','oasis','ruins','oasis'],cave:['caveCrystals','caveRuins','caveCrystals','caveRuins','caveCrystals','caveRuins','caveCrystals']};
+ for(const map of MAPS)for(let tier=1;tier<=7;tier++){const p=atlas.LAYOUTS[map.id].points[tier];LANDMARKS[map.id].push({id:'territory-'+tier,name:atlas.LAYOUTS[map.id].names[tier],x:p[0]*map.w,y:p[1]*map.h,model:districtModels[map.id][tier-1],radius:850});}
  const MOBS=[
   ['crab','Caranguejo','neutral',55,8,76,'#dd7958','Pinça de Coral','beach'],['hermit','Ermitão','neutral',75,7,55,'#c59b75','Concha Espiral','beach'],['turtle','Tartaruga','neutral',110,7,48,'#60a98b','Escama Marinha','beach'],
   ['mantis','Louva-a-deus','hostile',70,10,135,'#8cc65d','Lâmina de Louva-a-deus','jungle'],['dragonfly','Libélula','neutral',38,6,165,'#70d6cc','Asa Prismática','jungle'],['frog','Sapo','neutral',90,9,90,'#61b485','Gota de Orvalho','jungle'],

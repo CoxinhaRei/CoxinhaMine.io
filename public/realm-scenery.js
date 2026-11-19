@@ -16,7 +16,7 @@ const RealmScenery=(()=>{
   c.fillStyle='#202329';c.fillRect(left,top,width,height);
   for(let y=Math.floor(top/CAVE.tile);y<=Math.ceil((top+height)/CAVE.tile);y++)for(let x=Math.floor(left/CAVE.tile);x<=Math.ceil((left+width)/CAVE.tile);x++){
    const px=x*CAVE.tile,py=y*CAVE.tile;
-   if(caveTileOpen(x,y)){c.fillStyle='#454248';c.fillRect(px,py,CAVE.tile,CAVE.tile);c.fillStyle='#535058';for(let n=0;n<6;n++)c.fillRect(px+40+(n*71)%400,py+30+(n*113)%420,7,5);}
+   if(caveTileOpen(x,y)){c.fillStyle=MAP_ATLAS.at('cave',px+CAVE.tile/2,py+CAVE.tile/2).color;c.fillRect(px,py,CAVE.tile,CAVE.tile);c.fillStyle='#535058';for(let n=0;n<6;n++)c.fillRect(px+40+(n*71)%400,py+30+(n*113)%420,7,5);}
    else{c.strokeStyle='#62606b';c.lineWidth=8;c.strokeRect(px+4,py+4,CAVE.tile-8,CAVE.tile-8);}
   }
  }

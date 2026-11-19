@@ -4,9 +4,9 @@ for(const map of EXPANSION.MAPS){const button=document.createElement('button');b
 selectMenuRealm(selectedMenuRealm,false);
 
 function drawRealmLanding(c=ctx,realm=currentRealm,camera=player,width=worldViewWidth()){
- if(Math.hypot(camera.x-50000,camera.y-50000)>width+1500)return;
- const map=EXPANSION.mapFor(realm);c.save();c.fillStyle='#f7edcc33';c.strokeStyle='#fff4c899';c.lineWidth=8;c.beginPath();c.arc(50000,50000,990,0,Math.PI*2);c.fill();c.stroke();
- c.fillStyle='#fff4d8';c.strokeStyle='#24493b';c.lineWidth=5;c.textAlign='center';c.font='bold 35px Ubuntu';c.strokeText(map.name.toUpperCase(),50000,49770);c.fillText(map.name.toUpperCase(),50000,49770);c.font='18px Ubuntu';c.fillText('REFÚGIO DOS VIAJANTES',50000,49810);c.restore();
+ if(Math.hypot(camera.x-WORLD_SIZE/2,camera.y-WORLD_SIZE/2)>width+1500)return;
+ const map=EXPANSION.mapFor(realm);c.save();c.fillStyle='#f7edcc33';c.strokeStyle='#fff4c899';c.lineWidth=8;c.beginPath();c.arc(WORLD_SIZE/2,WORLD_SIZE/2,990,0,Math.PI*2);c.fill();c.stroke();
+ c.fillStyle='#fff4d8';c.strokeStyle='#24493b';c.lineWidth=5;c.textAlign='center';c.font='bold 35px Ubuntu';c.strokeText(map.name.toUpperCase(),WORLD_SIZE/2,WORLD_SIZE/2-230);c.fillText(map.name.toUpperCase(),WORLD_SIZE/2,WORLD_SIZE/2-230);c.font='18px Ubuntu';c.fillText('REFÚGIO DOS VIAJANTES',WORLD_SIZE/2,WORLD_SIZE/2-190);c.restore();
 }
 function drawRealmPortals(brush=ctx,realm=currentRealm,camera=player,width=worldViewWidth(),height=worldViewHeight(),clock=performance.now()){
  const time=clock/1000;

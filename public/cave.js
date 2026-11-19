@@ -1,4 +1,4 @@
-const CAVE={width:WORLD_SIZE*2,height:WORLD_SIZE,tile:500,columns:400,rows:200,maze:null,populated:new Set()};
+const CAVE={width:WORLD_SIZE*2,height:WORLD_SIZE,tile:500,columns:WORLD_SIZE*2/500,rows:WORLD_SIZE/500,maze:null,populated:new Set()};
 const CAVE_ENTRANCE={x:WORLD_SIZE-1000,y:1000,r:150};
 let cavePromptOpen=false;
 function realmDimensions(){return currentRealm==='cave' ? {width:CAVE.width,height:CAVE.height} : {width:WORLD_SIZE,height:WORLD_SIZE};}
@@ -19,7 +19,7 @@ function buildCaveMaze(){
   CAVE.deposits=[];
   const chamberRandom=seededRandom(2983);
   for(let y=15000;y<CAVE.height-12000;y+=20000)for(let x=15000;x<CAVE.width-12000;x+=20000){
-    const roll=chamberRandom(),index=roll<.0005 ? 10 : roll<.00625 ? 9 : roll<.025 ? 8 : -1;
+    const roll=chamberRandom(),index=MAP_ATLAS.at('cave',x,y).tier===8 ? (roll<.008?9:roll<.30?8:roll<.40?7:-1) : -1;
     if(index<0)continue;
     const rarity=rarities[index],size=GAME_CATALOG.oreRadius(rarity.name);
     const deposit={id:'chamber-'+x+'-'+y,x,y,size,rarity,hp:rarity.hp,maxHp:rarity.hp,isBoss:true};
@@ -40,12 +40,12 @@ function circleHitsCaveWall(x,y,radius){
 function moveWithWalls(entity,x,y,radius){
   const dimensions=realmDimensions();
   x=Math.max(radius,Math.min(dimensions.width-radius,x));y=Math.max(radius,Math.min(dimensions.height-radius,y));
-  if(currentRealm!=='cave'){entity.x=x;entity.y=y;return;}
+  if(currentRealm!=='cave'){if(!MAP_ATLAS.blocked(currentRealm,x,entity.y,radius))entity.x=x;else if(entity===player)player.vx=0;if(!MAP_ATLAS.blocked(currentRealm,entity.x,y,radius))entity.y=y;else if(entity===player)player.vy=0;return;}
   if(!circleHitsCaveWall(x,entity.y,radius))entity.x=x;else if(entity===player)player.vx=0;
   if(!circleHitsCaveWall(entity.x,y,radius))entity.y=y;else if(entity===player)player.vy=0;
 }
 function caveLineClear(x,y,tx,ty){
-  if(currentRealm!=='cave')return true;
+  if(currentRealm!=='cave'){const count=Math.ceil(Math.hypot(tx-x,ty-y)/150);for(let n=0;n<=count;n++)if(MAP_ATLAS.blocked(currentRealm,x+(tx-x)*n/(count||1),y+(ty-y)*n/(count||1),0))return false;return true;}
   const count=Math.ceil(Math.hypot(tx-x,ty-y)/80);
   for(let n=0;n<=count;n++)if(!caveTileOpen(Math.floor((x+(tx-x)*n/(count || 1))/CAVE.tile),Math.floor((y+(ty-y)*n/(count || 1))/CAVE.tile)))return false;
   return true;
@@ -74,7 +74,7 @@ function switchRealm(next){
   projectiles=[];particles=[];abilityEffects=[];nearestBoss=null;heldKeys.clear();movementAimActive=false;touch.active=false;
   player.vx=0;player.vy=0;cavePromptOpen=false;
   if(next==='cave'){buildCaveMaze();player.x=750;player.y=750;populateCave();}
-  else{player.x=50000;player.y=50000;}
+  else{const s=EXPANSION.mapFor(next).spawn;player.x=s.x;player.y=s.y;}
   socket.emit('move',{x:player.x,y:player.y,realm:next});
 }
 function interactPortal(){
@@ -95,7 +95,7 @@ function populateCave(){
     CAVE.populated.add(key);
     if(x<=3 && y<=3)continue;
     const rng=seededRandom(key+913),roll=rng();
-    const index=roll<.0000075 ? 10 : roll<.00025 ? 9 : roll<.002 ? 8 : roll<.00875 ? 7 : roll<.15 ? 6 : roll<.4 ? 5 : 4;
+    const px0=(x+.5)*CAVE.tile,py0=(y+.5)*CAVE.tile,index=MAP_ATLAS.roll('cave',px0,py0,rng);if(index<0)continue;
     const rarity=rarities[index],size=GAME_CATALOG.oreRadius(rarity.name),px=(x+.5)*CAVE.tile,py=(y+.5)*CAVE.tile;
     if(ores.some(o=>Math.hypot(o.x-px,o.y-py)<o.size+size+150))continue;
     // Giant deposits get reachable chambers; the remaining passages stay a maze.
@@ -128,7 +128,7 @@ function drawCaveWorld(){
   for(let y=top;y<=bottom;y++)for(let x=left;x<=right;x++){
     const px=x*CAVE.tile,py=y*CAVE.tile;
     if(caveTileOpen(x,y)){
-      ctx.fillStyle='#454248';ctx.fillRect(px,py,CAVE.tile,CAVE.tile);
+      ctx.fillStyle=MAP_ATLAS.at('cave',px+CAVE.tile/2,py+CAVE.tile/2).color;ctx.fillRect(px,py,CAVE.tile,CAVE.tile);
       ctx.fillStyle='#535058';for(let n=0;n<6;n++)ctx.fillRect(px+40+(n*71)%400,py+30+(n*113)%420,7,5);
     }else{
       ctx.fillStyle='#202329';ctx.fillRect(px,py,CAVE.tile,CAVE.tile);ctx.strokeStyle='#62606b';ctx.lineWidth=8;ctx.strokeRect(px+4,py+4,CAVE.tile-8,CAVE.tile-8);

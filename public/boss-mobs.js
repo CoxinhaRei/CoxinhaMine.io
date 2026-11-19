@@ -24,7 +24,8 @@ function summonBossHelpers(boss,kind,count){
     const distance=boss.size+helper.size+100+Math.floor(attempt/8)*100;
     const x=boss.x+Math.cos(angle)*distance,y=boss.y+Math.sin(angle)*distance;
     if(x<helper.size || y<helper.size || x>dimensions.width-helper.size || y>dimensions.height-helper.size)continue;
-    if(currentRealm==='garden' && getZone(x,y)==='P')continue;
+    if(currentRealm!=='cave' && getZone(x,y)==='P')continue;
+    if(currentRealm!=='cave'&&MAP_ATLAS.blocked(currentRealm,x,y,helper.size*.65))continue;
     if(currentRealm==='cave' && (circleHitsCaveWall(x,y,helper.size*.65) || !caveLineClear(boss.x,boss.y,x,y)))continue;
     if(ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+helper.size))continue;
     if(mobs.some(m=>Math.hypot(m.x-x,m.y-y)<m.size*.7+helper.size*.7+20))continue;
@@ -64,14 +65,14 @@ function resolveBossMobAbility(mob,action){
       const dimensions=realmDimensions();
       if(x<radius || y<radius || x>dimensions.width-radius || y>dimensions.height-radius)continue;
       if(currentRealm==='cave' && (circleHitsCaveWall(x,y,radius) || !caveLineClear(mob.x,mob.y,x,y)))continue;
-      if(currentRealm==='garden' && getZone(x,y)==='P')continue;
+      if(currentRealm!=='cave' && getZone(x,y)==='P')continue;
       bossMobHazards.push({owner:mob.id,x,y,radius,life:4,tick:0,color:ability.color,damage:mob.damage*.3,cause:mob.name+' '+mob.rarity.name+' · ácido'});
     }
   }
   miningBurst(mob.x,mob.y,ability.color,20);
 }
 function updateBossMobAbilities(dt,activeMobs=mobs,skipEffects=false){
-  const safe=currentRealm==='garden' && getZone(player.x,player.y)==='P';
+  const safe=currentRealm!=='cave' && getZone(player.x,player.y)==='P';
   for(const mob of [...activeMobs]){
     mob.shieldTime=Math.max(0,(mob.shieldTime || 0)-dt);
     const ability=bossMobAbility(mob);
@@ -105,7 +106,7 @@ function updateBossMobAbilities(dt,activeMobs=mobs,skipEffects=false){
   if(!skipEffects)updateBossMobHazards(dt);
 }
 function updateBossMobHazards(dt){
-  const safe=currentRealm==='garden' && getZone(player.x,player.y)==='P';
+  const safe=currentRealm!=='cave' && getZone(player.x,player.y)==='P';
   const owners=new Set(mobs.map(m=>m.id));
   for(const hazard of bossMobHazards){
     hazard.life-=dt;hazard.tick-=dt;

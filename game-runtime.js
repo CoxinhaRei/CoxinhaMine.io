@@ -16,7 +16,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
   const root=path.join(__dirname,'public');
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
-  for(const file of ['game-catalog.js','expansion.js',null,'progression.js','systems.js','adventure.js','gear.js','cave.js','boss-mobs.js','expansion-game.js','garden-models.js','realm-scenery.js'])vm.runInContext(file ? fs.readFileSync(path.join(root,file),'utf8') : inline,context,{filename:file || 'game-inline.js'});
+  for(const file of ['game-catalog.js','map-atlas.js','expansion.js',null,'progression.js','systems.js','adventure.js','gear.js','cave.js','boss-mobs.js','expansion-game.js','garden-models.js','realm-scenery.js'])vm.runInContext(file ? fs.readFileSync(path.join(root,file),'utf8') : inline,context,{filename:file || 'game-inline.js'});
   context.realmName=realm;
   return vm.runInContext(`
     currentRealm=realmName;
@@ -39,7 +39,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
       populateCave(state){player=state;populateCave();},
       forgetDormantOre(ore){if(currentRealm==='cave'){const match=/^cave-ore-([0-9]+)$/.exec(ore.id);if(match)CAVE.populated.delete(Number(match[1]));}},
       createCreature,removeMobAndSummons,creatureAggressive,bossMobAbility,
-      zone:getZone,lineClear:caveLineClear,wall:circleHitsCaveWall,tileOpen:caveTileOpen,
+      carveChamber:carveCaveChamber,zone:getZone,lineClear:caveLineClear,wall:circleHitsCaveWall,tileOpen:caveTileOpen,
       surface(entity,state){player=state;return targetSurface(entity);},
       moveMob(mob,state,dt){const all=mobs;player=state;mobs=[mob];try{updateCreatureMovement(dt);}finally{mobs=all;}},
       bossStep(mob,state,dt){player=state;updateBossMobAbilities(dt,[mob],true);},
