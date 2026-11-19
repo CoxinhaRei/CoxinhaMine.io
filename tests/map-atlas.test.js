@@ -15,13 +15,13 @@ test('browser and server generate exactly the same terrain instead of random per
 });
 test('all nine regions meet at shared borders and each rarity occupies exactly one connected part of each map',()=>{
  for(const realm of Object.keys(atlas.LAYOUTS)){
-  const m=atlas.build(realm),components=Array(9).fill(0),seen=new Set();let borders=0;
+  const m=atlas.build(realm),components=Array(9).fill(0),seen=new Set();let borders=0,walled=0;
   for(let i=0;i<m.tiers.length;i++){
-   if(i%m.cols>0&&i%m.cols<m.cols-2&&i>=m.cols&&i<m.tiers.length-m.cols&&m.tiers[i]!==m.tiers[i+1]){borders++;assert.ok(m.open[i]&&m.open[i+1]||realm==='cave','territory borders meet without a wall gap');}
+   if(i%m.cols>0&&i%m.cols<m.cols-2&&i>=m.cols&&i<m.tiers.length-m.cols&&m.tiers[i]!==m.tiers[i+1]){borders++;if(!m.open[i]||!m.open[i+1])walled++;}
    if(seen.has(i))continue;const tier=m.tiers[i],q=[i];seen.add(i);components[tier]++;
    for(let n=0;n<q.length;n++){const k=q[n],x=k%m.cols,y=Math.floor(k/m.cols);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy,j=yy*m.cols+xx;if(xx>=0&&yy>=0&&xx<m.cols&&yy<m.rows&&!seen.has(j)&&m.tiers[j]===tier){seen.add(j);q.push(j);}}}
   }
-  assert.deepEqual(components,Array(9).fill(1),realm+' has one contiguous territory per rarity, including Absolut');assert.ok(borders>100);assert.equal(seen.size,m.cols*m.rows,'every tile has a territory');if(realm!=='cave')assert.ok(m.open.reduce((a,b)=>a+b,0)/m.open.length>.95,'no empty spaces between colored regions');
+  assert.deepEqual(components,Array(9).fill(1),realm+' has one contiguous territory per rarity, including Absolut');assert.ok(borders>100);assert.ok(walled/borders>.60,realm+' walls follow most region boundaries');assert.equal(seen.size,m.cols*m.rows,'every tile has a territory');if(realm!=='cave')assert.ok(m.open.reduce((a,b)=>a+b,0)/m.open.length>.20&&m.open.reduce((a,b)=>a+b,0)/m.open.length<.80,'clearings and corridors occupy part of the map, with substantial walls');
  }
 });
 test('region colors never paint the actual ground or the cave floor',()=>{
@@ -56,6 +56,20 @@ test('the new surface barriers stop player movement and attacks; center and dist
  const s=await server(t),g=s.worlds.garden.game,m=atlas.build('garden');let edge;
  for(let y=2;y<m.rows-2&&!edge;y++)for(let x=2;x<m.cols-2;x++)if(m.open[y*m.cols+x]&&!m.open[y*m.cols+x+1]){edge={x:(x+1)*m.tile-60,y:(y+.5)*m.tile};break;}
  const body={...edge};g.moveEntity(body,edge.x+140,edge.y,20);assert.equal(body.x,edge.x);assert.equal(g.lineClear(edge.x,edge.y,edge.x+140,edge.y),false);const p=E.mapFor('garden').spawn;assert.equal(g.zone(p.x,p.y),'P');assert.ok(E.portalsFor('garden').every(q=>Math.hypot(q.x-p.x,q.y-p.y)>40000));
+});
+test('every neighboring pair has wide usable gates and walls block movement and attacks outside those gates',async t=>{
+ const s=await server(t);
+ for(const realm of Object.keys(atlas.LAYOUTS)){
+  const m=atlas.build(realm),expected=new Set(),actual=new Set(m.gates.map(g=>Math.min(g.a,g.b)+':'+Math.max(g.a,g.b)));
+  for(let y=1;y<m.rows-1;y++)for(let x=1;x<m.cols-1;x++){const a=m.tiers[y*m.cols+x];for(const b of [m.tiers[y*m.cols+x+1],m.tiers[(y+1)*m.cols+x]])if(a!==b)expected.add(Math.min(a,b)+':'+Math.max(a,b));}assert.deepEqual([...actual].sort(),[...expected].sort());
+  const g=s.worlds[realm].game;
+  for(const gate of m.gates){assert.equal(atlas.blocked(realm,gate.x,gate.y,600),false,'gate fits players and large natural mobs');const from={x:gate.x-gate.nx*1700,y:gate.y-gate.ny*1700},to={x:gate.x+gate.nx*1700,y:gate.y+gate.ny*1700};assert.equal(g.lineClear(from.x,from.y,to.x,to.y),true,realm+' gate has a clear crossing');const body={...from};for(let n=1;n<=40;n++)g.moveEntity(body,from.x+(to.x-from.x)*n/40,from.y+(to.y-from.y)*n/40,20);assert.ok(Math.hypot(body.x-to.x,body.y-to.y)<1,'player crosses the opening');}
+ }
+});
+test('cave chambers and giant deposits cannot erase regional walls',async t=>{
+ const s=await server(t),g=s.worlds.cave.game,m=atlas.build('cave');let wall;
+ for(let y=5;y<m.rows-5&&!wall;y++)for(let x=5;x<m.cols-5;x++)if(!m.open[y*m.cols+x]){wall={x:(x+.5)*m.tile,y:(y+.5)*m.tile};break;}assert.ok(wall);const tx=Math.floor(wall.x/500),ty=Math.floor(wall.y/500);assert.equal(g.tileOpen(tx,ty),false);g.carveChamber(wall.x,wall.y,5000);assert.equal(g.tileOpen(tx,ty),false);assert.equal(g.wall(wall.x,wall.y,20),true);
+ for(const ore of g.cave.deposits)assert.equal(atlas.blocked('cave',ore.x,ore.y,ore.size+150),false,'giant ore fits without carving through a regional wall');
 });
 test('sleeping Super+ mobs preserve damage and contribution, wake for any nearby player, and cannot accumulate without bounds',async t=>{
  const s=await server(t),world=s.worlds.garden,g=world.game,p=s.store.create('Atlas sleeper').profile,a={profile:p,state:p.state,inLobby:false,socket:{id:'sleeper',emit(){}}};s.actors.sleeper=a;Object.assign(p.state,{x:75000,y:75000,realm:'garden'});const mob=g.createCreature('bee',g.rarities[8],120000,110000);mob.hp-=77;g.mobs=[mob];world.contributions.set(mob.id,new Map([[p.id,77]]));let now=Date.now();world.maintainActiveAreas([a],now);assert.equal(g.mobs.length,0);assert.equal(world.dormantMobs.get(mob.id).mob.hp,mob.maxHp-77);assert.equal(world.contributions.get(mob.id).get(p.id),77);p.state.x=mob.x;p.state.y=mob.y;world.maintainActiveAreas([a],now+=1001);assert.ok(g.mobs.includes(mob));assert.equal(world.dormantMobs.size,0);
