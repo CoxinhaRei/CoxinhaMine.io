@@ -19,7 +19,7 @@
 
 ## Conferir depois do deploy
 
-Abra /health no endereço do jogo. A resposta deve conter version: 1.5.5, build: release-155-recovery1, protocol: 6, guests: true e accountRequired: false. Se o banco Redis estiver configurado, confira também sharedSaves: true, durable: true e saveError: false.
+Abra /health no endereço do jogo. A resposta deve conter version: 1.5.5, build: release-155-session2, protocol: 6, guests: true e accountRequired: false. Se o banco Redis estiver configurado, confira também sharedSaves: true, durable: true e saveError: false.
 
 Recarregue com Ctrl+F5. O aviso de desenvolvimento local foi retirado. Confira o changelog 1.5.5, o botão Como jogar, a espada inicial, as configurações do convidado e o login de uma conta existente. Teste dois convidados em abas diferentes para conferir o mundo compartilhado.
 

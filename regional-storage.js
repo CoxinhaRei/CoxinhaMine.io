@@ -102,7 +102,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
   const result=await request(['SET',lockKey,owner,'NX','PX',ttl]);
   if(result!=='OK'){
    const existing=await request(['GET',lockKey]);
-   if(existing!==owner)throw Error('Esta conta está conectada em outro servidor. Saia por lá e tente novamente; após uma queda, aguarde até 60 segundos.');
+   if(existing!==owner)throw Object.assign(Error('O servidor ainda mantém uma sessão reservada para esta conta em outro servidor. Após sair ou fechar o jogo, aguarde até 60 segundos e tente novamente.'),{code:'SESSION_BUSY'});
    const lost=await request(['EVAL',RENEW,1,lockKey,owner,String(ttl)]);if(lost.length)throw Error('A sessão expirou. Entre novamente.');
   }
   held.add(id);
@@ -113,7 +113,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
    }catch(error){await request(['EVAL',RELEASE,1,lockKey,owner]);held.delete(id);throw error;}
   }
  }
- async function renew(){const ids=[...held];if(!ids.length)return [];const lost=await request(['EVAL',RENEW,ids.length,...ids.map(id=>key+':session:'+id),owner,String(ttl)]);return lost.map(index=>ids[index-1]);}
+ async function renew(activeIds=[]){const active=new Set(activeIds),ids=[...held].filter(id=>active.has(id));if(!ids.length)return [];const lost=await request(['EVAL',RENEW,ids.length,...ids.map(id=>key+':session:'+id),owner,String(ttl)]);return lost.map(index=>ids[index-1]);}
  async function release(id){await request(['EVAL',RELEASE,1,key+':session:'+id,owner]);held.delete(id);}
  async function discard(id){
   held.delete(id);const raw=await request(['GET',key]),remote=raw ? JSON.parse(raw) : {};

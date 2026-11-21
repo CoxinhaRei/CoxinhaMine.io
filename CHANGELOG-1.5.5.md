@@ -28,3 +28,8 @@
 - Hostile projectiles hit egg summons with swept collision checks. Defeated summons keep their normal individual respawn cooldown.
 - Original summoned mob names appear above their health bars, with colored rarity below.
 - Distinct biome room and corridor shapes, keeping rarity territories, native floors and connected passages.
+
+## Session lease hotfix
+
+- Renew account save leases only for connected players, including authenticated menu users.
+- Disconnected accounts with a failed save/release no longer keep a lease alive indefinitely. Active sessions remain protected against simultaneous writes.
