@@ -43,7 +43,7 @@ test('same account transfers across real Socket.IO servers, keeps latest save an
  assert.equal((await call(other,'accountRegister',{nickname:'AnotherRegionHero',password:'regional-test-password',lobby:true})).ok,true);
  const raceA=await client(t,br),raceB=await client(t,us),registration={nickname:'UniqueAcrossRegions',password:'regional-test-password',lobby:true};const race=await Promise.all([call(raceA,'accountRegister',registration),call(raceB,'accountRegister',registration)]);assert.equal(race.filter(r=>r.ok).length,1,'nickname uniqueness is atomic across regions');
  us.actors[b.id].state.coins=777;us.store.save(us.actors[b.id].profile);assert.equal((await call(b,'leaveServer',{})).ok,true);assert.equal((await call(a,'joinGame',{credentials,lobby:true})).ok,true);assert.equal(a.profile.state.coins,777);
- const health=await (await fetch('http://127.0.0.1:'+us.http.address().port+'/health')).json();assert.equal(health.region,'US');assert.equal(health.sharedSaves,true);assert.equal(health.build,'release-155-eggs1');
+ const health=await (await fetch('http://127.0.0.1:'+us.http.address().port+'/health')).json();assert.equal(health.region,'US');assert.equal(health.sharedSaves,true);assert.equal(health.build,'release-155-recovery1');
 });
 
 test('analytic movement matches 30/60/144 FPS; replay acknowledges pending input and smooths visual correction',()=>{

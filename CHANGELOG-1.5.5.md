@@ -20,3 +20,11 @@
 - Reaching level 300 requires 100 billion cumulative XP from level 1; leveling continues afterward.
 - Ore base HP: Super 18 million, Absolut 90 million, Quantium 300 million and Aleph 1.5 billion.
 - Super+ creature health depends on species and rarity. Ore gathering, equipment choice and passive builds matter.
+
+## Patch — account recovery, magnets and biome layouts
+
+- Recover from stale, fenced-out session saves while preserving the latest database record. Login acknowledgements now carry the account inventory; Play waits for authentication and keeps errors visible.
+- Twelve magnet evolutions with distinct models, names and a collection radius from 500 to 35,000 units. Collect eligible same-map loot through walls; multiple magnets use the largest radius.
+- Hostile projectiles hit egg summons with swept collision checks. Defeated summons keep their normal individual respawn cooldown.
+- Original summoned mob names appear above their health bars, with colored rarity below.
+- Distinct biome room and corridor shapes, keeping rarity territories, native floors and connected passages.

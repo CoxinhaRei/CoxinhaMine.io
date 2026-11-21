@@ -46,7 +46,9 @@ function drawLootModel(c,item,x,y,r){
 }
 function lootPreview(item){const key='loot:'+item.kind+':'+item.rarity;if(!itemPreviewCache.has(key)){const image=document.createElement('canvas');image.width=image.height=80;drawLootModel(image.getContext('2d'),item,40,40,25);itemPreviewCache.set(key,image.toDataURL('image/png'));}return itemPreviewCache.get(key);}
 const pickedLoot=[];
-socket.on('dropCollected',data=>{pickedLoot.push({...data,started:performance.now()});sharedNotice('+ '+data.item.name+' · '+data.item.rarity);});
+function pickedLootAnimation(data){const dx=data.x-player.x,dy=data.y-player.y,d=Math.hypot(dx,dy);pickedLoot.push({...data,x:d>900?player.x+dx/d*180:data.x,y:d>900?player.y+dy/d*180:data.y,started:performance.now()});if(pickedLoot.length>48)pickedLoot.splice(0,pickedLoot.length-48);}
+socket.on('dropCollected',data=>{pickedLootAnimation(data);sharedNotice('+ '+data.item.name+' · '+data.item.rarity);});
+socket.on('dropsCollected',data=>{for(const drop of data.drops||[])pickedLootAnimation(drop);sharedNotice('Magneto: '+data.count.toLocaleString('pt-BR')+' drops recolhidos!');});
 function drawGroundLoot(){
   const now=Date.now()+(multiplayer.timeOffset || 0);ctx.save();
   for(const drop of multiplayer.drops || []){

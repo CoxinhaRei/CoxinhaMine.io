@@ -39,7 +39,7 @@ function drawCraftCard155(c,item,rarity,x,y,size=48){
   const color=rarities.find(r=>r.name===rarity)?.color||'#acd88f',hex=color.replace('#',''),shade=hex.length===6?'#'+[0,2,4].map(n=>Math.round(parseInt(hex.slice(n,n+2),16)*.58).toString(16).padStart(2,'0')).join(''):'#4b6554';
   c.save();c.fillStyle=color;c.strokeStyle=shade;c.lineWidth=5;c.beginPath();c.roundRect(x-size/2,y-size/2,size,size,5);c.fill();c.stroke();
   c.strokeStyle='#ffffff44';c.lineWidth=1.5;c.strokeRect(x-size/2+4,y-size/2+4,size-8,size-8);
-  if(item){if(item.type==='accessory')drawAccessoryModel(c,item.accessoryId,x,y,size*.34);else drawLootModel(c,{...item,rarity,oreRarity:item.type==='material'?rarity:undefined},x,y,size*.34);}c.restore();
+  if(item){if(item.type==='accessory')drawAccessoryModel(c,item.accessoryId,x,y,size*.34,rarity);else drawLootModel(c,{...item,rarity,oreRarity:item.type==='material'?rarity:undefined},x,y,size*.34);}c.restore();
 }
 renderCraftPanel=function(){
   fusionPanel.hidden=!craftOpen;if(!craftOpen){stopCraftHold155();return;}

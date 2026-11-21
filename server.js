@@ -34,7 +34,7 @@ async function createGameServer(options={}){
   const accounts=createAccounts(persistence.db,store,{beforeRegister:nick=>{if(developerConfig.enabled&&nick.normalize('NFKC').toLowerCase()===developerConfig.nickname.toLowerCase())throw Error('Este nick é reservado à conta de testes do servidor. Use Entrar.');},beforeSession:profile=>{developer.assertAvailable(profile,developerStatus);return persistence.claim?.(profile.id);}}),squads=createSquads(actors,store);
   async function catalogAction(action){
     if(!persistence.transact)return action();
-    return persistence.transact(async()=>{for(const actor of Object.values(actors))store.save(actor.profile);await persistence.refresh();return action();});
+    return persistence.transact(async()=>{for(const actor of Object.values(actors))store.save(actor.profile);await persistence.refresh();recoverLostSessions();return action();});
   }
   developerStatus=await developer.provision({env:environment,db:persistence.db,store,game:worlds.garden.game,persistence,durable,transact:catalogAction});
   const releaseJobs=new Set();
@@ -59,7 +59,7 @@ async function createGameServer(options={}){
   const metrics={tickMs:0,slowTicks:0};
   app.get('/servers',(_request,response)=>{response.set('Cache-Control','no-store');response.json({...regions.public(),protocol:6,sharedSaves:!!persistence.shared});});
   app.get('/ping',(_request,response)=>{response.set({'Cache-Control':'no-store','Access-Control-Allow-Origin':'*'});response.json({ok:!persistence.lastError,region:regions.id,location:regions.location,protocol:6,sharedSaveId:regions.sharedSaveId,sharedSaves:!!persistence.shared});});
-  app.get('/health',(_request,response)=>response.json({ok:true,version:'1.5.5',build:'release-155-eggs1',developerAccountReady:developerStatus.ready,protocol:6,region:regions.id,location:regions.location,sharedSaves:!!persistence.shared,accounts:true,squads:true,accountRequired:false,guests:true,durable,players:Object.values(actors).filter(a=>!a.inLobby).length,persistence:persistence.mode,saveError:!!persistence.lastError,saveErrorCode:persistence.lastError?saveDiagnostics.code({code:persistence.lastErrorCode}):null,worldRevision:worlds.garden.revision,tickMs:Math.round(metrics.tickMs*100)/100,slowTicks:metrics.slowTicks,entities:Object.fromEntries(Object.entries(worlds).map(([name,world])=>[name,{activeOres:world.game.ores.length,dormantOres:world.dormantOres.size,mobs:world.game.mobs.length,projectiles:world.game.projectiles.length}]))}));
+  app.get('/health',(_request,response)=>response.json({ok:true,version:'1.5.5',build:'release-155-recovery1',developerAccountReady:developerStatus.ready,protocol:6,region:regions.id,location:regions.location,sharedSaves:!!persistence.shared,accounts:true,squads:true,accountRequired:false,guests:true,durable,players:Object.values(actors).filter(a=>!a.inLobby).length,persistence:persistence.mode,saveError:!!persistence.lastError,saveErrorCode:persistence.lastError?saveDiagnostics.code({code:persistence.lastErrorCode}):null,worldRevision:worlds.garden.revision,tickMs:Math.round(metrics.tickMs*100)/100,slowTicks:metrics.slowTicks,entities:Object.fromEntries(Object.entries(worlds).map(([name,world])=>[name,{activeOres:world.game.ores.length,dormantOres:world.dormantOres.size,mobs:world.game.mobs.length,projectiles:world.game.projectiles.length}]))}));
   function unbind(socket,{preserveSquad=false,discard=false}={}){
     const actor=actors[socket.id];if(!actor)return;
     if(!discard)store.save(actor.profile);delete actors[socket.id];delete guildPlayers[socket.id];
@@ -67,11 +67,13 @@ async function createGameServer(options={}){
     if(preserveSquad)squads.disconnected(actor.profile.id);else squads.leave(actor.profile.id);
     io.emit('playerLeft',socket.id);
   }
+  function recoverLostSessions(){for(const id of persistence.takeLostSessions?.()||[])for(const a of Object.values(actors))if(a.profile.id===id){unbind(a.socket,{discard:true});a.socket.emit('serverSessionLost','Esta sessão ficou desatualizada. Seu save no banco foi preservado; entre novamente na conta.');a.socket.disconnect(true);}}
+  function sessionPacket(actor,credentials){const s=actor.state;return {credentials:credentials||actor.credentials,state:store.clientState(actor.profile),account:accounts.summary(actor.profile),lobby:!!actor.inLobby,realm:s.realm,x:s.x,y:s.y,epoch:actor.movementEpoch||1};}
   function welcome(actor,credentials){
     actor.mapAckRealm=null;actor.mapAckVersion=null;
     actor.oreCacheKey=null;actor.oreSeq=0;actor.oreAck=-1;actor.orePending=null;actor.oreCacheEnabled=actor.socket.handshake.auth?.oreCache===true;
     actor.movementEpoch=(actor.movementEpoch || 0)+1;actor.moveSeq=0;actor.moveBudget=.15;actor.lastMove=Date.now();
-    const s=actor.state;actor.socket.emit('profileReady',{credentials:credentials || actor.credentials,state:store.clientState(actor.profile),account:accounts.summary(actor.profile),lobby:!!actor.inLobby,realm:s.realm,x:s.x,y:s.y,epoch:actor.movementEpoch || 1});
+    const s=actor.state;actor.socket.emit('profileReady',sessionPacket(actor,credentials));
     if(!actor.inLobby)actor.socket.emit('worldSnapshot',worlds[s.realm].snapshot(actor));squads.connected(actor.profile.id);
   }
   function bind(socket,profile,credentials,data={}){
@@ -107,13 +109,13 @@ async function createGameServer(options={}){
       try{
         const current=actors[socket.id];
         if(current && !current.profile.guest)throw Error('Saia da sua conta antes de entrar como convidado.');
-        if(current){bind(socket,current.profile,current.credentials,data);reply?.({ok:true,guest:true});return;}
+        if(current){bind(socket,current.profile,current.credentials,data);reply?.({ok:true,guest:true,profile:sessionPacket(actors[socket.id])});return;}
         const now=Date.now(),address=addressOf(socket),rate=guestRates.get(address);
         if(rate && rate.until>now && rate.count>=15)throw Error('Muitas sessões de convidado. Aguarde alguns minutos.');
         if(guestRates.size>=10000)for(const [key,value] of guestRates)if(value.until<=now)guestRates.delete(key);
         if(guestRates.size>=10000 && !rate)throw Error('O servidor está ocupado. Tente novamente em instantes.');
         guestRates.set(address,{count:rate && rate.until>now ? rate.count+1 : 1,until:rate && rate.until>now ? rate.until : now+300000});
-        const session=store.createGuest(data?.name);bind(socket,session.profile,session.credentials,data || {});reply?.({ok:true,guest:true});
+        const session=store.createGuest(data?.name);bind(socket,session.profile,session.credentials,data || {});reply?.({ok:true,guest:true,profile:sessionPacket(actors[socket.id])});
       }catch(error){reply?.({ok:false,message:error.message});}
     });
     socket.on('joinGame',async(data,reply)=>{
@@ -123,7 +125,7 @@ async function createGameServer(options={}){
         const currentGuest=actors[socket.id],verifiedGuest=store.verifyCredentials(data.credentials);
         if(currentGuest?.profile.guest || (!currentGuest && verifiedGuest?.guest)){
           const session=currentGuest ? {profile:currentGuest.profile,credentials:currentGuest.credentials} : {profile:verifiedGuest,credentials:data.credentials};
-          bind(socket,session.profile,session.credentials,data);reply?.({ok:true,guest:true});return;
+          bind(socket,session.profile,session.credentials,data);reply?.({ok:true,guest:true,profile:sessionPacket(actors[socket.id])});return;
         }
         if(data.guest && !currentGuest){const error=Error('A sessão de convidado terminou. Jogue novamente ou entre na sua conta.');error.code='GUEST_EXPIRED';throw error;}
         await catalogAction(async()=>{
@@ -132,7 +134,7 @@ async function createGameServer(options={}){
           const session=current ? {profile:current.profile,credentials:current.credentials} : store.join(data);
           if(!accounts.summary(session.profile))throw Error('Crie sua conta com nick e senha antes de jogar.');
           if(!socket.connected){await releaseProfile(session.profile.id,true);return;}
-          bind(socket,session.profile,session.credentials,data);reply?.({ok:true});
+          bind(socket,session.profile,session.credentials,data);reply?.({ok:true,profile:sessionPacket(actors[socket.id])});
         });
       }catch(error){reply?.({ok:false,message:error.message,code:error.code});socket.emit('actionResult',{ok:false,message:error.message});}
       finally{socket.data.authBusy=false;}
@@ -149,9 +151,9 @@ async function createGameServer(options={}){
         const saved=await persistence.flush()!==false;
         if(!socket.connected){await releaseProfile(result.profile.id,true);return;}
         bind(socket,result.profile,result.credentials,{lobby:data.lobby,realm:data.realm,biome:data.biome});squads.refresh();
-        reply?.({ok:true,saved,account:result.account,message:!saved ? 'Conta conectada, mas o banco ainda não confirmou o save. Mantenha a sessão aberta enquanto o servidor tenta novamente.' : method==='register' ? 'Conta criada. Seu progresso foi salvo.' : 'Você entrou na sua conta.'});
+        reply?.({ok:true,saved,profile:sessionPacket(actors[socket.id]),account:result.account,message:!saved ? 'Conta conectada, mas o banco ainda não confirmou o save. Mantenha a sessão aberta enquanto o servidor tenta novamente.' : method==='register' ? 'Conta criada. Seu progresso foi salvo.' : 'Você entrou na sua conta.'});
         });
-      }catch(error){reply?.({ok:false,message:error.message});}
+      }catch(error){reply?.({ok:false,message:error.message,code:error.code||persistence.lastErrorCode});}
       finally{socket.data.authBusy=false;}
     });
     socket.on('accountLogout',async(_data,reply)=>{if(socket.data.authBusy){reply?.({ok:false,message:'Aguarde a solicitação anterior.'});return;}const actor=actors[socket.id];try{if(actor?.profile.guest){unbind(socket);reply?.({ok:true,saved:false,guest:true});return;}if(actor){accounts.logout(actor.profile);unbind(socket);await releaseProfile(actor.profile.id);}const saved=await persistence.flush();reply?.({ok:saved!==false,saved:saved!==false});}catch{reply?.({ok:false,message:'Não foi possível confirmar o save. Tente novamente.'});}});
@@ -247,7 +249,7 @@ async function createGameServer(options={}){
   let frames=0,lastTick=Date.now();
   const loop=setInterval(()=>{
     const tickStart=performance.now(),now=Date.now(),dt=Math.min(.15,Math.max(.01,(now-lastTick)/1000));lastTick=now;
-    try{for(const world of Object.values(worlds)){world.tick(dt);}resurrection.tick();frames++;for(const actor of Object.values(actors)){if(!actor.inLobby)actor.state.playTimeMs=Math.min(Number.MAX_SAFE_INTEGER,(actor.state.playTimeMs||0)+dt*1000);if(chosen.reconcile(actor.profile)){actor.socket.emit('chosenLost','Sua posse de Chosen foi superada por uma oferta maior.');sendState(actor);}}
+    try{recoverLostSessions();for(const world of Object.values(worlds)){world.tick(dt);}resurrection.tick();frames++;for(const actor of Object.values(actors)){if(!actor.inLobby)actor.state.playTimeMs=Math.min(Number.MAX_SAFE_INTEGER,(actor.state.playTimeMs||0)+dt*1000);if(chosen.reconcile(actor.profile)){actor.socket.emit('chosenLost','Sua posse de Chosen foi superada por uma oferta maior.');sendState(actor);}}
       for(const actor of Object.values(actors))if(actor.inLobby && actor.state.pendingCraft && Date.now()-actor.state.pendingCraft.startedAt>=expansion.craftDurationOf(actor.state.pendingCraft)){worlds[actor.state.realm].game.tickPlayer(actor.state);store.save(actor.profile);sendState(actor);}
       if(frames%2===0){const people=playersPacket();for(const actor of Object.values(actors))if(!actor.inLobby){const nearby=Object.fromEntries(Object.entries(people).filter(([,p])=>p.realm===actor.state.realm && Math.hypot(p.x-actor.state.x,p.y-actor.state.y)<(actor.viewRadius || 3000)+200));actor.socket.volatile.emit('worldFrame',{players:nearby,world:worlds[actor.state.realm].snapshot(actor),party:frames%4===0?partyPacket(actor):undefined});}}
       if(frames%20===0)squads.refresh();

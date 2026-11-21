@@ -20,7 +20,7 @@ function inventoryRows(){
   return [...grouped.values()].sort((a,b)=>b.rarityIndex-a.rarityIndex || a.item.name.localeCompare(b.item.name,'pt-BR'));
 }
 function itemPreview(item){
-  if(item.type==='accessory')return accessoryPreview(item.accessoryId);
+  if(item.type==='accessory')return accessoryPreview(item.accessoryId,item.rarity);
   if(item.type==='component' && typeof lootPreview==='function')return lootPreview(item);
   if(item.type==='material'){
     const index=itemRarityIndex(item),key='ore-'+index;

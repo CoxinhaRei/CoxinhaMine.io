@@ -19,9 +19,15 @@ function movePredictedPlayer(state,x,y){
 }
 function renderedPlayerPosition(){return {x:player.x+networkMovement.offsetX,y:player.y+networkMovement.offsetY};}
 function activeSession(){try{const session=accountCredentialsRam||JSON.parse(sessionStorage.getItem(TAB_SESSION_KEY)||localStorage.getItem(SESSION_KEY)||'null');return session && /^[a-f0-9-]{36}$/.test(session.id) && /^[a-f0-9]{64}$/.test(session.token) ? session : null;}catch{return null;}}
+function clearAccountSession(credentials=activeSession()){
+  try{const shared=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(shared?.id===credentials?.id && shared?.token===credentials?.token){localStorage.removeItem(SESSION_KEY);localStorage.removeItem('coxinha_active_account');}}catch{}
+  accountCredentialsRam=null;sessionStorage.removeItem(TAB_SESSION_KEY);
+}
 function isServerWorld(){return multiplayer.authority;}
 function profileKeys(){try{return Object.assign(Object.create(null),JSON.parse(localStorage.getItem(PROFILE_KEYS)||'{}'));}catch{return Object.create(null);}}
 function beginSharedSession({lobby=false}={}){
+  if(typeof authBusy!=='undefined' && authBusy)return Promise.resolve(false);
+  if(multiplayer.authError){if(typeof openAccountRequired==='function')openAccountRequired(multiplayer.authError);return Promise.resolve(false);}
   if(!lobby)multiplayer.started=true;
   if(multiplayer.pendingJoin)return multiplayer.joinPromise.then(ok=>ok && multiplayer.supportsLobby && multiplayer.inLobby!==lobby ? beginSharedSession({lobby}) : ok);
   if(socket.connected===false)return Promise.resolve(false);
@@ -31,8 +37,9 @@ function beginSharedSession({lobby=false}={}){
   const realm=typeof selectedMenuRealm==='string' ? selectedMenuRealm : currentRealm;
   multiplayer.joinPromise=new Promise(resolve=>socket.timeout(15000).emit(credentials ? 'joinGame' : 'guestJoin',{credentials,guest:!!guestCredentials,name:document.getElementById('nameInput').value,lobby,realm,biome:window.selectedMenuBiome||'garden'},(error,result)=>{
     multiplayer.pendingJoin=false;
-    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(result?.code==='GUEST_EXPIRED'){resetGuestSession();multiplayer.inLobby=false;canvas.style.display='none';document.getElementById('game-hud').hidden=true;document.getElementById('menu').style.display='flex';}if(result?.code==='AUTH_REQUIRED'){accountCredentialsRam=null;sessionStorage.removeItem(TAB_SESSION_KEY);localStorage.removeItem(SESSION_KEY);multiplayer.account=null;if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
-    resolve(true);
+    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(result?.code==='GUEST_EXPIRED'){resetGuestSession();multiplayer.inLobby=false;canvas.style.display='none';document.getElementById('game-hud').hidden=true;document.getElementById('menu').style.display='flex';}if(credentials && !guestCredentials){multiplayer.authError=message;if(result?.code==='AUTH_REQUIRED'){clearAccountSession(credentials);multiplayer.account=null;}if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
+    if(result.profile)applySessionProfile(result.profile);
+    resolve(multiplayer.ready);
   }));return multiplayer.joinPromise;
 }
 function applyServerPlayer(state){
@@ -101,7 +108,11 @@ socket.on('init',data=>{multiplayer.protocol=data.protocol;multiplayer.region=da
 socket.on('connect',()=>{multiplayer.pendingJoin=false;if(multiplayer.started || multiplayer.inLobby)beginSharedSession({lobby:!multiplayer.started});renderNetworkStatus();});
 socket.on('disconnect',()=>{multiplayer.ready=false;multiplayer.pendingJoin=false;networkMovement.reset();heldKeys.clear();movementAimActive=false;renderNetworkStatus();});
 socket.on('sessionReplaced',()=>{sharedNotice('Este perfil entrou em outra aba. Use outro nome para testar um segundo jogador.');multiplayer.started=false;});
-socket.on('profileReady',data=>{
+function applySessionProfile(data){
+  if(!data?.state || !data.credentials?.id)return false;
+  const stamp=JSON.stringify([data.credentials.id,data.credentials.token,data.epoch,data.lobby,data.state.saveRevision]);
+  if(multiplayer.sessionStamp===stamp)return true;
+  multiplayer.sessionStamp=stamp;multiplayer.authError=null;
   multiplayer.guest=!!data.state.guest;guestCredentials=multiplayer.guest ? data.credentials : null;
   multiplayer.account=data.account || null;window.accountProgressEnabled=!!data.account;accountCredentialsRam=data.account?{...data.credentials,username:data.account.username,accountId:data.account.id}:null;if(accountCredentialsRam)sessionStorage.setItem(TAB_SESSION_KEY,JSON.stringify(accountCredentialsRam));else sessionStorage.removeItem(TAB_SESSION_KEY);
   if(data.account && data.credentials){const keys=profileKeys();for(const name of Object.keys(keys))if(keys[name]?.id===data.credentials.id)keys[name]=data.credentials;keys[data.state.name]=data.credentials;localStorage.setItem(PROFILE_KEYS,JSON.stringify(keys));}
@@ -112,7 +123,9 @@ socket.on('profileReady',data=>{
   multiplayer.movementEpoch=data.epoch;
   CAVE.maze=null;caveMapImage=null;multiplayer.mapVersion=-1;
   pendingMovement.clear();networkMovement.reset();multiplayer.correctedSeq=0;multiplayer.seq=0;multiplayer.lastSent=null;player.vx=0;player.vy=0;player.name=data.state.name;currentRealm=data.realm;player.x=data.x;player.y=data.y;applyServerPlayer(data.state);renderNetworkStatus();
-});
+  window.onSessionProfileApplied?.(data);return true;
+}
+socket.on('profileReady',applySessionProfile);
 socket.on('playerState',applyServerPlayer);
 socket.on('playerDamage',data=>{
   player.hp=data.hp;player.maxHp=data.maxHp;

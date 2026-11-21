@@ -24,16 +24,29 @@ if(legacyNames.length){
 authForm.onsubmit=async event=>{
   event.preventDefault();if(authBusy)return;
   const nickname=document.getElementById('account-nick').value.trim(),secret=document.getElementById('account-password');
-  if(nickname.length<3){authResult.textContent='Informe um nick de pelo menos 3 caracteres.';return;}
+  if(nickname.length<3){multiplayer.authError='Informe um nick de pelo menos 3 caracteres.';authResult.textContent=multiplayer.authError;return;}
   if(multiplayer.durable===false && authMode==='register'){authResult.textContent='O dono do servidor precisa conectar o banco persistente para liberar cadastros.';return;}
-  authBusy=true;authForm.querySelector('button').disabled=true;authResult.textContent=authMode==='login' ? 'Entrando…' : 'Salvando sua conta…';
+  if(multiplayer.pendingJoin){authResult.textContent='Aguarde a recuperação da sessão e tente novamente.';return;}
+  authBusy=true;renderMenu();authForm.querySelector('button').disabled=true;authResult.textContent=authMode==='login' ? 'Entrando…' : 'Salvando sua conta…';
   const migrate=document.getElementById('migrate-owned-profile')?.checked,legacyName=document.getElementById('legacy-profile-choice')?.value;
   const credentials=authMode==='register' ? (guestCredentials || (migrate ? legacyKeys[legacyName] : undefined)) : undefined;
-  try{const result=await callServer(authMode==='login' ? 'accountLogin' : 'accountRegister',{nickname,password:secret.value,credentials,lobby:menuVisible(),realm:selectedMenuRealm,biome:window.selectedMenuBiome||'garden'});authResult.textContent=result.message || '';if(result.ok){multiplayer.started=!menuVisible();renderAccount();renderMenu();}}finally{secret.value='';authBusy=false;authForm.querySelector('button').disabled=false;}
+  try{const result=await callServer(authMode==='login' ? 'accountLogin' : 'accountRegister',{nickname,password:secret.value,credentials,lobby:menuVisible(),realm:selectedMenuRealm,biome:window.selectedMenuBiome||'garden'});authResult.textContent=result.message || '';if(result.ok){if(result.profile)applySessionProfile(result.profile);multiplayer.authError=null;multiplayer.started=!menuVisible();renderAccount();renderMenu();}else{multiplayer.authError=result.message || 'Não foi possível entrar na conta.';}}finally{secret.value='';authBusy=false;authForm.querySelector('button').disabled=false;renderMenu();}
 };
 const oldLogout=document.getElementById('account-logout').onclick;
-document.getElementById('account-logout').onclick=async()=>{const leave=async()=>{await oldLogout();if(!accountState){accountCredentialsRam=null;sessionStorage.removeItem(TAB_SESSION_KEY);localStorage.removeItem(SESSION_KEY);multiplayer.account=null;window.accountProgressEnabled=false;multiplayer.drops=[];renderNetworkStatus();renderAccount();}};if(!menuVisible() && typeof irisTransition==='function')await irisTransition(leave);else await leave();};
-socket.on('sessionReplaced',()=>{accountCredentialsRam=null;sessionStorage.removeItem(TAB_SESSION_KEY);localStorage.removeItem(SESSION_KEY);multiplayer.account=null;window.accountProgressEnabled=false;multiplayer.ready=false;multiplayer.started=false;});
+document.getElementById('account-logout').onclick=async()=>{const leave=async()=>{await oldLogout();if(!accountState){clearAccountSession();multiplayer.authError=null;multiplayer.sessionStamp=null;multiplayer.account=null;window.accountProgressEnabled=false;multiplayer.drops=[];renderNetworkStatus();renderAccount();}};if(!menuVisible() && typeof irisTransition==='function')await irisTransition(leave);else await leave();};
+function endAccountSession(message){
+  clearAccountSession();guestCredentials=null;multiplayer.account=null;multiplayer.sessionStamp=null;multiplayer.authError=message;window.accountProgressEnabled=false;
+  multiplayer.ready=false;multiplayer.started=false;multiplayer.inLobby=false;multiplayer.pendingJoin=false;accountState=null;
+  heldKeys.clear();mouse.down=false;mouse.right=false;movementAimActive=false;
+  canvas.style.display='none';document.getElementById('game-hud').hidden=true;menuElement.style.display='flex';openAccountRequired(message);renderMenu();
+  setTimeout(()=>{if(!socket.connected)socket.connect();},250);
+}
+socket.on('sessionReplaced',()=>endAccountSession('Esta conta entrou em outra aba ou dispositivo. Entre novamente para continuar.'));
+socket.on('serverSessionLost',message=>endAccountSession(message || 'A sessão expirou. Entre novamente para recuperar seu save.'));
+const continueAsGuest=document.createElement('button');continueAsGuest.type='button';continueAsGuest.textContent='Continuar como convidado';
+continueAsGuest.onclick=()=>{if(authBusy || multiplayer.pendingJoin || accountState)return;clearAccountSession();if(!multiplayer.guest)resetGuestSession();multiplayer.account=null;multiplayer.authError=null;multiplayer.sessionStamp=null;multiplayer.inLobby=false;accountPanel.hidden=true;renderAccount();renderMenu();};
+accountPanel.querySelector('.account-help').after(continueAsGuest);
+const accountRenderWithRecovery=renderAccount;renderAccount=function(){accountRenderWithRecovery();continueAsGuest.hidden=!!accountState;};
 socket.on('init',data=>{if(data.durable===false)document.getElementById('menu-connection').textContent='Convidados liberados · banco persistente pendente';});
 const saveDescription=saveTools.querySelector('p');saveDescription.textContent='Convidados têm progresso temporário: crie uma conta antes de fechar, recarregar ou trocar de servidor. O progresso pertence à sua conta no servidor. Limpar os dados do navegador encerra a sessão; use seu nick e senha para voltar. O backup não permite alterar nível ou itens.';
 try{

@@ -2,7 +2,7 @@ const createRuntime=require('./game-runtime');
 const catalog=require('./public/game-catalog');
 const expansion=require('./public/expansion');
 const atlas=require('./public/map-atlas');
-const {resolveWorldCollisions,segmentHitsCircle,oreIndex}=require('./world-physics');
+const {resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,SpatialIndex,oreIndex}=require('./world-physics');
 
 class SharedWorld{
   constructor(realm,actors,store,io){
@@ -213,13 +213,19 @@ class SharedWorld{
       if(ore.shotTimer<=0){ore.shotTimer=1.5;const tier=g.rarities.findIndex(r=>r.name===ore.rarity.name)-7,count=Math.min(600-g.projectiles.length,20+tier*8),aim=Math.atan2(near.state.y-ore.y,near.state.x-ore.x),spread=Math.min(1.5,1400/ore.size);for(let n=0;n<count;n++){const angle=aim+(n/Math.max(1,count-1)-.5)*spread,heading=aim+(n/Math.max(1,count-1)-.5)*1.8;g.projectiles.push({owner:ore.id,cause:'Pedra '+ore.rarity.name,x:ore.x+Math.cos(angle)*(ore.size+18),y:ore.y+Math.sin(angle)*(ore.size+18),vx:Math.cos(heading)*700,vy:Math.sin(heading)*700,r:12,life:4,damage:35,rotation:heading,kind:'stone'});}}
     }
     const owners=new Set([...g.ores,...g.mobs].map(e=>e.id));
+    const projectileBodies=new SpatialIndex();
+    for(const m of this.arcana.projectileTargets())projectileBodies.insert({state:m,x:m.x,y:m.y,radius:m.size*.7,ally:true});
+    for(const a of live)projectileBodies.insert({state:a.state,actor:a,x:a.state.x,y:a.state.y,radius:20});
     for(const projectile of g.projectiles){
       if(!projectile.id){this.projectileSeq=(this.projectileSeq || 0)+1;projectile.id=this.realm+':'+this.projectileSeq;}
       const previousX=projectile.x,previousY=projectile.y;
       projectile.x+=projectile.vx*dt;projectile.y+=projectile.vy*dt;projectile.life-=dt;
       if(this.realm==='cave' && !g.tileOpen(Math.floor(projectile.x/500),Math.floor(projectile.y/500)))projectile.life=0;
       if(this.realm!=='cave' && atlas.blocked(this.realm,projectile.x,projectile.y,projectile.r))projectile.life=0;
-      for(const actor of live)if(projectile.life>0 && segmentHitsCircle(previousX,previousY,projectile.x,projectile.y,actor.state.x,actor.state.y,projectile.r+20)){this.hurt(actor.state,projectile.damage,projectile.vx,projectile.vy,'projétil de '+projectile.cause);projectile.life=0;break;}
+      if(projectile.life>0){let first=null,best=Infinity;const radius=Math.hypot(projectile.x-previousX,projectile.y-previousY)/2+projectile.r+1;
+       for(const body of projectileBodies.query((previousX+projectile.x)/2,(previousY+projectile.y)/2,radius)){if(body.state.hp<=0||body.state.dead)continue;const at=segmentCircleEntry(previousX,previousY,projectile.x,projectile.y,body.state.x,body.state.y,projectile.r+body.radius);if(at!==null&&at<best){best=at;first=body;}}
+       if(first){projectile.x=previousX+(projectile.x-previousX)*best;projectile.y=previousY+(projectile.y-previousY)*best;if(first.ally)this.arcana.hurtSummon(first.state,projectile.damage);else this.hurt(first.state,projectile.damage,projectile.vx,projectile.vy,'projétil de '+projectile.cause);projectile.life=0;}
+      }
     }
     g.projectiles=g.projectiles.filter(p=>p.life>0 && owners.has(p.owner)).slice(-600);
     for(const actor of live){
@@ -238,16 +244,16 @@ class SharedWorld{
     this.tickLive=null;this.revision++;
   }
   collectDrops(actor,now=Date.now()){
-    if(actor.inLobby || actor.state.dead)return;const state=actor.state,utility=this.game.utility(state),radius=75+Math.min(1000,(utility.pickup || 0)+(utility.range || 0)*.9);let changed=false;
-    for(const drop of this.drops){if(!drop.claims.has(actor.profile.id) || now-drop.createdAt<450 || drop.expiresAt<=now || Math.hypot(state.x-drop.x,state.y-drop.y)>radius || !this.game.lineClear(state.x,state.y,drop.x,drop.y))continue;
+    if(actor.inLobby || actor.state.dead)return;const state=actor.state,utility=this.game.utility(state),normalRadius=75+Math.min(1000,(utility.pickup || 0)+(utility.range || 0)*.9),radius=Math.max(normalRadius,utility.magnetRadius||0),magnetic=utility.magnetRadius>0,collected=[];let changed=false;
+    for(const drop of this.drops){if(!drop.claims.has(actor.profile.id) || now-drop.createdAt<450 || drop.expiresAt<=now || Math.hypot(state.x-drop.x,state.y-drop.y)>radius || (!magnetic&&!this.game.lineClear(state.x,state.y,drop.x,drop.y)))continue;
       drop.claims.delete(actor.profile.id);const item=drop.item;
       if(item.type==='material')this.game.giveMaterial(state,this.game.rarities.find(r=>r.name===item.oreRarity),item.amount);
       else if(item.type==='accessory')expansion.add(state,item);
       else{const existing=state.inventory.find(i=>i.type==='component' && i.kind===item.kind && i.rarity===item.rarity);if(existing)existing.amount+=item.amount;else state.inventory.push({...item,id:item.kind+'_'+item.rarity});}
       state.journal.materialsCollected=(state.journal.materialsCollected||0)+item.amount;if(item.type==='material')state.journal.stonesCollected=(state.journal.stonesCollected||0)+item.amount;
-      actor.socket.emit('dropCollected',{id:drop.id,item,x:drop.x,y:drop.y});changed=true;
+      collected.push({id:drop.id,item,x:drop.x,y:drop.y});changed=true;
     }
-    if(changed){this.store.save(actor.profile);actor.socket.emit('playerState',this.store.clientState(actor.profile));}
+    if(changed){if(magnetic&&collected.length>1)actor.socket.emit('dropsCollected',{drops:collected.slice(-24),count:collected.length});else for(const drop of collected)actor.socket.emit('dropCollected',drop);this.store.save(actor.profile);actor.socket.emit('playerState',this.store.clientState(actor.profile));}
   }
   orePacket(actor,clean){
     const g=this.game,s=actor.state;

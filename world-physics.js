@@ -62,4 +62,5 @@ function resolveWorldCollisions(world,actors){
   }
 }
 function segmentHitsCircle(ax,ay,bx,by,x,y,radius){const dx=bx-ax,dy=by-ay,length=dx*dx+dy*dy,t=length ? Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/length)) : 0;return (ax+dx*t-x)**2+(ay+dy*t-y)**2<radius*radius;}
-module.exports={SpatialIndex,resolveWorldCollisions,segmentHitsCircle,movePlayerBody,oreIndex,resolveOreContact};
+function segmentCircleEntry(ax,ay,bx,by,x,y,radius){const fx=ax-x,fy=ay-y,c=fx*fx+fy*fy-radius*radius;if(c<=0)return 0;const dx=bx-ax,dy=by-ay,a=dx*dx+dy*dy;if(!a)return null;const b=2*(fx*dx+fy*dy),discriminant=b*b-4*a*c;if(discriminant<0)return null;const t=(-b-Math.sqrt(discriminant))/(2*a);return t>=0&&t<=1?t:null;}
+module.exports={SpatialIndex,resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,movePlayerBody,oreIndex,resolveOreContact};

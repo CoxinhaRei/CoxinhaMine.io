@@ -62,6 +62,9 @@ module.exports=class ArcanaWorld{
   return {id:'beam-'+actor.socket.id,kind:'beam',channel:true,owner:actor.socket.id,x:s.x,y:s.y,tx:end.x,ty:end.y,width:spell.width,color:spell.color,createdAt:Date.now()-20,expiresAt:Date.now()+180};
  }
  effect(fx){this.effects.push(fx);if(this.effects.length>64)this.effects.shift();}
+ projectileTargets(){const live=new Map(this.world.live().map(a=>[a.socket.id,a]));return this.allies.filter(m=>{const a=live.get(m.owner),ref=a?.state.accessories?.[m.slot];return m.hp>0&&ref?.accessoryId===m.eggId&&ref.rarity===m.rarity&&a.state.inventory.some(i=>i.accessoryId===m.eggId&&i.rarity===m.rarity&&i.amount>0);});}
+ retireSummon(m){const group=this.groups.get(m.group);if(group)group.ready[m.index]=this.clock+m.cooldown;this.allies=this.allies.filter(a=>a.id!==m.id);this.effect({id:crypto.randomUUID(),kind:'summonFade',x:m.x,y:m.y,radius:m.size,color:'#ff9c45',createdAt:Date.now(),expiresAt:Date.now()+600});}
+ hurtSummon(m,amount){if(!this.allies.includes(m)||m.hp<=0||!Number.isFinite(amount)||amount<=0)return false;m.hp=Math.max(0,m.hp-amount);this.effect({id:crypto.randomUUID(),kind:'allyHit',x:m.x,y:m.y,radius:Math.min(90,m.size*.7),color:'#ffd091',createdAt:Date.now(),expiresAt:Date.now()+250});if(m.hp<=0)this.retireSummon(m);return true;}
  blast(b){const g=this.world.game;for(const mob of [...g.mobs])if(distance(mob,b)<=mob.size+b.spell.radius&&g.lineClear(b.x,b.y,mob.x,mob.y))this.world.damage(b.actor,mob,b.spell.damage,true);this.effect({...b,id:crypto.randomUUID(),kind:'burst',actor:undefined,spell:undefined,hit:undefined,createdAt:Date.now(),expiresAt:Date.now()+650});}
  tick(dt){
   this.clock+=dt;const w=this.world,g=w.game,actors=w.live(),active=new Map(actors.map(a=>[a.profile.id,a]));
@@ -85,7 +88,7 @@ module.exports=class ArcanaWorld{
      const rarity=g.rarities.find(r=>r.name===ref.rarity);if(!rarity)continue;const base=g.createCreature(egg.kind,rarity,a.state.x,a.state.y),r=base.size*.7,angle=n*Math.PI*2/egg.count,x=a.state.x+Math.cos(angle)*(r+80),y=a.state.y+Math.sin(angle)*(r+80);
      if(this.wall(x,y,r*.5))continue;
      const stats=A.summonStats(base,egg,E.tier(ref.rarity));
-     this.allies.push({id:'ally-'+crypto.randomUUID(),group:key,index:n,ownerId:a.profile.id,owner:a.socket.id,ownerName:a.name,kind:egg.kind,name:base.name,rarity:rarity.name,x,y,size:r,maxHp:base.maxHp*.7,hp:base.maxHp*.7,...stats,speed:Math.max(170,base.speed||120),angle,phase:0,attackAt:0,hurtAt:0,cooldown:egg.cooldown,summoned:true,noRewards:true});count++;
+     this.allies.push({id:'ally-'+crypto.randomUUID(),group:key,slot,eggId:egg.id,index:n,ownerId:a.profile.id,owner:a.socket.id,ownerName:a.name,kind:egg.kind,name:base.name,rarity:rarity.name,x,y,size:r,maxHp:base.maxHp*.7,hp:base.maxHp*.7,...stats,speed:Math.max(170,base.speed||120),angle,phase:0,attackAt:0,hurtAt:0,cooldown:egg.cooldown,summoned:true,noRewards:true});count++;
     }
    }
   }
@@ -106,7 +109,7 @@ module.exports=class ArcanaWorld{
     const ore=entry.state;if(!ore||ore.hp<=0||distance(m,ore)>m.size+ore.size+.5||!g.lineClear(m.x,m.y,ore.x,ore.y))continue;
     m.attackAt=this.clock+m.attackInterval;this.hit(a,ore,m.damage,false,m);break;
    }
-   if(m.hp<=0){const group=this.groups.get(m.group);if(group)group.ready[m.index]=this.clock+m.cooldown;this.effect({id:crypto.randomUUID(),kind:'summonFade',x:m.x,y:m.y,radius:m.size,color:'#ff9c45',createdAt:Date.now(),expiresAt:Date.now()+600});}
+   if(m.hp<=0)this.retireSummon(m);
   }
   this.allies=this.allies.filter(m=>m.hp>0);
  }

@@ -2,7 +2,7 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const E=require('../public/expansion'),C=require('../public/game-catalog'),D=require('../public/item-details');
 const creatures=[{kind:'bee',name:'Abelha',hp:25,damage:8,temperament:'neutral'},...E.MOBS],env={expansion:E,catalog:C,creatures,rarities:E.RARITIES.map(name=>({name,color:'#abcdef'})),oreValues:{Comum:1}};
 test('accessory information uses the real rarity bonuses, including fractional regeneration and revival',()=>{
-  for(const def of E.ACCESSORIES)for(const rarity of E.RARITIES){const info=D.describe(E.accessory(def.id,rarity),env);assert.equal(info.name,def.name);assert.equal(info.rarity,rarity);assert.ok(info.rows.length);assert.ok(!JSON.stringify(info).includes('NaN'));}
+  for(const def of E.ACCESSORIES)for(const rarity of E.RARITIES){const info=D.describe(E.accessory(def.id,rarity),env);assert.equal(info.name,E.accessory(def.id,rarity).name);assert.equal(info.rarity,rarity);assert.ok(info.rows.length);assert.ok(!JSON.stringify(info).includes('NaN'));}
   const sting=D.describe(E.accessory('sting','SUPER'),env);assert.deepEqual(sting.rows.find(r=>r[0]==='Dano'),['Dano','+43,8%']);
   const silk=D.describe(E.accessory('silk','Comum'),env);assert.deepEqual(silk.rows.find(r=>r[0]==='Regeneração'),['Regeneração','+0,1 vida/s']);
   const revive=D.describe(E.accessory('revival','ALEPH'),env),actual=E.reviveSpec({level:1,accessories:[{accessoryId:'revival',rarity:'ALEPH'}]});assert.equal(revive.rows.find(r=>r[0]==='Recarga')[1],D.number(actual.cooldown/1000)+' s');

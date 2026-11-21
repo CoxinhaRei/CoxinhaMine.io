@@ -1,6 +1,7 @@
 (function(root){
  'use strict';
  const arcana=typeof module!=='undefined'&&module.exports?require('./arcana-catalog'):root.ARCANA;
+ const magnets=typeof module!=='undefined'&&module.exports?require('./magnet-catalog'):root.MAGNET_CATALOG;
  const atlas=typeof module!=='undefined'&&module.exports?require('./map-atlas'):root.MAP_ATLAS;
  const RARITIES=['Comum','Incomum','Raro','Épico','Lendário','Mítico','ULTRA','SUPER','ABSOLUT','QUANTIUM','ALEPH','CHOSEN'];
  const SCALE=[1,1.25,1.6,2.1,2.8,3.8,5.3,7.3,10,14,20,30],CHANCES=[.8,.65,.5,.35,.25,.15,.1,.08,.05,.001,1];
@@ -44,18 +45,19 @@
   ['coral','Garra de Coral','crab','fang',{damage:.04,mining:.04}],['spiral','Concha das Marés','hermit','shell',{regen:.2}],['tide','Escama das Marés','turtle','shell',{defense:.015,health:3}],
   ['mantis','Lâmina Verde','mantis','fang',{haste:.012}],['wings','Asas de Libélula','dragonfly','wings',{speed:.035,zoom:.02}],['dew','Orvalho Vivo','frog','vial',{regen:.15,health:3}],
   ['frost','Carapaça do Inverno','icebeetle','shell',{defense:.012,slowResist:.025}],['moth','Asas da Aurora','snowmoth','wings',{vision:20,speed:.02}],['glacier','Coração Glacial','iceTornado','core',{slowResist:.05,health:4}],
-  ['scorpion','Talismã do Escorpião','scorpion','sting',{damage:.05,vampirism:.001}],['sun','Élitro Solar','scarab','wings',{speed:.025,xp:.025}],['storm','Olho da Tempestade','sandTornado','eye',{range:10,slowResist:.03}],['magnet','Magneto Cósmico','guardian','magnet',{pickup:18,vision:12,mining:.04}]
+  ['scorpion','Talismã do Escorpião','scorpion','sting',{damage:.05,vampirism:.001}],['sun','Élitro Solar','scarab','wings',{speed:.025,xp:.025}],['storm','Olho da Tempestade','sandTornado','eye',{range:10,slowResist:.03}],['magnet','Magneto Normal','guardian','magnet',{vision:12,mining:.04}]
  ].map(([id,name,kind,model,bonuses])=>({id,name,kind,model,bonuses,materials:8,components:3}));
  ACCESSORIES.push({id:'revival',name:'Relicário do Retorno',kind:'invertedBeetle',model:'revive',bonuses:{health:2},materials:8,components:3,revive:true});
  ACCESSORIES.push({id:'orb',name:'Orbe Mágica',kind:'frog',model:'orb',bonuses:{},materials:12,components:5},...arcana.EGGS.map(e=>({...e,model:'egg',bonuses:{},materials:10,components:5})));
  const LEGACY={'Lanterna':['moth','Raro'],'Lente de Libélula':['wings','Épico'],'Botas de Gafanhoto':['wings','Lendário'],'Núcleo de Escavação':['mandible','Mítico'],'Observatório Astral':['moth','ULTRA'],'Asas de Fóton':['wings','SUPER'],'Magneto Cósmico':['magnet','ABSOLUT'],'Reator Quantium':['core','QUANTIUM'],'Olho de Aleph':['storm','ALEPH']};
  const num=(v,max=Number.MAX_SAFE_INTEGER)=>Math.min(max,Math.max(0,Math.floor(Number(v)||0)));
  const tier=name=>RARITIES.findIndex(r=>r===name),key=item=>item.type+':'+(item.accessoryId || item.kind || '')+':'+(item.oreRarity || item.rarity || item.name);
+ const magnetSpec=rarity=>magnets.spec(tier(rarity));
  const slots=level=>Math.min(20,1+Math.floor(num(level,99999)/25));
- function accessory(id,rarity='Comum',amount=1){const def=ACCESSORIES.find(a=>a.id===id);return def && tier(rarity)>=0 ? {id:'accessory_'+id+'_'+rarity,accessoryId:id,name:def.name,type:'accessory',rarity,amount:num(amount,1e12)} : null;}
+ function accessory(id,rarity='Comum',amount=1){const def=ACCESSORIES.find(a=>a.id===id);return def && tier(rarity)>=0 ? {id:'accessory_'+id+'_'+rarity,accessoryId:id,name:id==='magnet'?magnetSpec(rarity).name:def.name,type:'accessory',rarity,amount:num(amount,1e12)} : null;}
  function add(state,item){const old=state.inventory.find(i=>key(i)===key(item));if(old)old.amount=Math.min(1e12,(old.amount||1)+(item.amount||1));else state.inventory.push({...item});}
  function normalize(state){
-  state.inventory ||= [];state.equipment ||= {};state.journal ||= {};
+  state.inventory ||= [];for(const i of state.inventory)if(i.type==='accessory'&&i.accessoryId==='magnet'&&magnetSpec(i.rarity))i.name=magnetSpec(i.rarity).name;state.equipment ||= {};state.journal ||= {};
   if(state.accessoryVersion!==1){const old=state.equipment.utility;for(const item of state.inventory.filter(i=>i.type==='utility')){const mapped=LEGACY[item.name];if(mapped)add(state,accessory(...mapped));}if(old && !state.inventory.some(i=>i.type==='utility' && i.name===old.name)){const mapped=LEGACY[old.name];if(mapped)add(state,accessory(...mapped));}state.inventory=state.inventory.filter(i=>i.type!=='utility');state.accessoryVersion=1;if(old && LEGACY[old.name]){const [id,rarity]=LEGACY[old.name];state.accessories=[{accessoryId:id,rarity}];}}
   state.equipment.utility=null;state.accessories=Array.isArray(state.accessories) ? state.accessories.slice(0,20) : [];
   const used=new Map();state.accessories=Array.from({length:20},(_,index)=>{const ref=state.accessories[index];if(index>=slots(state.level) || !ref)return null;const item=accessory(ref.accessoryId,ref.rarity);if(!item)return null;const k=key(item),count=(used.get(k)||0)+1,owned=state.inventory.filter(i=>key(i)===k).reduce((n,i)=>n+num(i.amount),0);if(count>owned)return null;used.set(k,count);return {accessoryId:item.accessoryId,rarity:item.rarity};});
@@ -63,7 +65,7 @@
   for(const name of ['craftAttempts','craftsDestroyed','materialsCollected','stonesCollected','experienceEarned'])state.journal[name]=num(state.journal[name]);
   state.joinedAt=num(state.joinedAt)||Date.now();return state;
  }
- function bonuses(state){const out={speed:0,mining:0,damage:0,vision:0,zoom:0,haste:0,defense:0,health:0,regen:0,vampirism:0,xp:0,range:0,pickup:0,slowResist:0};for(const ref of (state.accessories||[]).slice(0,slots(state.level))){if(!ref)continue;const def=ACCESSORIES.find(a=>a.id===ref.accessoryId),scale=SCALE[tier(ref.rarity)]||0;if(def)for(const [k,v] of Object.entries(def.bonuses))out[k]+=v*scale;}const caps={speed:2,mining:6,damage:4,vision:1800,zoom:.55,haste:.65,defense:.65,health:3000,regen:25,vampirism:.08,xp:2,range:900,pickup:1000,slowResist:1};for(const k of Object.keys(out))out[k]=Math.min(out[k],caps[k]);out.zoom=Math.max(.45,1-out.zoom);return out;}
+ function bonuses(state){const out={speed:0,mining:0,damage:0,vision:0,zoom:0,haste:0,defense:0,health:0,regen:0,vampirism:0,xp:0,range:0,pickup:0,magnetRadius:0,slowResist:0};for(const ref of (state.accessories||[]).slice(0,slots(state.level))){if(!ref)continue;const def=ACCESSORIES.find(a=>a.id===ref.accessoryId),scale=SCALE[tier(ref.rarity)]||0;if(def?.id==='magnet')out.magnetRadius=Math.max(out.magnetRadius,magnetSpec(ref.rarity)?.radius||0);if(def)for(const [k,v] of Object.entries(def.bonuses))out[k]+=v*scale;}const caps={speed:2,mining:6,damage:4,vision:1800,zoom:.55,haste:.65,defense:.65,health:3000,regen:25,vampirism:.08,xp:2,range:900,pickup:1000,magnetRadius:magnets.MAX_RADIUS,slowResist:1};for(const k of Object.keys(out))out[k]=Math.min(out[k],caps[k]);out.zoom=Math.max(.45,1-out.zoom);return out;}
  function equip(state,index,ref){normalize(state);if(!Number.isInteger(index)||index<0||index>=slots(state.level))return false;if(!ref){state.accessories[index]=null;return true;}const item=accessory(ref.accessoryId,ref.rarity);if(!item)return false;const k=key(item),owned=state.inventory.filter(i=>key(i)===k).reduce((n,i)=>n+num(i.amount),0),used=state.accessories.filter((r,n)=>n!==index && r && key({type:'accessory',...r})===k).length;if(used>=owned)return false;state.accessories[index]={accessoryId:item.accessoryId,rarity:item.rarity};return true;}
  function componentCount(state,kind){return state.inventory.filter(i=>i.type==='component'&&i.kind===kind&&i.rarity!=='CHOSEN').reduce((n,i)=>n+num(i.amount),0);}
  const MAX_CRAFT_BATCH=10000,TORNADO_PULL_SCALE=.3;
@@ -88,12 +90,12 @@
   consumeStacks(items,consumed);state.inventory=state.inventory.filter(i=>(i.amount??1)>0);
   if(successes){const result=type==='accessory'?accessory(item.accessoryId,next,successes):{...item,rarity:next,oreRarity:type==='material'?next:undefined,name:type==='material'?next:item.name,amount:successes};add(state,result);state.journal.crafted=(state.journal.crafted||0)+successes;}
   state.journal.craftsDestroyed+=destroyed;state.journal.craftAttempts+=count;
-  state.pendingCraft={id:'fusion:'+now,from:request.rarity,to:next,type,accessoryId:item.accessoryId,kind:item.kind,name:type==='material'?'Minério':item.name,chance,success:successes>0,count,successes,failures:count-successes,lost:consumed,destroyed,consumed,startedAt:now,durationMs:craftDuration(chance,count)};return true;
+  state.pendingCraft={id:'fusion:'+now,from:request.rarity,to:next,type,accessoryId:item.accessoryId,kind:item.kind,name:type==='material'?'Minério':type==='accessory'?accessory(item.accessoryId,next).name:item.name,chance,success:successes>0,count,successes,failures:count-successes,lost:consumed,destroyed,consumed,startedAt:now,durationMs:craftDuration(chance,count)};return true;
  }
  function mobRarityTier(distance,random=Math.random){if(distance<=14000)return Math.min(6,Math.max(0,Math.floor(distance/3500)));const base=3+Math.floor(random()*4),roll=random();return roll<.000001?10:roll<.0002?9:roll<.02?8:roll<.22?7:Math.min(6,base);}
  function biomeAt(x,y,realm='garden'){return mapFor(realm);}
  function inventoryTotals(state){const totals={},gear=['Madeira','Pedra','Ferro','Ouro','Matéria Vermelha','Diamante','Void','Solar'];for(const i of state.inventory||[]){if(i.type==='utility')continue;const rarity=i.oreRarity||i.rarity||RARITIES[gear.indexOf(i.name)];if(tier(rarity)>=0)totals[rarity]=Math.min(Number.MAX_SAFE_INTEGER,(totals[rarity]||0)+num(i.amount||1));}return totals;}
  function reviveSpec(state){const refs=(state.accessories||[]).slice(0,slots(state.level)).filter(ref=>ref?.accessoryId==='revival');if(!refs.length)return null;const t=Math.max(...refs.map(ref=>tier(ref.rarity)));return {tier:t,duration:Math.max(3500,12000-t*700),cooldown:Math.max(30000,120000-t*7000),health:Math.min(.65,.25+t*.035)};}
- const api={MAX_CRAFT_BATCH,TORNADO_PULL_SCALE,craftCount,craftDuration,craftDurationOf,fusionLimit,makeLimit,mobRarityTier,reviveSpec,RARITIES,SCALE,CHANCES,BIOMES,MAPS,LANDMARKS,mapFor,portalsFor,MOBS,ACCESSORIES,LEGACY,num,tier,key,slots,accessory,add,normalize,bonuses,equip,make,fuse,biomeAt,inventoryTotals,componentCount};
+ const api={MAGNET_EVOLUTIONS:magnets.EVOLUTIONS,magnetSpec,MAX_CRAFT_BATCH,TORNADO_PULL_SCALE,craftCount,craftDuration,craftDurationOf,fusionLimit,makeLimit,mobRarityTier,reviveSpec,RARITIES,SCALE,CHANCES,BIOMES,MAPS,LANDMARKS,mapFor,portalsFor,MOBS,ACCESSORIES,LEGACY,num,tier,key,slots,accessory,add,normalize,bonuses,equip,make,fuse,biomeAt,inventoryTotals,componentCount};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.EXPANSION=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
