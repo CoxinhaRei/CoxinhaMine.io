@@ -1,6 +1,12 @@
 node_modules/
 db.json
+data/
+guild-reset-backup-*.json
+coxinha-save-*.json
 .env
 .env.*
 !.env.example
 *.log
+
+dev-data/
+save-conflicts/

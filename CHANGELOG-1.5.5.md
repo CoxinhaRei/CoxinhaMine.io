@@ -33,3 +33,8 @@
 
 - Renew account save leases only for connected players, including authenticated menu users.
 - Disconnected accounts with a failed save/release no longer keep a lease alive indefinitely. Active sessions remain protected against simultaneous writes.
+
+## Save acknowledgement recovery
+
+- Recognize a previously submitted database write when its network reply was lost, allowing newer progress to save without duplicating inventory.
+- Preserve other players records and reject unknown same-record conflicts. Delayed requests cannot apply after a confirmed retry.

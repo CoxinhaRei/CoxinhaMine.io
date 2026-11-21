@@ -42,9 +42,16 @@ function apply(state,ops){
 }
 
 module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''}){
- const owner=crypto.randomUUID(),held=new Set(),lostSessions=new Set(),ttl=60000;
- let baseline=initialRaw ? JSON.parse(initialRaw) : {},baselineRaw=initialRaw,dirty=false,pending=null,writing=null,lastError=null,lastErrorCode=null,closed=false,transactions=0,forceRemoteRead=false,recoveredConflict=false;
+ const owner=crypto.randomUUID(),held=new Set(),lostSessions=new Set(),ttl=60000,uncertain=[];
+ let baseline=initialRaw ? JSON.parse(initialRaw) : {},baselineRaw=initialRaw,dirty=false,pending=null,writing=null,lastError=null,lastErrorCode=null,closed=false,transactions=0,forceRemoteRead=false,recoveredConflict=false,lastConflictScope=null;
  async function backup(id,profile,reason){const path=require('node:path'),directory=path.join(path.dirname(file),'save-conflicts');await fs.promises.mkdir(directory,{recursive:true});await fs.promises.writeFile(path.join(directory,crypto.randomUUID()+'.json'),JSON.stringify({reason,createdAt:Date.now(),profileId:id,profile}),'utf8');}
+ function record(state,path){let parent=state;for(const key of path.slice(0,-1))parent=parent?.[key];const name=path.at(-1);return {exists:own(parent,name),value:parent?.[name]??null};}
+ function sameRecord(a,b){return a.exists===b.exists&&(!a.exists||equal(a.value,b.value));}
+ function knownCommit(op,value){
+  const reachable=[{exists:op.beforeExists,value:op.before}];
+  for(const attempt of uncertain)for(const sent of attempt)if(equal(sent.path,op.path)&&reachable.some(r=>sameRecord(r,{exists:sent.beforeExists,value:sent.before})))reachable.push({exists:sent.afterExists,value:sent.after});
+  return reachable.slice(1).some(r=>sameRecord(r,value));
+ }
  function install(next){
   const current=db.getState();
   // Keep live actor references stable across asynchronous saves and refreshes.
@@ -57,7 +64,9 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
   if(writing){const ok=await writing;return ok && dirty ? flush() : ok;}
   if(!dirty)return !lastError;
   const snapshot=clone(db.getState()),ops=changes(baseline,snapshot);dirty=false;
-  if(!ops.length){lastError=null;lastErrorCode=null;return true;}
+  // Even an in-flight local rollback must fence a write whose HTTP reply was lost.
+  for(const attempt of uncertain)for(const sent of attempt)if(!ops.some(o=>equal(o.path,sent.path))){const before=record(baseline,sent.path),after=record(snapshot,sent.path);ops.push({path:sent.path,beforeExists:before.exists,before:before.value,afterExists:after.exists,after:after.value});}
+  if(!ops.length){lastError=null;lastErrorCode=null;lastConflictScope=null;return true;}
   writing=(async()=>{
    try{
     const ids=ops.filter(op=>op.path[0]==='profiles' && op.path.length===2).map(op=>op.path[1]);
@@ -65,20 +74,30 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
     for(let attempt=0;attempt<8;attempt++){
      const remote=expected ? JSON.parse(expected) : {};
      const effective=[];
-     for(const op of ops){let parent=remote;for(const name of op.path.slice(0,-1))parent=parent?.[name];const name=op.path.at(-1),exists=own(parent,name),value=parent?.[name];if(op.ensure && object(value))continue;if(!(exists===op.beforeExists && (!exists || equal(value,op.before))) && !(exists===op.afterExists && (!exists || equal(value,op.after))))throw Object.assign(Error('SAVE_CONFLICT'),{recordPath:op.path});effective.push(op);}
-     const payload=JSON.stringify(apply(remote,clone(effective)));
-     result=await request(['EVAL',COMMIT,1+ids.length,key,...ids.map(id=>key+':session:'+id),expected,payload,owner]);
+     for(const op of ops){
+      const value=record(remote,op.path);if(op.ensure&&object(value.value))continue;
+      const before=sameRecord(value,{exists:op.beforeExists,value:op.before}),after=sameRecord(value,{exists:op.afterExists,value:op.after}),known=knownCommit(op,value);
+      if(!before&&!after&&!known)throw Object.assign(Error('SAVE_CONFLICT'),{recordPath:op.path});
+      // This exact record is evidence of our previously unconfirmed write.
+      // Advance only that proven baseline; unknown remote records remain conflicts.
+      if(!before&&known){apply(baseline,[{path:op.path,afterExists:value.exists,after:clone(value.value)}]);forceRemoteRead=true;}
+      effective.push({...op,beforeExists:value.exists,before:value.value});
+     }
+     // A fresh marker prevents a delayed request from applying after a no-op retry (ABA).
+     remote._saveCommitId=crypto.randomUUID();const payload=JSON.stringify(apply(remote,clone(effective)));
+     try{result=await request(['EVAL',COMMIT,1+ids.length,key,...ids.map(id=>key+':session:'+id),expected,payload,owner]);}
+     catch(error){uncertain.push(clone(effective));if(uncertain.length>8)uncertain.shift();throw error;}
      if(result?.[0]===1)break;
      if(result?.[0]!==0)throw Error(result?.[1] || 'SAVE_FAILED');
      expected=result[1];
     }
     if(result?.[0]!==1)throw Error('Banco ocupado; nova tentativa será feita.');
-    baselineRaw=result[1];forceRemoteRead=false;
+    baselineRaw=result[1];forceRemoteRead=false;uncertain.length=0;
     const remote=JSON.parse(result[1]),later=changes(snapshot,clone(db.getState()));baseline=clone(remote);install(apply(remote,later));
     const payload=JSON.stringify(db.getState());await fs.promises.writeFile(file+'.tmp',payload,'utf8');await fs.promises.rename(file+'.tmp',file);
-    lastError=null;lastErrorCode=null;return true;
+    lastError=null;lastErrorCode=null;lastConflictScope=null;return true;
    }catch(error){
-    dirty=true;lastError=error.message;lastErrorCode=diagnostics.code(error);
+    dirty=true;lastError=error.message;lastErrorCode=diagnostics.code(error);lastConflictScope=error.message==='SAVE_CONFLICT'?(['profiles','accounts','accountsByNick','guilds','chosenClaims','players'].includes(error.recordPath?.[0])?error.recordPath[0]:'other'):null;
     // A fenced-out session must not poison every account on this process.
     // Only discard a stale profile after Redis proves this process is not its owner.
     const candidates=error.message==='SAVE_CONFLICT'&&error.recordPath?.[0]==='profiles'?[error.recordPath[1]]:error.message==='SESSION_LOST'?ops.filter(o=>o.path[0]==='profiles'&&o.path.length===2).map(o=>o.path[1]):[];
@@ -116,7 +135,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
  async function renew(activeIds=[]){const active=new Set(activeIds),ids=[...held].filter(id=>active.has(id));if(!ids.length)return [];const lost=await request(['EVAL',RENEW,ids.length,...ids.map(id=>key+':session:'+id),owner,String(ttl)]);return lost.map(index=>ids[index-1]);}
  async function release(id){await request(['EVAL',RELEASE,1,key+':session:'+id,owner]);held.delete(id);}
  async function discard(id){
-  held.delete(id);const raw=await request(['GET',key]),remote=raw ? JSON.parse(raw) : {};
+  held.delete(id);for(let i=uncertain.length-1;i>=0;i--){uncertain[i]=uncertain[i].filter(op=>!(op.path[0]==='profiles'&&op.path[1]===id));if(!uncertain[i].length)uncertain.splice(i,1);}const raw=await request(['GET',key]),remote=raw ? JSON.parse(raw) : {};
   for(const state of [baseline,db.getState()])if(remote.profiles?.[id]){state.profiles ||= {};state.profiles[id]=clone(remote.profiles[id]);}else if(state.profiles)delete state.profiles[id];
  }
  async function transact(action){
@@ -129,5 +148,5 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
   try{return await action();}finally{transactions--;await request(['EVAL',RELEASE,1,lockKey,token]);if(dirty)schedule();}
  }
  const retry=setInterval(()=>{if(!transactions)flush();},10000);retry.unref?.();
- return {db,file,mode:'redis',shared:true,flush,refresh,claim,release,renew,discard,transact,takeLostSessions(){const ids=[...lostSessions];lostSessions.clear();return ids;},get lastError(){return lastError;},get lastErrorCode(){return lastErrorCode;},close(){closed=true;clearTimeout(pending);clearInterval(retry);}};
+ return {db,file,mode:'redis',shared:true,flush,refresh,claim,release,renew,discard,transact,takeLostSessions(){const ids=[...lostSessions];lostSessions.clear();return ids;},get lastConflictScope(){return lastConflictScope;},get lastError(){return lastError;},get lastErrorCode(){return lastErrorCode;},close(){closed=true;clearTimeout(pending);clearInterval(retry);}};
 };
