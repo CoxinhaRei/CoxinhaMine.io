@@ -43,7 +43,7 @@ function apply(state,ops){
 
 module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''}){
  const owner=crypto.randomUUID(),held=new Set(),lostSessions=new Set(),ttl=60000,uncertain=[];
- let baseline=initialRaw ? JSON.parse(initialRaw) : {},baselineRaw=initialRaw,dirty=false,pending=null,writing=null,lastError=null,lastErrorCode=null,closed=false,transactions=0,forceRemoteRead=false,recoveredConflict=false,lastConflictScope=null;
+ let baseline=initialRaw ? JSON.parse(initialRaw) : {},baselineRaw=initialRaw,dirty=false,pending=null,writing=null,lastError=null,lastErrorCode=null,closed=false,transactions=0,forceRemoteRead=false,recoveredConflict=false,lastConflictScope=null,stateVersion=0;
  async function backup(id,profile,reason){const path=require('node:path'),directory=path.join(path.dirname(file),'save-conflicts');await fs.promises.mkdir(directory,{recursive:true});await fs.promises.writeFile(path.join(directory,crypto.randomUUID()+'.json'),JSON.stringify({reason,createdAt:Date.now(),profileId:id,profile}),'utf8');}
  function record(state,path){let parent=state;for(const key of path.slice(0,-1))parent=parent?.[key];const name=path.at(-1);return {exists:own(parent,name),value:parent?.[name]??null};}
  function sameRecord(a,b){return a.exists===b.exists&&(!a.exists||equal(a.value,b.value));}
@@ -67,7 +67,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
   // Even an in-flight local rollback must fence a write whose HTTP reply was lost.
   for(const attempt of uncertain)for(const sent of attempt)if(!ops.some(o=>equal(o.path,sent.path))){const before=record(baseline,sent.path),after=record(snapshot,sent.path);ops.push({path:sent.path,beforeExists:before.exists,before:before.value,afterExists:after.exists,after:after.value});}
   if(!ops.length){lastError=null;lastErrorCode=null;lastConflictScope=null;return true;}
-  writing=(async()=>{
+  stateVersion++;writing=(async()=>{
    try{
     const ids=ops.filter(op=>op.path[0]==='profiles' && op.path.length===2).map(op=>op.path[1]);
     let expected=forceRemoteRead?await request(['GET',key])||'':baselineRaw,result;
@@ -80,7 +80,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
       if(!before&&!after&&!known)throw Object.assign(Error('SAVE_CONFLICT'),{recordPath:op.path});
       // This exact record is evidence of our previously unconfirmed write.
       // Advance only that proven baseline; unknown remote records remain conflicts.
-      if(!before&&known){apply(baseline,[{path:op.path,afterExists:value.exists,after:clone(value.value)}]);forceRemoteRead=true;}
+      if(!before&&known){apply(baseline,[{path:op.path,afterExists:value.exists,after:clone(value.value)}]);forceRemoteRead=true;stateVersion++;}
       effective.push({...op,beforeExists:value.exists,before:value.value});
      }
      // A fresh marker prevents a delayed request from applying after a no-op retry (ABA).
@@ -92,7 +92,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
      expected=result[1];
     }
     if(result?.[0]!==1)throw Error('Banco ocupado; nova tentativa será feita.');
-    baselineRaw=result[1];forceRemoteRead=false;uncertain.length=0;
+    baselineRaw=result[1];stateVersion++;forceRemoteRead=false;uncertain.length=0;
     const remote=JSON.parse(result[1]),later=changes(snapshot,clone(db.getState()));baseline=clone(remote);install(apply(remote,later));
     const payload=JSON.stringify(db.getState());await fs.promises.writeFile(file+'.tmp',payload,'utf8');await fs.promises.rename(file+'.tmp',file);
     lastError=null;lastErrorCode=null;lastConflictScope=null;return true;
@@ -108,11 +108,16 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
   const ok=await writing;writing=null;return ok && dirty ? flush() : ok;
  }
  async function refresh(){
-  let ok=await flush();if(!ok&&recoveredConflict){recoveredConflict=false;ok=await flush();}if(!ok)throw Object.assign(Error('O banco não confirmou o último save. Tente novamente.'),{code:lastErrorCode});
-  const snapshot=clone(db.getState()),raw=await request(['GET',key]),remote=raw ? JSON.parse(raw) : {};
-  baselineRaw=raw || '';baseline=clone(remote);install(apply(remote,changes(snapshot,clone(db.getState()))));
-  // Defaults are persisted in the next record batch, never as an unconditional SET.
-  db.defaults({players:{},profiles:{},guilds:{},accounts:{},accountsByNick:{}}).write();
+  // Writes can finish while Redis GET is in flight. Never install that older read
+  // over the reference of a write already confirmed by this process.
+  for(let attempt=0;attempt<8;attempt++){
+   let ok=await flush();if(!ok&&recoveredConflict){recoveredConflict=false;ok=await flush();}if(!ok)throw Object.assign(Error('O banco não confirmou o último save. Tente novamente.'),{code:lastErrorCode});
+   const version=stateVersion,snapshot=clone(db.getState()),raw=await request(['GET',key]);
+   if(writing||version!==stateVersion)continue;
+   const remote=raw?JSON.parse(raw):{};baselineRaw=raw||'';baseline=clone(remote);install(apply(remote,changes(snapshot,clone(db.getState()))));stateVersion++;
+   db.defaults({players:{},profiles:{},guilds:{},accounts:{},accountsByNick:{}}).write();return;
+  }
+  throw Object.assign(Error('O banco está ocupado. Tente novamente em instantes.'),{code:'SAVE_BUSY'});
  }
  async function claim(id){
   if(writing)await writing;
@@ -126,9 +131,10 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
   }
   held.add(id);
   if(!alreadyHeld){
-   try{const raw=await request(['GET',key]),remote=raw?JSON.parse(raw):{},current=db.getState(),cached=current.profiles?.[id],fresh=remote.profiles?.[id];
-    if(fresh){const pendingProfile=changes(baseline,clone(current)).some(o=>o.path[0]==='profiles'&&o.path[1]===id);if(pendingProfile&&cached)await backup(id,clone(cached),'STALE_PROFILE_BEFORE_LOGIN');baseline.profiles ||= {};baseline.profiles[id]=clone(fresh);current.profiles ||= {};if(cached){for(const name of Object.keys(cached))delete cached[name];Object.assign(cached,clone(fresh));current.profiles[id]=cached;}else current.profiles[id]=clone(fresh);forceRemoteRead=true;}
+   try{let ready=false;for(let attempt=0;attempt<8;attempt++){if(writing)await writing;const version=stateVersion,raw=await request(['GET',key]);if(writing||version!==stateVersion)continue;const remote=raw?JSON.parse(raw):{},current=db.getState(),cached=current.profiles?.[id],fresh=remote.profiles?.[id];
+    if(fresh){const pendingProfile=changes(baseline,clone(current)).some(o=>o.path[0]==='profiles'&&o.path[1]===id);if(pendingProfile&&cached)await backup(id,clone(cached),'STALE_PROFILE_BEFORE_LOGIN');if(writing||version!==stateVersion)continue;baseline.profiles ||= {};baseline.profiles[id]=clone(fresh);stateVersion++;current.profiles ||= {};if(cached){for(const name of Object.keys(cached))delete cached[name];Object.assign(cached,clone(fresh));current.profiles[id]=cached;}else current.profiles[id]=clone(fresh);forceRemoteRead=true;}
     else if(baseline.profiles?.[id])throw Error('Não foi possível encontrar o save desta conta no banco.');
+    ready=true;break;}if(!ready)throw Object.assign(Error('O banco está ocupado. Tente novamente em instantes.'),{code:'SAVE_BUSY'});
    }catch(error){await request(['EVAL',RELEASE,1,lockKey,owner]);held.delete(id);throw error;}
   }
  }
@@ -136,7 +142,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
  async function release(id){await request(['EVAL',RELEASE,1,key+':session:'+id,owner]);held.delete(id);}
  async function discard(id){
   held.delete(id);for(let i=uncertain.length-1;i>=0;i--){uncertain[i]=uncertain[i].filter(op=>!(op.path[0]==='profiles'&&op.path[1]===id));if(!uncertain[i].length)uncertain.splice(i,1);}const raw=await request(['GET',key]),remote=raw ? JSON.parse(raw) : {};
-  for(const state of [baseline,db.getState()])if(remote.profiles?.[id]){state.profiles ||= {};state.profiles[id]=clone(remote.profiles[id]);}else if(state.profiles)delete state.profiles[id];
+  stateVersion++;for(const state of [baseline,db.getState()])if(remote.profiles?.[id]){state.profiles ||= {};state.profiles[id]=clone(remote.profiles[id]);}else if(state.profiles)delete state.profiles[id];
  }
  async function transact(action){
   // Serialize account indexes and guild membership across regions.

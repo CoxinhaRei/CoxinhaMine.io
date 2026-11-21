@@ -38,3 +38,8 @@
 
 - Recognize a previously submitted database write when its network reply was lost, allowing newer progress to save without duplicating inventory.
 - Preserve other players records and reject unknown same-record conflicts. Delayed requests cannot apply after a confirmed retry.
+
+## Delayed database reads
+
+- Discard and repeat a catalogue/profile read when a concurrent save overtakes it. A delayed read can no longer replace the reference of a newer confirmed write.
+- Preserve changes made during a read and keep independent active player inventories intact. Real unknown-version conflicts still block unsafe writes.
