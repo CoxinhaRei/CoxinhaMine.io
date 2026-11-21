@@ -234,6 +234,7 @@ function drawAbilityEffects(){
   ctx.restore();
 }
 window.addEventListener('keydown',event=>{
+  if(typeof event.key!=='string')return;
   if(event.repeat || event.target.closest?.('input,textarea,select,[role="dialog"]'))return;
   const key=event.key.toLowerCase();
   if(key==='q')useEquipmentAbility('weapon');if(key==='r')useEquipmentAbility('pickaxe');if(key==='f')toggleLantern();if(key==='e')interactPortal();if(key==='4')player.selectedSlot=3;

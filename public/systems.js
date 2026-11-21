@@ -250,12 +250,13 @@ function drawCombatEffects() {
   ctx.restore();
 }
 window.addEventListener('keydown',event=>{
+  if(typeof event.key!=='string')return;
   if(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)return;
   if(event.target.closest?.('select,[role="dialog"]'))return;
   const key=event.key.toLowerCase();
   if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){heldKeys.add(key);event.preventDefault();}
 });
-window.addEventListener('keyup',event=>heldKeys.delete(event.key.toLowerCase()));
+window.addEventListener('keyup',event=>{if(typeof event.key==='string')heldKeys.delete(event.key.toLowerCase());});
 window.addEventListener('blur',()=>{heldKeys.clear();movementAimActive=false;touch.active=false;});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){heldKeys.clear();movementAimActive=false;touch.active=false;}});
 canvas.addEventListener('pointermove',event=>{if(event.pointerType==='touch'){touch={active:true,x:event.clientX,y:event.clientY};}});

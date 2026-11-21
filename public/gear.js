@@ -89,4 +89,4 @@ function useUtilityAbility(){
   }
   miningBurst(player.x,player.y,utility.color,40);saveGame();return true;
 }
-window.addEventListener('keydown',event=>{if(!event.repeat && !event.target.closest?.('input,textarea,select,[role="dialog"]') && event.key.toLowerCase()==='z')useUtilityAbility();});
+window.addEventListener('keydown',event=>{if(typeof event.key==='string' && !event.repeat && !event.target.closest?.('input,textarea,select,[role="dialog"]') && event.key.toLowerCase()==='z')useUtilityAbility();});

@@ -25,6 +25,10 @@ function clearAccountSession(credentials=activeSession()){
 }
 function isServerWorld(){return multiplayer.authority;}
 function profileKeys(){try{return Object.assign(Object.create(null),JSON.parse(localStorage.getItem(PROFILE_KEYS)||'{}'));}catch{return Object.create(null);}}
+function sessionFailureMessage(result,fallback='Não foi possível conectar. Tente novamente.'){
+  const codes=['SAVE_CONFLICT','SESSION_LOST','SAVE_BUSY','SAVE_FAILED','LOCAL_WRITE_FAILED','REDIS_AUTH_FAILED','REDIS_WRITE_DENIED','REDIS_RATE_LIMITED','REDIS_QUOTA_EXCEEDED','SAVE_TOO_LARGE','REDIS_UNAVAILABLE','REDIS_RESPONSE_INVALID','NETWORK_TIMEOUT','NETWORK_ERROR','SESSION_BUSY'];
+  const message=result?.message || fallback;return codes.includes(result?.code)?message+' [Código: '+result.code+']':message;
+}
 function beginSharedSession({lobby=false}={}){
   if(typeof authBusy!=='undefined' && authBusy)return Promise.resolve(false);
   if(multiplayer.authError){if(typeof openAccountRequired==='function')openAccountRequired(multiplayer.authError);return Promise.resolve(false);}
@@ -37,7 +41,7 @@ function beginSharedSession({lobby=false}={}){
   const realm=typeof selectedMenuRealm==='string' ? selectedMenuRealm : currentRealm;
   multiplayer.joinPromise=new Promise(resolve=>socket.timeout(15000).emit(credentials ? 'joinGame' : 'guestJoin',{credentials,guest:!!guestCredentials,name:document.getElementById('nameInput').value,lobby,realm,biome:window.selectedMenuBiome||'garden'},(error,result)=>{
     multiplayer.pendingJoin=false;
-    if(error || !result?.ok){const message=result?.message || 'Não foi possível conectar. Tente novamente.';sharedNotice(message);multiplayer.started=false;if(result?.code==='GUEST_EXPIRED'){resetGuestSession();multiplayer.inLobby=false;canvas.style.display='none';document.getElementById('game-hud').hidden=true;document.getElementById('menu').style.display='flex';}if(credentials && !guestCredentials){multiplayer.authError=message;if(result?.code==='AUTH_REQUIRED'){clearAccountSession(credentials);multiplayer.account=null;}if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
+    if(error || !result?.ok){const message=sessionFailureMessage(result);sharedNotice(message);multiplayer.started=false;if(result?.code==='GUEST_EXPIRED'){resetGuestSession();multiplayer.inLobby=false;canvas.style.display='none';document.getElementById('game-hud').hidden=true;document.getElementById('menu').style.display='flex';}if(credentials && !guestCredentials){multiplayer.authError=message;if(result?.code==='AUTH_REQUIRED'){clearAccountSession(credentials);multiplayer.account=null;}if(typeof openAccountRequired==='function')openAccountRequired(message);}resolve(false);return;}
     if(result.profile)applySessionProfile(result.profile);
     resolve(multiplayer.ready);
   }));return multiplayer.joinPromise;
