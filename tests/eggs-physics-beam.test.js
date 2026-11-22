@@ -1,6 +1,6 @@
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
 const A=require('../public/arcana-catalog'),E=require('../public/expansion'),P=require('../public/body-physics'),C=require('../public/game-catalog'),atlas=require('../public/map-atlas'),Arcana=require('../arcana'),{movePlayerBody,oreIndex,resolveWorldCollisions}=require('../world-physics');
-test('all eight eggs scale combat with boss health, share their group damage across members, and retain 135% natural mass at 70% size',()=>{
+test('all twenty eggs scale combat with boss health, share their group damage across members, and retain 135% natural mass at 70% size',()=>{
  for(const egg of A.EGGS){let previous=0;for(let tier=0;tier<12;tier++){const base={size:Math.min(360,25*1.32**tier)*(tier>=7?3:1),damage:8*1.4**tier,maxHp:C.mobHealth(55,tier)},s=A.summonStats(base,egg,tier);assert.ok(s.damage>previous);previous=s.damage;assert.ok(Math.abs(s.damage/s.attackInterval*egg.count-s.groupDps)<1e-6);assert.equal(s.mass,P.mobMass(base.size)*1.35);assert.ok(s.mass>P.mobMass(base.size*.7));if(tier>=7)assert.ok(s.groupDps>=base.maxHp*.1);}}
  const context=vm.createContext({});for(const file of ['body-physics','arcana-catalog'])vm.runInContext(fs.readFileSync(require.resolve('../public/'+file),'utf8'),context);assert.equal(context.BODY_PHYSICS.mobMass(400),P.mobMass(400));
 });

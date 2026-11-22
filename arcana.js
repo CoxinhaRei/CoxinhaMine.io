@@ -1,4 +1,4 @@
-const {oreIndex}=require('./world-physics');
+const {oreIndex}=require('./world-physics'),summonBody=require('./summon-body');
 const crypto=require('node:crypto'),A=require('./public/arcana-catalog'),E=require('./public/expansion'),atlas=require('./public/map-atlas');
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const segmentDistance=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);};
@@ -86,29 +86,22 @@ module.exports=class ArcanaWorld{
     const key=a.socket.id+':'+slot+':'+ref.accessoryId+':'+ref.rarity;valid.add(key);let group=this.groups.get(key);if(!group){group={ready:Array(egg.count).fill(0)};this.groups.set(key,group);}
     for(let n=0;n<egg.count;n++){if(this.allies.some(m=>m.group===key&&m.index===n&&m.hp>0)||this.clock<group.ready[n]||count>=A.LIMIT||this.allies.length>=192)continue;
      const rarity=g.rarities.find(r=>r.name===ref.rarity);if(!rarity)continue;const base=g.createCreature(egg.kind,rarity,a.state.x,a.state.y),r=base.size*.7,angle=n*Math.PI*2/egg.count,x=a.state.x+Math.cos(angle)*(r+80),y=a.state.y+Math.sin(angle)*(r+80);
-     if(this.wall(x,y,r*.5))continue;
+     if(this.wall(x,y,r))continue;
      const stats=A.summonStats(base,egg,E.tier(ref.rarity));
-     this.allies.push({id:'ally-'+crypto.randomUUID(),group:key,slot,eggId:egg.id,index:n,ownerId:a.profile.id,owner:a.socket.id,ownerName:a.name,kind:egg.kind,name:base.name,rarity:rarity.name,x,y,size:r,maxHp:base.maxHp*.7,hp:base.maxHp*.7,...stats,speed:Math.max(170,base.speed||120),angle,phase:0,attackAt:0,hurtAt:0,cooldown:egg.cooldown,summoned:true,noRewards:true});count++;
+     this.allies.push({id:'ally-'+crypto.randomUUID(),group:key,slot,eggId:egg.id,index:n,ownerId:a.profile.id,owner:a.socket.id,ownerName:a.name,kind:egg.kind,name:base.name,rarity:rarity.name,x,y,size:r,maxHp:base.maxHp*1.4,hp:base.maxHp*1.4,...stats,speed:Math.max(170,base.speed||120)*4,angle,phase:0,attackAt:0,hurtAt:0,cooldown:egg.cooldown,summoned:true,noRewards:true});count++;
     }
    }
   }
   this.allies=this.allies.filter(m=>valid.has(m.group)&&active.has(m.ownerId));for(const key of this.groups.keys())if(!valid.has(key))this.groups.delete(key);
   const targetMobs=g.mobs.filter(m=>m.hp>0&&!m.noRewards&&!m.summoned);
-  for(const m of this.allies){const a=active.get(m.ownerId);if(!a)continue;let target=null,best=2600+m.size;for(const enemy of targetMobs){const d=distance(m,enemy)-enemy.size;if(d<best&&g.lineClear(m.x,m.y,enemy.x,enemy.y)){best=d;target=enemy;}}
+  for(const m of this.allies){const a=active.get(m.ownerId);if(!a)continue;let target=null,best=2600+m.size;for(const enemy of (w.safe(a.state)?[]:targetMobs)){const d=distance(m,enemy)-enemy.size;if(d<best&&g.lineClear(m.x,m.y,enemy.x,enemy.y)){best=d;target=enemy;}}
    const goal=target||{x:a.state.x+Math.cos(m.index*2.4)*150,y:a.state.y+Math.sin(m.index*2.4)*150};const d=distance(m,goal),contact=m.size+(target?.size||65);m.angle=Math.atan2(goal.y-m.y,goal.x-m.x);m.moving=d>contact*.8;
-   if(!target&&d>4500){m.x=a.state.x;m.y=a.state.y;}else if(m.moving)g.moveEntity(m,m.x+Math.cos(m.angle)*Math.min(d-contact*.7,m.speed*dt),m.y+Math.sin(m.angle)*Math.min(d-contact*.7,m.speed*dt),m.size*.45);
+   if(!target&&d>4500){m.x=a.state.x;m.y=a.state.y;}else if(m.moving)summonBody.move(w,m,m.x+Math.cos(m.angle)*Math.min(d-contact*.7,m.speed*dt),m.y+Math.sin(m.angle)*Math.min(d-contact*.7,m.speed*dt));
    m.phase+=dt*(m.moving?8:1);
-   if(target&&target.hp>0&&d<=contact+70){if(this.clock>=m.attackAt){m.attackAt=this.clock+m.attackInterval;this.hit(a,target,m.damage,true,m);}
-    // Allies have enemy hitboxes; no allied body ever enters the player collision grid.
-    if(this.clock>=m.hurtAt){m.hurtAt=this.clock+.9;m.hp-=target.damage||1;}
-    // Shared collision resolution uses full natural-mob mass, despite the smaller ally model.
-   }
-   // Contact mining shares the attack timer with combat, so touching several
-   // targets cannot multiply an egg's damage budget. Rewards belong to its owner.
-   if(m.hp>0&&this.clock>=m.attackAt)for(const entry of oreIndex(w).query(m.x,m.y,m.size+2)){
-    const ore=entry.state;if(!ore||ore.hp<=0||distance(m,ore)>m.size+ore.size+.5||!g.lineClear(m.x,m.y,ore.x,ore.y))continue;
-    m.attackAt=this.clock+m.attackInterval;this.hit(a,ore,m.damage,false,m);break;
-   }
+   if(target&&target.hp>0&&distance(m,target)<=m.size+target.size*.8+1&&this.clock>=m.hurtAt){m.hurtAt=this.clock+.9;m.hp-=target.damage||1;}
+   // One cooldown for the entire body. Every touching rock/enemy is hit once;
+   // different limbs never duplicate damage to the same target.
+   if(m.hp>0&&!w.safe(a.state)&&this.clock>=m.attackAt){const contacts=summonBody.targets(w,m);if(contacts.length){m.attackAt=this.clock+m.attackInterval;for(const {entity,isMob} of contacts)this.hit(a,entity,m.damage,isMob,m);}}
    if(m.hp<=0)this.retireSummon(m);
   }
   this.allies=this.allies.filter(m=>m.hp>0);

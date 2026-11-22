@@ -1,7 +1,7 @@
 const createRuntime=require('./game-runtime');
 const catalog=require('./public/game-catalog');
 const expansion=require('./public/expansion');
-const atlas=require('./public/map-atlas');
+const atlas=require('./public/map-atlas'),checkpoints=require('./checkpoints'),checkpointCatalog=require('./public/checkpoint-catalog');
 const {resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,SpatialIndex,oreIndex}=require('./world-physics');
 
 const gRarity=(game,tier)=>tier>=0?game.rarities[tier]:null;
@@ -10,6 +10,7 @@ class SharedWorld{
   static densityFor(tier){return RARE_DENSITY[tier]||null;}
   densityKey(type,x,y,tier){return type+':'+tier+':'+Math.floor(x/8000)+':'+Math.floor(y/8000);}
   canSpawnNatural(type,x,y,now=Date.now()){
+    if(!checkpointCatalog.clear(this.realm,x,y,450))return false;
     const tier=atlas.at(this.realm,x,y).tier,policy=RARE_DENSITY[tier];if(!policy)return true;
     if((this.spawnCooldowns.get(this.densityKey(type,x,y,tier))||0)>now)return false;
     const cap=type==='mob'?policy.mobs:policy.ores,active=type==='mob'?this.game.mobs:this.game.ores,dormant=type==='mob'?this.dormantMobs:this.dormantOres;let count=0;
@@ -24,7 +25,9 @@ class SharedWorld{
     if(this.spawnCooldowns.size>512){for(const [key,until] of this.spawnCooldowns)if(until<=now)this.spawnCooldowns.delete(key);while(this.spawnCooldowns.size>512)this.spawnCooldowns.delete(this.spawnCooldowns.keys().next().value);}
   }
   populateSparseCave(state){
-    if(!this.canSpawnNatural('ore',state.x,state.y)&&!this.canSpawnNatural('mob',state.x,state.y))return;
+    // A sheltered player still activates the surrounding cave. Each generated
+    // entity is checked below, so the camp stays clear without hiding the world.
+    if(!checkpointCatalog.near(this.realm,state.x,state.y)&&!this.canSpawnNatural('ore',state.x,state.y)&&!this.canSpawnNatural('mob',state.x,state.y))return;
     const g=this.game,oldOres=new Set(g.ores),oldMobs=new Set(g.mobs);g.populateCave(state);
     const ores=g.ores.filter(e=>!oldOres.has(e)),mobs=g.mobs.filter(e=>!oldMobs.has(e));g.ores=g.ores.filter(e=>oldOres.has(e));g.mobs=g.mobs.filter(e=>oldMobs.has(e));
     for(const [type,list] of [['ore',ores],['mob',mobs]])for(const entity of list){if(this.canSpawnNatural(type,entity.x,entity.y)){(type==='ore'?g.ores:g.mobs).push(entity);this.noteNaturalSpawn(type,entity);}else{if(type==='ore'){g.forgetDormantOre(entity);const deposit=g.cave.deposits?.find(d=>d.id===entity.id);if(deposit)deposit.spawned=false;}else g.cave.populated.delete(Math.floor(entity.y/500)*g.cave.columns+Math.floor(entity.x/500));}}
@@ -46,18 +49,18 @@ class SharedWorld{
   emit(event,data){for(const actor of this.active())if(!Number.isFinite(data?.x) || Math.hypot(data.x-actor.state.x,data.y-actor.state.y)<(actor.viewRadius || 3000)+(data.radius || 0)+400)actor.socket.emit(event,data);}
   live(){return this.active().filter(a=>!a.state.dead);}
   nearest(entity){
-    const all=this.tickLive || this.live(),provoked=all.find(a=>a.profile.id===entity.aggroPlayerId);
+    const all=(this.tickLive || this.live()).filter(a=>!this.safe(a.state)),provoked=all.find(a=>a.profile.id===entity.aggroPlayerId);
     if(provoked && Math.hypot(provoked.state.x-entity.x,provoked.state.y-entity.y)<2500+entity.size)return provoked;
     let closest,best=Infinity;for(const actor of all){const d=(actor.state.x-entity.x)**2+(actor.state.y-entity.y)**2;if(d<best){best=d;closest=actor;}}return closest;
   }
-  safe(state){return this.realm!=='cave' && this.game.zone(state.x,state.y)==='P';}
+  safe(state){return (this.realm!=='cave' && this.game.zone(state.x,state.y)==='P')||checkpointCatalog.near(this.realm,state.x,state.y);}
   hurt(state,amount,dx=0,dy=0,cause='uma criatura'){
     if(state.dead || this.safe(state) || !Number.isFinite(amount) || amount<=0)return false;
     const actor=this.active().find(a=>a.state===state),dodge=this.game.utility(state).dodge||0;
     if(dodge>0&&this.combatRandom()<dodge){if(actor)actor.lastDodge={id:require('crypto').randomUUID(),x:state.x,y:state.y};return false;}
     const damage=Math.max(0,amount*(1-(state.talentRanks?.defense || 0)*.04)*(1-this.game.armor(state)));
     state.hp=Math.max(0,state.hp-damage);state.lastDamageAt=Date.now();
-    if(state.hp<=0){state.dead=true;state.deathCause=cause;}
+    if(state.hp<=0){state.dead=true;state.deathCause=cause;const result=checkpoints.death(state);if(result.retreated)actor?.socket.emit('checkpointRetreat',{...result.place,message:'Três mortes em cinco minutos: você voltará ao checkpoint anterior.'});}
 
     if(actor){actor.lastHit={id:require('crypto').randomUUID(),cause,dx,dy};if(state.dead)this.store.save(actor.profile);}
     return true;
@@ -189,7 +192,7 @@ class SharedWorld{
       const angle=Math.random()*Math.PI*2,distance=(region.safe?1600:500)+Math.random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=atlas.roll(this.realm,x,y);
       if(tier<0||!area.open||!this.canSpawnNatural('mob',x,y))continue;
       const pool=atlas.pool(this.realm,area.tier),definition=pool[Math.floor(Math.random()*pool.length)],kind=definition==='beetle'&&Math.random()<.00025?'invertedBeetle':definition,mob=g.createCreature(kind,g.rarities[tier],x,y);
-      if(Math.hypot(x-s.x,y-s.y)<mob.size+500||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+mob.size*.75)||g.mobs.some(o=>Math.hypot(o.x-x,o.y-y)<(o.size+mob.size)*.75))continue;
+      if(!checkpointCatalog.clear(this.realm,x,y,mob.size+450)||Math.hypot(x-s.x,y-s.y)<mob.size+500||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+mob.size*.75)||g.mobs.some(o=>Math.hypot(o.x-x,o.y-y)<(o.size+mob.size)*.75))continue;
       if(this.realm==='cave'){
         if(x<mob.size+600||y<mob.size+600||x>g.cave.width-mob.size-600||y>g.cave.height-mob.size-600)continue;
         if(!g.tileOpen(Math.floor(x/500),Math.floor(y/500)))continue;
@@ -209,7 +212,7 @@ class SharedWorld{
       const ore={id:'ore-'+require('crypto').randomUUID(),x,y,size,hp:rarity.hp,maxHp:rarity.hp,rarity,isBoss:true};g.ores.push(ore);this.noteNaturalSpawn('ore',ore);this.announceSpawn(ore,false);return ore;
     }
   }
-  portalClear(entity){return expansion.portalsFor(this.realm).every(p=>Math.hypot(entity.x-p.x,entity.y-p.y)>entity.size+p.r+220);}
+  portalClear(entity){return checkpointCatalog.clear(this.realm,entity.x,entity.y,entity.size+100)&&expansion.portalsFor(this.realm).every(p=>Math.hypot(entity.x-p.x,entity.y-p.y)>entity.size+p.r+220);}
   maintainActiveAreas(live,now=Date.now()){
     if(now<this.nextMaintenance)return;this.nextMaintenance=now+1000;
     const g=this.game,near=ore=>live.some(a=>Math.hypot(ore.x-a.state.x,ore.y-a.state.y)<Math.max(5000,(a.viewRadius || 3000)+1200)+ore.size),important=ore=>ore.isBoss || g.rarities.findIndex(r=>r.name===ore.rarity?.name)>=7;
@@ -256,7 +259,7 @@ class SharedWorld{
     }
     const owners=new Set([...g.ores,...g.mobs].map(e=>e.id));
     const projectileBodies=new SpatialIndex();
-    for(const m of this.arcana.projectileTargets())projectileBodies.insert({state:m,x:m.x,y:m.y,radius:m.size*.7,ally:true});
+    for(const m of this.arcana.projectileTargets())projectileBodies.insert({state:m,x:m.x,y:m.y,radius:m.size,ally:true});
     for(const a of live)projectileBodies.insert({state:a.state,actor:a,x:a.state.x,y:a.state.y,radius:20});
     for(const projectile of g.projectiles){
       if(!projectile.id){this.projectileSeq=(this.projectileSeq || 0)+1;projectile.id=this.realm+':'+this.projectileSeq;}
@@ -272,7 +275,7 @@ class SharedWorld{
     g.projectiles=g.projectiles.filter(p=>p.life>0 && owners.has(p.owner)).slice(-600);
     for(const actor of live){
       const s=actor.state;actor.contacts=actor.contacts || {};
-      g.tickPlayer(s);
+      g.tickPlayer(s);checkpoints.visit(actor,this,now);
       for(const mob of g.mobs)if(Math.hypot(mob.x-s.x,mob.y-s.y)<mob.size*.8+20 && now>(actor.contacts[mob.id] || 0)){this.hurt(s,mob.damage,s.x-mob.x,s.y-mob.y,mob.name+' '+mob.rarity.name);actor.contacts[mob.id]=now+1000;}
       for(const ore of g.ores)if(Math.hypot(ore.x-s.x,ore.y-s.y)<=ore.size+24)this.hurt(s,catalog.oreContactDamage(g.rarities.findIndex(r=>r.name===ore.rarity.name))*dt,s.x-ore.x,s.y-ore.y,'Pedra '+ore.rarity.name);
       for(const hazard of g.hazards){const key='acid:'+hazard.owner+':'+hazard.x+':'+hazard.y;
@@ -317,7 +320,7 @@ class SharedWorld{
     const squadContribution={},team=this.squads?.groupFor(actor.profile.id);
     if(team)for(const [id,groups] of this.squadCredits){const entity=entities.get(id),credit=groups.get(team.id)?.get(actor.profile.id);if(entity && credit)squadContribution[id]=credit/entity.maxHp;}
     if(this.baseMaze && this.mapVersion!==(g.cave.revision || 0)){this.mapVersion=g.cave.revision || 0;this.mapDelta=[];for(let i=0;i<this.baseMaze.length;i++)if(g.cave.maze[i] && !this.baseMaze[i])this.mapDelta.push(i);}
-    return {playerHit:actor.lastHit,playerDodge:actor.lastDodge,equipmentEffects:this.equipmentEffects.snapshot(actor),solarSuns:this.solarSuns.filter(near).map(({actor,...sun})=>({...sun,owner:actor.socket.id,kind:'solarSun',maxLife:sun.life})),...this.arcana.snapshot(actor),forge:this.forge&&near(this.forge)?{id:this.forge.id,name:this.forge.name,x:this.forge.x,y:this.forge.y,size:this.forge.size,angle:this.forge.angle}:null,slowUntil:s.slowUntil||0,realm:this.realm,revision:this.revision,serverTime:Date.now(),self:{x:s.x,y:s.y,vx:s.vx || 0,vy:s.vy || 0,seq:actor.moveSeq || 0,epoch:actor.movementEpoch || 1},mapVersion:this.mapVersion,mapDelta:actor.mapAckRealm===this.realm && actor.mapAckVersion===this.mapVersion ? undefined : this.mapDelta,...this.orePacket(actor,clean),mobs:g.mobs.filter(near).map(clean),projectiles:g.projectiles.filter(near).map(p=>({id:p.id,owner:p.owner,x:p.x,y:p.y,vx:p.vx,vy:p.vy,r:p.r,life:p.life,rotation:p.rotation,kind:p.kind})),hazards:g.hazards.filter(near),effects:g.effects.filter(near),drops:this.drops.filter(near).map(d=>({id:d.id,x:d.x,y:d.y,item:d.item,createdAt:d.createdAt,expiresAt:d.expiresAt,eligible:d.claims.has(actor.profile.id)})),contribution,squadContribution,hp:s.hp,maxHp:s.maxHp,dead:s.dead,deathCause:s.deathCause};
+    return {checkpoint:checkpoints.summary(s),playerHit:actor.lastHit,playerDodge:actor.lastDodge,equipmentEffects:this.equipmentEffects.snapshot(actor),solarSuns:this.solarSuns.filter(near).map(({actor,...sun})=>({...sun,owner:actor.socket.id,kind:'solarSun',maxLife:sun.life})),...this.arcana.snapshot(actor),forge:this.forge&&near(this.forge)?{id:this.forge.id,name:this.forge.name,x:this.forge.x,y:this.forge.y,size:this.forge.size,angle:this.forge.angle}:null,slowUntil:s.slowUntil||0,realm:this.realm,revision:this.revision,serverTime:Date.now(),self:{x:s.x,y:s.y,vx:s.vx || 0,vy:s.vy || 0,seq:actor.moveSeq || 0,epoch:actor.movementEpoch || 1},mapVersion:this.mapVersion,mapDelta:actor.mapAckRealm===this.realm && actor.mapAckVersion===this.mapVersion ? undefined : this.mapDelta,...this.orePacket(actor,clean),mobs:g.mobs.filter(near).map(clean),projectiles:g.projectiles.filter(near).map(p=>({id:p.id,owner:p.owner,x:p.x,y:p.y,vx:p.vx,vy:p.vy,r:p.r,life:p.life,rotation:p.rotation,kind:p.kind})),hazards:g.hazards.filter(near),effects:g.effects.filter(near),drops:this.drops.filter(near).map(d=>({id:d.id,x:d.x,y:d.y,item:d.item,createdAt:d.createdAt,expiresAt:d.expiresAt,eligible:d.claims.has(actor.profile.id)})),contribution,squadContribution,hp:s.hp,maxHp:s.maxHp,dead:s.dead,deathCause:s.deathCause};
   }
 }
 module.exports=SharedWorld;

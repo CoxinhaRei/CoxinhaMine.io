@@ -1,3 +1,4 @@
+const checkpointCatalog=require('./public/checkpoint-catalog');
 const physics=require('./public/body-physics'),atlas=require('./public/map-atlas'),expansion=require('./public/expansion');
 class SpatialIndex{
   constructor(cell=400){this.cell=cell;this.cells=new Map();this.large=new Set();this.bodies=new Set();this.buckets=new WeakMap();}
@@ -22,6 +23,7 @@ function moveOre(world,entry,x,y){
     if(!Number.isFinite(nx)||!Number.isFinite(ny)||nx<radius||ny<radius||nx>map.w-radius||ny>map.h-radius)return false;
     if(realm==='cave'?world.game.wall(nx,ny,radius):atlas.blocked(realm,nx,ny,radius))return false;
     if(realm!=='cave'&&Math.hypot(nx-home.x,ny-home.y)<radius+1350)return false;
+    if(!checkpointCatalog.clear(realm,nx,ny,radius+100))return false;
     for(const portal of portals)if(Math.hypot(nx-portal.x,ny-portal.y)<radius+portal.r+120)return false;
     for(const other of world.oreIndex.query(nx,ny,radius)){if(other.id===ore.id)continue;const min=radius+other.radius-.01,old=Math.hypot(ore.x-other.x,ore.y-other.y),next=Math.hypot(nx-other.x,ny-other.y);if(next<min&&next<old-.0001)return false;}
     return true;
@@ -48,12 +50,12 @@ function movePlayerBody(world,state,x,y){
 function resolveWorldCollisions(world,actors){
   const g=world.game;oreIndex(world);
   const relevant=g.mobs.filter(m=>actors.some(a=>Math.hypot(a.state.x-m.x,a.state.y-m.y)<Math.max(3000,a.viewRadius || 3000)+m.size));
-  const bodies=[...actors.map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:20,mass:400,player:true,state:a.state})),...relevant.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,mass:physics.mass(m),state:m})),...(world.arcana?.allies||[]).filter(m=>m.hp>0).map(m=>({id:'a:'+m.id,x:m.x,y:m.y,radius:m.size*.7,mass:physics.mass(m),ally:true,state:m}))],index=new SpatialIndex();
+  const bodies=[...actors.map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:20,mass:400,player:true,state:a.state})),...relevant.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,mass:physics.mass(m),state:m})),...(world.arcana?.allies||[]).filter(m=>m.hp>0).map(m=>({id:'a:'+m.id,x:m.x,y:m.y,radius:m.size,mass:physics.mass(m),ally:true,state:m}))],index=new SpatialIndex();
   for(const body of bodies)index.insert(body);
   for(const body of bodies){
     resolveOreContact(world,body.state,body.radius,body.mass);
     for(const other of index.query(body.state.x,body.state.y,body.radius)){
-      if(body.id>=other.id||(body.ally&&other.player)||(body.player&&other.ally))continue;const c=physics.contact(body.state,body.radius,body.mass,other.state,other.radius,other.mass);if(!c)continue;
+      if((body.player&&world.safe?.(body.state))||(other.player&&world.safe?.(other.state))||body.id>=other.id||(body.ally&&other.player)||(body.player&&other.ally))continue;const c=physics.contact(body.state,body.radius,body.mass,other.state,other.radius,other.mass);if(!c)continue;
       g.moveEntity(body.state,body.state.x+c.nx*c.overlap*c.share,body.state.y+c.ny*c.overlap*c.share,body.radius);
       g.moveEntity(other.state,other.state.x-c.nx*c.overlap*(1-c.share),other.state.y-c.ny*c.overlap*(1-c.share),other.radius);
       other.x=other.state.x;other.y=other.state.y;index.update(other);
