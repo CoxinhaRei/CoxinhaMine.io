@@ -139,7 +139,7 @@ class SharedWorld{
       for(const [id,participation] of awards){
         const profile=this.store.find(id);if(!profile)continue;
         {
-          const state=profile.state;const reward=(catalog.XP_REWARDS[catalog.NAMES.indexOf(entity.rarity.name)]||1e9)*(1+this.game.utility(state).xp);state.journal.experienceEarned=(state.journal.experienceEarned||0)+reward;state.xp+=reward*(1+(state.talentRanks?.xp || 0)*.1)*(this.realm==='cave' ? 1.8+(state.talentRanks?.spelunker || 0)*.12 : 1);
+          const state=profile.state;const reward=catalog.experienceReward(entity.rarity.name,isMob)*(1+this.game.utility(state).xp);state.journal.experienceEarned=(state.journal.experienceEarned||0)+reward;state.xp+=reward*(1+(state.talentRanks?.xp || 0)*.1)*(this.realm==='cave' ? 1.8+(state.talentRanks?.spelunker || 0)*.12 : 1);
           state.coins+=Math.round(5*Math.pow(1.8,tier));
           const tiers=isMob?'killTiers':'oreTiers';state.journal[tiers] ||= {};const galleryKey=isMob?entity.kind+':'+entity.rarity.name:entity.rarity.name;state.journal[tiers][galleryKey]=(state.journal[tiers][galleryKey]||0)+1;if(isMob){state.journal.biomeKills ||= {};const biome=this.realm;state.journal.biomeKills[biome]=(state.journal.biomeKills[biome]||0)+1;}
           const key=isMob ? 'kills' : 'mined';state.journal[key]=(state.journal[key] || 0)+1;

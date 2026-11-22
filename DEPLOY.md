@@ -19,7 +19,7 @@
 
 ## Conferir depois do deploy
 
-Abra /health no endereço do jogo. A resposta deve conter version: 1.5.5, build: release-155-vamp1, protocol: 6, guests: true e accountRequired: false. Se o banco Redis estiver configurado, confira também sharedSaves: true, durable: true e saveError: false.
+Abra /health no endereço do jogo. A resposta deve conter version: 1.5.5, build: release-155-xp1, protocol: 6, guests: true e accountRequired: false. Se o banco Redis estiver configurado, confira também sharedSaves: true, durable: true e saveError: false.
 
 Recarregue com Ctrl+F5. O aviso de desenvolvimento local foi retirado. Confira o changelog 1.5.5, o botão Como jogar, a espada inicial, as configurações do convidado e o login de uma conta existente. Teste dois convidados em abas diferentes para conferir o mundo compartilhado.
 
@@ -29,7 +29,7 @@ As contas existentes continuam no banco configurado; este ZIP não reseta contas
 
 Execute npm install e depois npm run dev. A prévia abre em http://127.0.0.1:3000, usa dados isolados em dev-data e não acessa o Redis de produção. A hospedagem deve usar npm start.
 
-## Patch de combate — release-155-vamp1
+## Patch de combate — release-155-xp1
 
 Vida base de 1.000, máximo de 400.000 com talentos/acessórios; Super+ causam ao menos 20.000 de dano de contato, por espécie e raridade, sem invulnerabilidade global após impactos. Quantium usa a vida canônica corrigida e ganha 12× a tabela anterior; Aleph mantém a progressão superior.
 
@@ -37,10 +37,17 @@ Reset de talentos funciona também durante a exploração, com confirmação e r
 
 Núcleo Quantium dentro de Absolut em cada mapa: 60% Quantium, 39,1% Absolut, 0,9% Aleph, com população limitada. Quantium não anuncia spawn no chat. Consulte PATCH-TITAN-COMBATE.md para valores e instalação.
 
-## Patch de talentos e recuperação — release-155-vamp1
+## Patch de talentos e recuperação — release-155-xp1
 
 - Vampirismo: 1,5% do dano real por nível, de I a XI (antes 1%). Acessórios de vampirismo também curam 50% mais; limite conjunto dos acessórios: 12%.
 - Minérios: contato de 1 a 12 HP/s antes das defesas, conforme raridade; projéteis naturais causam 8 de dano (antes 35). O dano dos mobs é preservado.
 - Alcance pode receber pontos diretamente, sem exigir Agilidade I. Regeneração I–XI também é independente: por nível, 35 de vida + 0,1% da vida máxima por segundo. O antigo nome Recuperação migra para Regeneração sem perder níveis.
 - Árvore reorganizada em Combate, Sobrevivência e Exploração. Cada talento mostra bônus atual, próximo bônus, requisitos, custos e botão de investir com confirmação do servidor. Pontos/níveis existentes são preservados.
 - Forja normal restaurada para combinar 5 itens iguais e tentar a próxima raridade: minérios, drops e acessórios. Não existe criação de acessórios por receitas; os itens iniciais vêm dos drops. Chosen continua na Forjadora do Deserto.
+
+## Patch de XP dos mobs — release-155-xp1
+
+- Mobs de Comum a Ultra: 3× o XP anterior. Super: 6×. Absolut: 8×. Quantium: 10×. Aleph: 12×.
+- XP base: Super 12 milhões, Absolut 96 milhões, Quantium 800 milhões, Aleph 6 bilhões, antes dos bônus de talentos, equipamentos e Caverna.
+- Mantidos XP da mineração, curva de níveis, dano, vida, drops, limite de participação de 5% e pagamento normal por integrante elegível do squad. Invocações e minions sem recompensa não geram XP.
+- A galeria mostra o novo XP base dos mobs. O multiplicador é calculado no servidor e vale também para abates feitos por habilidades e invocações do jogador.
