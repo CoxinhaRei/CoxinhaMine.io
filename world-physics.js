@@ -44,6 +44,7 @@ function resolveOreContact(world,state,radius,mass){
   }
 }
 function movePlayerBody(world,state,x,y){
+  const mount=world.arcana?.mountForState?.(state);if(mount){require('./summon-body').move(world,mount,x,y);state.x=mount.x;state.y=mount.y;mount.angle=state.aimAngle||0;return;}
   const radius=state.size||20;world.game.moveEntity(state,x,y,radius);
   resolveOreContact(world,state,radius,400*(radius/20)**2);
 }
@@ -59,7 +60,7 @@ function syncPlayerBody(world,state){
 function resolveWorldCollisions(world,actors){
   const g=world.game;oreIndex(world);
   const relevant=g.mobs.filter(m=>actors.some(a=>Math.hypot(a.state.x-m.x,a.state.y-m.y)<Math.max(3000,a.viewRadius || 3000)+m.size));
-  const bodies=[...actors.map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:a.state.size||20,mass:400*((a.state.size||20)/20)**2,player:true,state:a.state})),...relevant.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,mass:physics.mass(m),state:m})),...(world.arcana?.allies||[]).filter(m=>m.hp>0).map(m=>({id:'a:'+m.id,x:m.x,y:m.y,radius:m.size,mass:physics.mass(m),ally:true,state:m}))],index=new SpatialIndex();
+  const bodies=[...actors.filter(a=>!world.arcana?.mountForState?.(a.state)).map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:a.state.size||20,mass:400*((a.state.size||20)/20)**2,player:true,state:a.state})),...relevant.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,mass:physics.mass(m),state:m})),...(world.arcana?.allies||[]).filter(m=>m.hp>0).map(m=>({id:'a:'+m.id,x:m.x,y:m.y,radius:m.size,mass:physics.mass(m),ally:true,state:m}))],index=new SpatialIndex();
   for(const body of bodies)index.insert(body);
   for(const body of bodies){
     resolveOreContact(world,body.state,body.radius,body.mass);

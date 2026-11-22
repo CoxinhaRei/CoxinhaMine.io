@@ -21,7 +21,7 @@ module.exports=function playerStore(db,game){
   function sanitize(raw={}){
     const state=game.fresh();
     state.level=Math.floor(safeNumber(raw.level,1,1,99999));state.xp=safeNumber(raw.xp,0,0,Number.MAX_SAFE_INTEGER);state.coins=Math.floor(safeNumber(raw.coins));
-    state.xpToNext=game.xpForLevel(state.level);
+    state.ascensions=require('./public/game-catalog').ascensions(raw);state.summonsEnabled=raw.summonsEnabled!==false;state.xpToNext=require('./public/game-catalog').xpForLevel(state.level,state.ascensions);
     if(raw.progressionVersion!==3)state.xp=Math.floor(Math.min(.999,Math.max(0,state.xp/(Number(raw.xpToNext)||100)))*state.xpToNext);
     state.progressionVersion=3;
     state.talentRanks={};for(const [key,value] of Object.entries(raw.talentRanks || {}))if(/^[a-z]{1,20}$/.test(key))state.talentRanks[key]=Math.floor(safeNumber(value,0,0,11));
@@ -31,11 +31,11 @@ module.exports=function playerStore(db,game){
     for(const item of Array.isArray(raw.inventory) ? raw.inventory.slice(0,1000) : []){
       if(item?.type==='material'){
         const rarity=game.rarities.find(r=>r.name===(item.oreRarity || item.name?.replace(/^Minério\s+/i,'') || item.id?.replace(/_material$/,'')));
-        const amount=Math.floor(safeNumber(item.amount,1,0,1e12));if(rarity && amount)state.inventory.push({id:rarity.name+'_material',type:'material',name:rarity.name,chosenSerial:/^[a-f0-9-]{36}$/.test(item.chosenSerial||'')?item.chosenSerial:undefined,oreRarity:rarity.name,color:rarity.color,amount});
+        const amount=Math.floor(safeNumber(item.amount,1,0,1e12));if(rarity && amount)state.inventory.push({id:rarity.name+'_material',type:'material',name:rarity.name,chosenDropId:/^[a-f0-9-]{36}$/.test(item.chosenDropId||'')?item.chosenDropId:undefined,chosenSerial:/^[a-f0-9-]{36}$/.test(item.chosenSerial||'')?item.chosenSerial:undefined,oreRarity:rarity.name,color:rarity.color,amount});
       }else if(item?.type==='component'){
         const rarity=game.rarities.find(r=>r.name===item.rarity),definition=game.creatures.find(c=>c.kind===item.kind);
-        if(rarity && definition)state.inventory.push({id:item.kind+'_'+rarity.name,type:'component',kind:item.kind,name:game.lootName(item.kind),chosenSerial:/^[a-f0-9-]{36}$/.test(item.chosenSerial||'')?item.chosenSerial:undefined,rarity:rarity.name,color:rarity.color,amount:Math.floor(safeNumber(item.amount,1,1,1e12))});
-      }else if(item?.type==='accessory'){const accessory=game.expansion.accessory(item.accessoryId,item.rarity,item.amount);if(accessory?.amount){if(/^[a-f0-9-]{36}$/.test(item.chosenSerial||''))accessory.chosenSerial=item.chosenSerial;state.inventory.push(accessory);};
+        if(rarity && definition)state.inventory.push({id:item.kind+'_'+rarity.name,type:'component',kind:item.kind,name:game.lootName(item.kind),chosenDropId:/^[a-f0-9-]{36}$/.test(item.chosenDropId||'')?item.chosenDropId:undefined,chosenSerial:/^[a-f0-9-]{36}$/.test(item.chosenSerial||'')?item.chosenSerial:undefined,rarity:rarity.name,color:rarity.color,amount:Math.floor(safeNumber(item.amount,1,1,1e12))});
+      }else if(item?.type==='accessory'){const accessory=game.expansion.accessory(item.accessoryId,item.rarity,item.amount);if(accessory?.amount){if(/^[a-f0-9-]{36}$/.test(item.chosenDropId||''))accessory.chosenDropId=item.chosenDropId;if(/^[a-f0-9-]{36}$/.test(item.chosenSerial||''))accessory.chosenSerial=item.chosenSerial;state.inventory.push(accessory);};
       }else{
         const list={weapon:game.swords,pickaxe:game.pickaxes,armor:game.armors,utility:game.legacyUtilities}[item?.type];
         const recipe=list?.find(r=>r.name===item.name);if(recipe && !state.inventory.some(i=>i.type===item.type && i.name===item.name))state.inventory.push({...recipe,type:item.type,amount:1});
@@ -57,6 +57,7 @@ module.exports=function playerStore(db,game){
     state.pendingCraft=raw.pendingCraft && typeof raw.pendingCraft.from==='string' ? clone(raw.pendingCraft) : null;
     state.accessoryVersion=raw.accessoryVersion;state.accessories=Array.isArray(raw.accessories)?clone(raw.accessories):[];state.joinedAt=raw.joinedAt;state.playTimeMs=safeNumber(raw.playTimeMs);state.reviveReadyAt=safeNumber(raw.reviveReadyAt,0,0,Date.now()+180000);game.expansion.normalize(state);
     state.checkpoints=require('./checkpoints').normalize(raw.checkpoints);
+    require('./public/game-catalog').enforceEquipment(state,game.swords,game.pickaxes);
     state.maxHp=require('./public/game-catalog').playerHealth(state,game.utility(state).health);state.hp=state.maxHp;state.size=require('./public/game-catalog').playerRadius(game.utility(state).size);state.damage=10;
     const arrival=game.expansion.mapFor('garden').spawn;state.x=arrival.x;state.y=arrival.y;state.realm='garden';state.dead=false;state.deathCause='';state.selectedSlot=2;state.vx=0;state.vy=0;
     return state;

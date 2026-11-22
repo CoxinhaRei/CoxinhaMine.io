@@ -119,7 +119,7 @@ class SharedWorld{
   }
   damage(actor,entity,amount,isMob,options={}){
     if(entity.hp<=0)return;
-    const actual=Math.min(entity.hp,Math.max(0,amount)*(isMob && entity.shieldTime>0 ? .25 : 1));
+    const actual=Math.min(entity.hp,Math.max(0,amount)*catalog.ascensionPower(actor.state)*(isMob && entity.shieldTime>0 ? .25 : 1));
     entity.hp-=actual;
     if(actual>0&&!actor.state.dead){const rate=catalog.vampirismRate(actor.state,this.game.utility(actor.state).vampirism);actor.state.hp=Math.min(actor.state.maxHp,actor.state.hp+actual*rate);}
     if(!isMob)this.oreRevision++;
@@ -149,7 +149,7 @@ class SharedWorld{
       for(const [id,participation] of awards){
         const profile=this.store.find(id);if(!profile)continue;
         {
-          const state=profile.state;const reward=catalog.experienceReward(entity.rarity.name,isMob)*(1+this.game.utility(state).xp);state.journal.experienceEarned=(state.journal.experienceEarned||0)+reward;state.xp+=reward*(1+(state.talentRanks?.xp || 0)*.1)*(this.realm==='cave' ? 1.8+(state.talentRanks?.spelunker || 0)*.12 : 1);
+          const state=profile.state;const reward=catalog.experienceReward(entity.rarity.name,isMob)*(1+this.game.utility(state).xp)*(1+catalog.ascensions(state)*.1);state.journal.experienceEarned=(state.journal.experienceEarned||0)+reward;state.xp+=reward*(1+(state.talentRanks?.xp || 0)*.1)*(this.realm==='cave' ? 1.8+(state.talentRanks?.spelunker || 0)*.12 : 1);
           state.coins+=Math.round(5*Math.pow(1.8,tier));
           const tiers=isMob?'killTiers':'oreTiers';state.journal[tiers] ||= {};const galleryKey=isMob?entity.kind+':'+entity.rarity.name:entity.rarity.name;state.journal[tiers][galleryKey]=(state.journal[tiers][galleryKey]||0)+1;if(isMob){state.journal.biomeKills ||= {};const biome=this.realm;state.journal.biomeKills[biome]=(state.journal.biomeKills[biome]||0)+1;}
           const key=isMob ? 'kills' : 'mined';state.journal[key]=(state.journal[key] || 0)+1;
@@ -199,7 +199,7 @@ class SharedWorld{
     if(swarm&&this.naturalCount('mob',s.x,s.y,9,target)>=target)return;
     let nearby=g.mobs.filter(m=>m.hp>0&&!m.summoned&&Math.hypot(m.x-s.x,m.y-s.y)<areaRadius+m.size).length,spawned=0;
     for(let attempt=0;attempt<(swarm?policy.attempts:90)&&nearby<target&&spawned<(swarm?policy.wave:Infinity)&&g.mobs.length<180;attempt++){
-      const angle=random()*Math.PI*2,distance=swarm?1800+random()**2*8200:(region.safe?1600:500)+random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=atlas.roll(this.realm,x,y,random);
+      const angle=random()*Math.PI*2,distance=swarm?1800+random()**2*8200:(region.safe?1600:500)+random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=area.tier===9?catalog.mobSpawnTier(9,random):atlas.roll(this.realm,x,y,random);
       if(swarm&&area.tier!==9)continue;
       if(tier<0||!area.open||!this.canSpawnNatural('mob',x,y))continue;
       const pool=atlas.pool(this.realm,area.tier),definition=pool[Math.floor(random()*pool.length)],kind=definition==='beetle'&&random()<.00025?'invertedBeetle':definition,mob=g.createCreature(kind,g.rarities[tier],x,y);
@@ -294,7 +294,7 @@ class SharedWorld{
       }
       if(this.safe(s))s.hp=Math.min(s.maxHp,s.hp+s.maxHp*.04*dt);else s.hp=Math.min(s.maxHp,s.hp+catalog.regeneration(s,g.utility(s).regen)*dt);
     }
-    this.arcana.tick(dt);resolveWorldCollisions(this,this.live());
+    this.arcana.tick(dt);resolveWorldCollisions(this,this.live());this.arcana.syncMounts();
     for(const actor of live)this.collectDrops(actor,now);
     this.drops=this.drops.filter(d=>d.expiresAt>now && d.claims.size).slice(-512);
     this.tickLive=null;this.revision++;
@@ -302,10 +302,10 @@ class SharedWorld{
   collectDrops(actor,now=Date.now()){
     if(actor.inLobby || actor.state.dead)return;const state=actor.state,utility=this.game.utility(state),normalRadius=75+Math.min(1000,(utility.pickup || 0)+(utility.range || 0)*.9),radius=Math.max(normalRadius,utility.magnetRadius||0),magnetic=utility.magnetRadius>0,collected=[];let changed=false;
     for(const drop of this.drops){if(!drop.claims.has(actor.profile.id) || now-drop.createdAt<450 || drop.expiresAt<=now || Math.hypot(state.x-drop.x,state.y-drop.y)>radius || (!magnetic&&!this.game.lineClear(state.x,state.y,drop.x,drop.y)))continue;
-      drop.claims.delete(actor.profile.id);const item=drop.item;
+      drop.claims.delete(actor.profile.id);const item={...drop.item};if((item.rarity||item.oreRarity)==='CHOSEN')item.chosenDropId=require('node:crypto').randomUUID();
       if(item.type==='material')this.game.giveMaterial(state,this.game.rarities.find(r=>r.name===item.oreRarity),item.amount);
       else if(item.type==='accessory')expansion.add(state,item);
-      else{const existing=state.inventory.find(i=>i.type==='component' && i.kind===item.kind && i.rarity===item.rarity);if(existing)existing.amount+=item.amount;else state.inventory.push({...item,id:item.kind+'_'+item.rarity});}
+      else expansion.add(state,{...item,id:item.kind+'_'+item.rarity});
       state.journal.materialsCollected=(state.journal.materialsCollected||0)+item.amount;if(item.type==='material')state.journal.stonesCollected=(state.journal.stonesCollected||0)+item.amount;
       collected.push({id:drop.id,item,x:drop.x,y:drop.y});changed=true;
     }

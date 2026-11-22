@@ -71,7 +71,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
         if(kind==='equip'){
           if(!['weapon','pickaxe','armor'].includes(data.type))return false;
           const list={weapon:SWORDS,pickaxe:pickaxes,armor:ARMORS,utility:UTILITIES}[data.type],definition=list?.find(r=>r.name===data.name);
-          if(!definition || !player.inventory.some(i=>i.type===data.type && i.name===data.name))return false;
+          if(!definition || !GAME_CATALOG.canUse(player,definition) || !player.inventory.some(i=>i.type===data.type && i.name===data.name))return false;
           player.equipment[data.type]={...definition,type:data.type};player.selectedSlot={weapon:0,armor:1,pickaxe:2,utility:3}[data.type];return true;
         }
         if(kind==='sellComponent'){

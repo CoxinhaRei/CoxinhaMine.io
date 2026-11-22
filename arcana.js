@@ -4,6 +4,16 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
 const segmentDistance=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);};
 module.exports=class ArcanaWorld{
  constructor(world){this.world=world;this.allies=[];this.groups=new Map();this.effects=[];this.bolts=[];this.channels=new Map();this.hits=[];this.hitSeq=0;this.clock=0;this.mentor=world.realm==='jungle'?{...A.MENTOR}:null;}
+ mountForState(state){return state.mount&&this.allies.find(m=>m.id===state.mount.id&&m.hp>0&&m.rider===m.owner)||null;}
+ dismount(actor){const id=actor.state.mount?.id;for(const m of this.allies)if(m.id===id&&m.owner===actor.socket.id)delete m.rider;actor.state.mount=null;}
+ removeOwner(actor){this.dismount(actor);this.allies=this.allies.filter(m=>m.owner!==actor.socket.id);for(const key of this.groups.keys())if(key.startsWith(actor.socket.id+':'))this.groups.delete(key);}
+ summonAction(actor,data={}){const s=actor.state;if(actor.inLobby||s.dead)throw Error('Entre no mapa para controlar as invocações.');
+  if(data.action==='toggle'){s.summonsEnabled=!(s.summonsEnabled!==false);if(!s.summonsEnabled){this.dismount(actor);this.allies=this.allies.filter(m=>m.owner!==actor.socket.id);}this.world.store.save(actor.profile);}
+  else if(data.action==='dismount')this.dismount(actor);
+  else if(data.action==='mount'){if(s.summonsEnabled===false)throw Error('Invoque seus mobs primeiro.');const eligible=this.allies.filter(m=>m.owner===actor.socket.id&&m.hp>0&&E.tier(m.rarity)>=7&&distance(m,s)<=m.size+450);eligible.sort((a,b)=>distance(a,s)-distance(b,s));const m=data.id?eligible.find(m=>m.id===data.id):eligible[0];if(!m)throw Error('Aproxime-se de uma invocação sua de raridade Super ou superior.');this.dismount(actor);m.rider=actor.socket.id;s.x=m.x;s.y=m.y;s.mount={id:m.id,kind:m.kind,name:m.name,rarity:m.rarity,speed:m.speed,radius:m.size,mass:m.mass};s.vx=s.vy=0;}
+  else throw Error('Controle inválido.');actor.socket.emit('playerState',this.world.store.clientState(actor.profile));return true;
+ }
+ syncMounts(){for(const actor of Object.values(this.world.actors||{})){if(actor.state.realm!==this.world.realm)continue;const m=this.mountForState(actor.state);if(!m||actor.inLobby||actor.state.dead||actor.state.summonsEnabled===false){if(actor.state.mount)this.dismount(actor);continue;}actor.state.x=m.x;actor.state.y=m.y;actor.state.mount={id:m.id,kind:m.kind,name:m.name,rarity:m.rarity,speed:m.speed,radius:m.size,mass:m.mass};}}
  wall(x,y,r){return this.world.realm==='cave'?this.world.game.wall(x,y,r):atlas.blocked(this.world.realm,x,y,r);}
  nearMentor(actor){return !!this.mentor&&!actor.inLobby&&!actor.state.dead&&actor.state.realm==='jungle'&&distance(actor.state,this.mentor)<300;}
  action(actor,data){
@@ -62,8 +72,8 @@ module.exports=class ArcanaWorld{
   return {id:'beam-'+actor.socket.id,kind:'beam',channel:true,owner:actor.socket.id,x:s.x,y:s.y,tx:end.x,ty:end.y,width:spell.width,color:spell.color,createdAt:Date.now()-20,expiresAt:Date.now()+180};
  }
  effect(fx){this.effects.push(fx);if(this.effects.length>64)this.effects.shift();}
- projectileTargets(){const live=new Map(this.world.live().map(a=>[a.socket.id,a]));return this.allies.filter(m=>{const a=live.get(m.owner),ref=a?.state.accessories?.[m.slot];return m.hp>0&&ref?.accessoryId===m.eggId&&ref.rarity===m.rarity&&a.state.inventory.some(i=>i.accessoryId===m.eggId&&i.rarity===m.rarity&&i.amount>0);});}
- retireSummon(m){const group=this.groups.get(m.group);if(group)group.ready[m.index]=this.clock+m.cooldown;this.allies=this.allies.filter(a=>a.id!==m.id);this.effect({id:crypto.randomUUID(),kind:'summonFade',x:m.x,y:m.y,radius:m.size,color:'#ff9c45',createdAt:Date.now(),expiresAt:Date.now()+600});}
+ projectileTargets(){const live=new Map(this.world.live().map(a=>[a.socket.id,a]));return this.allies.filter(m=>{const a=live.get(m.owner),ref=a?.state.accessories?.[m.slot];return m.hp>0&&a.state.summonsEnabled!==false&&require('./public/game-catalog').canUse(a.state,ref)&&ref?.accessoryId===m.eggId&&ref.rarity===m.rarity&&a.state.inventory.some(i=>i.accessoryId===m.eggId&&i.rarity===m.rarity&&i.amount>0);});}
+ retireSummon(m){const actor=this.world.actors[m.owner];if(actor?.state.mount?.id===m.id)this.dismount(actor);const group=this.groups.get(m.group);if(group)group.ready[m.index]=this.clock+m.cooldown;this.allies=this.allies.filter(a=>a.id!==m.id);this.effect({id:crypto.randomUUID(),kind:'summonFade',x:m.x,y:m.y,radius:m.size,color:'#ff9c45',createdAt:Date.now(),expiresAt:Date.now()+600});}
  hurtSummon(m,amount){if(!this.allies.includes(m)||m.hp<=0||!Number.isFinite(amount)||amount<=0)return false;m.hp=Math.max(0,m.hp-amount);this.effect({id:crypto.randomUUID(),kind:'allyHit',x:m.x,y:m.y,radius:Math.min(90,m.size*.7),color:'#ffd091',createdAt:Date.now(),expiresAt:Date.now()+250});if(m.hp<=0)this.retireSummon(m);return true;}
  blast(b){const g=this.world.game;for(const mob of [...g.mobs])if(distance(mob,b)<=mob.size+b.spell.radius&&g.lineClear(b.x,b.y,mob.x,mob.y))this.world.damage(b.actor,mob,b.spell.damage,true);this.effect({...b,id:crypto.randomUUID(),kind:'burst',actor:undefined,spell:undefined,hit:undefined,createdAt:Date.now(),expiresAt:Date.now()+650});}
  tick(dt){
@@ -82,11 +92,12 @@ module.exports=class ArcanaWorld{
   // Groups are tied to an equipped slot and a live session, never a permanent world mob.
   const valid=new Set();for(const a of actors){let count=this.allies.filter(m=>m.ownerId===a.profile.id&&m.hp>0).length;const boosts=require('./public/game-catalog').summonBoosts(a.state,E.bonuses(a.state));
    for(const [slot,ref] of (a.state.accessories||[]).slice(0,E.slots(a.state.level)).entries()){
-    const egg=ref&&A.EGGS.find(e=>e.id===ref.accessoryId);if(!egg||!a.state.inventory.some(i=>i.accessoryId===ref.accessoryId&&i.rarity===ref.rarity&&i.amount>0))continue;
+    const egg=ref&&A.EGGS.find(e=>e.id===ref.accessoryId);if(!egg||!require('./public/game-catalog').canUse(a.state,ref)||!a.state.inventory.some(i=>i.accessoryId===ref.accessoryId&&i.rarity===ref.rarity&&i.amount>0))continue;
     const key=a.socket.id+':'+slot+':'+ref.accessoryId+':'+ref.rarity;valid.add(key);let group=this.groups.get(key);if(!group){group={ready:Array(egg.count).fill(0)};this.groups.set(key,group);}
     const rarity=g.rarities.find(r=>r.name===ref.rarity);if(!rarity)continue;
     if(!group.base){const b=g.createCreature(egg.kind,rarity,a.state.x,a.state.y);group.base={size:b.size,maxHp:b.maxHp,damage:b.damage,speed:b.speed};}
     group.stats=A.summonStats(group.base,egg,E.tier(ref.rarity),boosts);
+    if(a.state.summonsEnabled===false)continue;
     for(let n=0;n<egg.count;n++){if(this.allies.some(m=>m.group===key&&m.index===n&&m.hp>0)||this.clock<group.ready[n]||count>=A.LIMIT||this.allies.length>=192)continue;
      const base=g.createCreature(egg.kind,rarity,a.state.x,a.state.y),r=base.size*.7,angle=n*Math.PI*2/egg.count,x=a.state.x+Math.cos(angle)*(r+80),y=a.state.y+Math.sin(angle)*(r+80);
      if(this.wall(x,y,r))continue;
@@ -95,11 +106,11 @@ module.exports=class ArcanaWorld{
     }
    }
   }
-  this.allies=this.allies.filter(m=>valid.has(m.group)&&active.has(m.ownerId));for(const key of this.groups.keys())if(!valid.has(key))this.groups.delete(key);
+  this.allies=this.allies.filter(m=>valid.has(m.group)&&active.has(m.ownerId)&&active.get(m.ownerId).state.summonsEnabled!==false);for(const key of this.groups.keys())if(!valid.has(key))this.groups.delete(key);
   const targetMobs=g.mobs.filter(m=>m.hp>0&&!m.noRewards&&!m.summoned);
   for(const m of this.allies){const a=active.get(m.ownerId);if(!a)continue;const stats=this.groups.get(m.group)?.stats;if(stats){if(m.maxHp!==stats.maxHp)m.hp=Math.min(stats.maxHp,m.hp/Math.max(1,m.maxHp)*stats.maxHp);Object.assign(m,stats);}let target=null,best=2600+m.size;for(const enemy of (w.safe(a.state)?[]:targetMobs)){const d=distance(m,enemy)-enemy.size;if(d<best&&g.lineClear(m.x,m.y,enemy.x,enemy.y)){best=d;target=enemy;}}
    const goal=target||{x:a.state.x+Math.cos(m.index*2.4)*150,y:a.state.y+Math.sin(m.index*2.4)*150};const d=distance(m,goal),contact=m.size+(target?.size||65);m.angle=Math.atan2(goal.y-m.y,goal.x-m.x);m.moving=d>contact*.8;
-   if(!target&&d>4500){m.x=a.state.x;m.y=a.state.y;}else if(m.moving)summonBody.move(w,m,m.x+Math.cos(m.angle)*Math.min(d-contact*.7,m.speed*dt),m.y+Math.sin(m.angle)*Math.min(d-contact*.7,m.speed*dt));
+   if(m.rider===a.socket.id){m.angle=a.state.aimAngle||0;m.moving=!!a.state.moving;m.x=a.state.x;m.y=a.state.y;}else if(!target&&d>4500){m.x=a.state.x;m.y=a.state.y;}else if(m.moving)summonBody.move(w,m,m.x+Math.cos(m.angle)*Math.min(d-contact*.7,m.speed*dt),m.y+Math.sin(m.angle)*Math.min(d-contact*.7,m.speed*dt));
    m.phase+=dt*(m.moving?8:1);
    if(target&&target.hp>0&&distance(m,target)<=m.size+target.size*.8+1&&this.clock>=m.hurtAt){m.hurtAt=this.clock+.9;m.hp-=target.damage||1;}
    // One cooldown for the entire body. Every touching rock/enemy is hit once;
@@ -107,7 +118,7 @@ module.exports=class ArcanaWorld{
    if(m.hp>0&&!w.safe(a.state)&&this.clock>=m.attackAt){const contacts=summonBody.targets(w,m);if(contacts.length){m.attackAt=this.clock+m.attackInterval;for(const {entity,isMob} of contacts)this.hit(a,entity,m.damage,isMob,m);}}
    if(m.hp<=0)this.retireSummon(m);
   }
-  this.allies=this.allies.filter(m=>m.hp>0);
+  this.allies=this.allies.filter(m=>m.hp>0);this.syncMounts();
  }
- snapshot(actor){const s=actor.state,near=e=>distance(e,s)<(actor.viewRadius||3000)+(e.size||e.radius||0)+500;return {magicHits:this.hits.filter(near).slice(-128),mentor:this.mentor&&near(this.mentor)?this.mentor:null,mana:s.mana||0,maxMana:s.maxMana||100,beamActive:this.channels.has(actor.socket.id),magicReadyIn:Math.max(0,(actor.magicReady||0)-this.clock),allies:this.allies.filter(near).map(({group,ownerId,attackAt,hurtAt,cooldown,...m})=>m),magicEffects:[...this.effects,...Array.from(this.channels.values(),c=>c.fx).filter(Boolean)].filter(e=>near(e)||Math.hypot(e.tx-s.x,e.ty-s.y)<8000||segmentDistance(s,e,{x:e.tx??e.x,y:e.ty??e.y})<(e.width||0)+8000).map(({actor,spell,hit,...e})=>e),magicBolts:this.bolts.filter(near).map(b=>({id:b.id,kind:b.kind,x:b.x,y:b.y,radius:18,color:b.color}))};}
+ snapshot(actor){const s=actor.state,near=e=>distance(e,s)<(actor.viewRadius||3000)+(e.size||e.radius||0)+500;return {mount:s.mount||null,summonsEnabled:s.summonsEnabled!==false,magicHits:this.hits.filter(near).slice(-128),mentor:this.mentor&&near(this.mentor)?this.mentor:null,mana:s.mana||0,maxMana:s.maxMana||100,beamActive:this.channels.has(actor.socket.id),magicReadyIn:Math.max(0,(actor.magicReady||0)-this.clock),allies:this.allies.filter(near).map(({group,ownerId,attackAt,hurtAt,cooldown,...m})=>m),magicEffects:[...this.effects,...Array.from(this.channels.values(),c=>c.fx).filter(Boolean)].filter(e=>near(e)||Math.hypot(e.tx-s.x,e.ty-s.y)<8000||segmentDistance(s,e,{x:e.tx??e.x,y:e.ty??e.y})<(e.width||0)+8000).map(({actor,spell,hit,...e})=>e),magicBolts:this.bolts.filter(near).map(b=>({id:b.id,kind:b.kind,x:b.x,y:b.y,radius:18,color:b.color}))};}
 };
