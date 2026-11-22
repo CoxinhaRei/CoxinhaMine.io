@@ -20,7 +20,7 @@ function buildCaveMaze(){
   CAVE.deposits=[];
   const chamberRandom=seededRandom(2983);
   for(let y=15000;y<CAVE.height-12000;y+=20000)for(let x=15000;x<CAVE.width-12000;x+=20000){
-    const roll=chamberRandom(),index=MAP_ATLAS.at('cave',x,y).tier===8 ? (roll<.008?9:roll<.30?8:roll<.40?7:-1) : -1;
+    const roll=chamberRandom(),index=MAP_ATLAS.at('cave',x,y).tier===9 ? MAP_ATLAS.rollTier(9,()=>roll) : MAP_ATLAS.at('cave',x,y).tier===8 ? (roll<.008?9:roll<.30?8:roll<.40?7:-1) : -1;
     if(index<0)continue;
     const rarity=rarities[index],size=GAME_CATALOG.oreRadius(rarity.name);
     if(MAP_ATLAS.blocked('cave',x,y,size+150))continue;

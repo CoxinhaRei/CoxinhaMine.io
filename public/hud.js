@@ -7,7 +7,7 @@ gameHud.innerHTML = `
     <button class="hud-button guild" data-panel="guild" title="Guilda" aria-label="Guilda">♟</button>
     <button class="hud-button" data-panel="inventory" title="Inventário (B)" aria-label="Inventário">▣</button>
     <button class="hud-button talents" data-panel="talents" title="Talentos (T)" aria-label="Talentos">★</button>
-    <button class="hud-button craft" data-panel="craft" title="Crafting (C)" aria-label="Crafting">⚒</button>
+
     <button class="hud-button shop" data-panel="shop" title="Loja (V)" aria-label="Loja">♜</button>
     <button class="hud-button" data-panel="gallery" title="Galeria" aria-label="Galeria">▤</button>
     <button class="hud-button" data-panel="achievements" title="Conquistas" aria-label="Conquistas">✦</button>
@@ -40,6 +40,7 @@ const mapContext = mapCanvas.getContext('2d');
 let lastEquipmentKey = '';
 
 function toggleHudPanel(panel) {
+  if(panel==='craft')return;
   if(panel==='accessories'){openAccessoryInventory();return;}
   const basic={inventory:inventoryOpen,talents:talentsOpen,craft:craftOpen,shop:shopOpen};
   const wasOpen=basic[panel] ?? extraPanel===panel;

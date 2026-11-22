@@ -34,18 +34,17 @@ opacity:0;
 pointer-events:none;
 }
 </style>
-<link rel="stylesheet" href="hud.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="workshop.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="systems.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="adventure.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="account-menu.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="mobile-play.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="region-client.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="expansion.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="item-profile.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="tutorial.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="craft-ui.css?v=1.5.5-combat2">
-<link rel="stylesheet" href="map-atlas.css?v=1.5.5-combat2">
+<link rel="stylesheet" href="hud.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="workshop.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="systems.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="adventure.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="account-menu.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="mobile-play.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="region-client.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="expansion.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="item-profile.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="tutorial.css?v=1.5.5-titan1">
+<link rel="stylesheet" href="map-atlas.css?v=1.5.5-titan1">
 </head>
 
 <body>
@@ -53,7 +52,6 @@ pointer-events:none;
 <div id="mobileUI">
   <button onclick="inventoryOpen = !inventoryOpen">🎒</button>
   <button onclick="shopOpen = !shopOpen">🛒</button>
-  <button onclick="craftOpen = !craftOpen">⚒️</button>
   <button onclick="talentsOpen = !talentsOpen">⭐</button>
   <button onclick="sellAll()">💰</button>
 </div>
@@ -76,14 +74,14 @@ pointer-events:none;
 <canvas id="game"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="region-client.js?v=1.5.5-combat2"></script>
-<script src="movement-net.js?v=1.5.5-combat2"></script>
-<script src="game-catalog.js?v=1.5.5-combat2"></script>
-<script src="map-atlas.js?v=1.5.5-combat2"></script>
-<script src="body-physics.js?v=1.5.5-combat2"></script>
-<script src="arcana-catalog.js?v=1.5.5-combat2"></script>
-<script src="magnet-catalog.js?v=1.5.5-combat2"></script>
-<script src="expansion.js?v=1.5.5-combat2"></script>
+<script src="region-client.js?v=1.5.5-titan1"></script>
+<script src="movement-net.js?v=1.5.5-titan1"></script>
+<script src="game-catalog.js?v=1.5.5-titan1"></script>
+<script src="map-atlas.js?v=1.5.5-titan1"></script>
+<script src="body-physics.js?v=1.5.5-titan1"></script>
+<script src="arcana-catalog.js?v=1.5.5-titan1"></script>
+<script src="magnet-catalog.js?v=1.5.5-titan1"></script>
+<script src="expansion.js?v=1.5.5-titan1"></script>
 
 <script>
 // ===== SAFE START =====
@@ -134,7 +132,7 @@ const pickaxes = [
   {name:"Void", power:200, passive:"void"},
   {name:"Solar", power:400, passive:"solar"}
 ];
-pickaxes.forEach((tool,index)=>tool.power=GAME_CATALOG.PICKAXE_POWER[index]);
+pickaxes.forEach((tool,index)=>{tool.power=GAME_CATALOG.PICKAXE_POWER[index];tool.type='pickaxe';});
 const ORE_VALUES = {
   "Comum": 5,
   "Incomum": 10,
@@ -227,8 +225,7 @@ let hoveredSlot = null;
 let player = {
   x:PLAZA_SPAWN.x,
   y:PLAZA_SPAWN.y,
-  hp:100,
-  maxHp:100,
+  hp:1000,maxHp:1000,
   size:20,
   name:"Player",
 
@@ -286,7 +283,7 @@ if(e.key === "2"){
 if(e.key === "3"){
   player.selectedSlot = 2;
 }
-  if(!typing && e.key === "c") toggleHudPanel('craft');
+
   if(!typing && e.key === "b") toggleHudPanel('inventory');
   if(!typing && e.key === "v") toggleHudPanel('shop');
   if(!typing && e.key === "t") toggleHudPanel('talents');
@@ -490,7 +487,7 @@ function checkLevelUp(){
   }
 }
 function getRandomRarityFromZone(zone){
-  if(/^Z[0-8]$/.test(zone))return rarities[MAP_ATLAS.rollTier(Number(zone.slice(1)))];
+  if(/^Z[0-9]$/.test(zone))return rarities[MAP_ATLAS.rollTier(Number(zone.slice(1)))];
 
   let chances = ZONE_CHANCES[zone];
   if(!chances) return rarities[0];
@@ -1023,44 +1020,43 @@ async function startGame(){
 }
 </script>
 
-<script src="progression.js?v=1.5.5-combat2"></script>
-<script src="systems.js?v=1.5.5-combat2"></script>
-<script src="adventure.js?v=1.5.5-combat2"></script>
-<script src="gear.js?v=1.5.5-combat2"></script>
-<script src="cave.js?v=1.5.5-combat2"></script>
-<script src="boss-mobs.js?v=1.5.5-combat2"></script>
-<script src="expansion-game.js?v=1.5.5-combat2"></script>
-<script src="garden-models.js?v=1.5.5-combat2"></script>
-<script src="realm-scenery.js?v=1.5.5-combat2"></script>
-<script src="workshop.js?v=1.5.5-combat2"></script>
-<script src="equipment-slots.js?v=1.5.5-combat2"></script>
-<script src="item-details.js?v=1.5.5-combat2"></script>
-<script src="item-tooltips.js?v=1.5.5-combat2"></script>
-<script src="profile-view.js?v=1.5.5-combat2"></script>
-<script src="inspection-shortcuts.js?v=1.5.5-combat2"></script>
-<script src="hud.js?v=1.5.5-combat2"></script>
-<script src="panels.js?v=1.5.5-combat2"></script>
-<script src="admin-ui.js?v=1.5.5-combat2"></script>
-<script src="inventory.js?v=1.5.5-combat2"></script>
-<script src="adventure-ui.js?v=1.5.5-combat2"></script>
-<script src="multiplayer.js?v=1.5.5-combat2"></script>
-<script src="account-menu.js?v=1.5.5-combat2"></script>
-<script src="secure-ui.js?v=1.5.5-combat2"></script>
-<script src="mobile-play.js?v=1.5.5-combat2"></script>
-<script src="world-presentation.js?v=1.5.5-combat2"></script>
-<script src="presentation.js?v=1.5.5-combat2"></script>
-<script src="expansion-ui.js?v=1.5.5-combat2"></script>
-<script src="craft-layout.js?v=1.5.5-combat2"></script>
-<script src="craft-ui.js?v=1.5.5-combat2"></script>
-<script src="social-ui.js?v=1.5.5-combat2"></script>
-<script src="realms-ui.js?v=1.5.5-combat2"></script>
-<script src="menu-tour.js?v=1.5.5-combat2"></script>
-<script src="menu-preview.js?v=1.5.5-combat2"></script>
-<script src="guild-ui.js?v=1.5.5-combat2"></script>
-<script src="quick-tutorial.js?v=1.5.5-combat2"></script>
-<script src="tutorial-ui.js?v=1.5.5-combat2"></script>
-<script src="map-atlas-ui.js?v=1.5.5-combat2"></script>
-<script src="arcana-ui.js?v=1.5.5-combat2"></script>
+<script src="progression.js?v=1.5.5-titan1"></script>
+<script src="systems.js?v=1.5.5-titan1"></script>
+<script src="adventure.js?v=1.5.5-titan1"></script>
+<script src="gear.js?v=1.5.5-titan1"></script>
+<script src="cave.js?v=1.5.5-titan1"></script>
+<script src="boss-mobs.js?v=1.5.5-titan1"></script>
+<script src="expansion-game.js?v=1.5.5-titan1"></script>
+<script src="garden-models.js?v=1.5.5-titan1"></script>
+<script src="realm-scenery.js?v=1.5.5-titan1"></script>
+<script src="workshop.js?v=1.5.5-titan1"></script>
+<script src="equipment-slots.js?v=1.5.5-titan1"></script>
+<script src="item-details.js?v=1.5.5-titan1"></script>
+<script src="item-tooltips.js?v=1.5.5-titan1"></script>
+<script src="profile-view.js?v=1.5.5-titan1"></script>
+<script src="inspection-shortcuts.js?v=1.5.5-titan1"></script>
+<script src="hud.js?v=1.5.5-titan1"></script>
+<script src="panels.js?v=1.5.5-titan1"></script>
+<script src="admin-ui.js?v=1.5.5-titan1"></script>
+<script src="inventory.js?v=1.5.5-titan1"></script>
+<script src="adventure-ui.js?v=1.5.5-titan1"></script>
+<script src="multiplayer.js?v=1.5.5-titan1"></script>
+<script src="account-menu.js?v=1.5.5-titan1"></script>
+<script src="secure-ui.js?v=1.5.5-titan1"></script>
+<script src="mobile-play.js?v=1.5.5-titan1"></script>
+<script src="world-presentation.js?v=1.5.5-titan1"></script>
+<script src="presentation.js?v=1.5.5-titan1"></script>
+<script src="expansion-ui.js?v=1.5.5-titan1"></script>
+
+<script src="social-ui.js?v=1.5.5-titan1"></script>
+<script src="realms-ui.js?v=1.5.5-titan1"></script>
+<script src="menu-tour.js?v=1.5.5-titan1"></script>
+<script src="menu-preview.js?v=1.5.5-titan1"></script>
+<script src="guild-ui.js?v=1.5.5-titan1"></script>
+<script src="quick-tutorial.js?v=1.5.5-titan1"></script>
+<script src="tutorial-ui.js?v=1.5.5-titan1"></script>
+<script src="map-atlas-ui.js?v=1.5.5-titan1"></script>
+<script src="arcana-ui.js?v=1.5.5-titan1"></script>
 </body>
 </html>
 

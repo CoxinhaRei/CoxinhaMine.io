@@ -42,14 +42,24 @@
  MOBS.push({kind:'invertedBeetle',name:'Besouro Invertido',temperament:'neutral',hp:140,damage:10,speed:74,color:'#ad7292',drop:'Semente de Retorno',biome:'garden',variantOf:'beetle'});
  const ACCESSORIES=[
   ['sting','Pingente do Ferrão','bee','sting',{damage:.06}],['carapace','Broche Rubro','ladybug','shell',{defense:.015}],['mandible','Mandíbula de Ferro','ant','fang',{mining:.09}],['silk','Manto de Seda','spider','web',{defense:.012,regen:.1}],
-  ['shell','Escudo de Quitina','beetle','shell',{health:6}],['venom','Frasco de Veneno','centipede','vial',{damage:.04,vampirism:.001}],['core','Coração do Guardião','guardian','core',{mining:.06,range:6}],
-  ['coral','Garra de Coral','crab','fang',{damage:.04,mining:.04}],['spiral','Concha das Marés','hermit','shell',{regen:.2}],['tide','Escama das Marés','turtle','shell',{defense:.015,health:3}],
-  ['mantis','Lâmina Verde','mantis','fang',{haste:.012}],['wings','Asas de Libélula','dragonfly','wings',{speed:.035,zoom:.02}],['dew','Orvalho Vivo','frog','vial',{regen:.15,health:3}],
-  ['frost','Carapaça do Inverno','icebeetle','shell',{defense:.012,slowResist:.025}],['moth','Asas da Aurora','snowmoth','wings',{vision:20,speed:.02}],['glacier','Coração Glacial','iceTornado','core',{slowResist:.05,health:4}],
+  ['shell','Escudo de Quitina','beetle','shell',{health:800,defense:.015}],['venom','Frasco de Veneno','centipede','vial',{damage:.04,vampirism:.001}],['core','Coração do Guardião','guardian','core',{mining:.06,range:6}],
+  ['coral','Garra de Coral','crab','fang',{damage:.04,mining:.04}],['spiral','Concha das Marés','hermit','shell',{regen:.2}],['tide','Escama das Marés','turtle','shell',{defense:.02,health:600}],
+  ['mantis','Lâmina Verde','mantis','fang',{haste:.012}],['wings','Asas de Libélula','dragonfly','wings',{speed:.035,zoom:.02}],['dew','Orvalho Vivo','frog','vial',{regen:12,health:400}],
+  ['frost','Carapaça do Inverno','icebeetle','shell',{defense:.012,slowResist:.025}],['moth','Asas da Aurora','snowmoth','wings',{vision:20,speed:.02}],['glacier','Coração Glacial','iceTornado','core',{slowResist:.05,health:900}],
   ['scorpion','Talismã do Escorpião','scorpion','sting',{damage:.05,vampirism:.001}],['sun','Élitro Solar','scarab','wings',{speed:.025,xp:.025}],['storm','Olho da Tempestade','sandTornado','eye',{range:10,slowResist:.03}],['magnet','Magneto Normal','guardian','magnet',{vision:12,mining:.04}]
  ].map(([id,name,kind,model,bonuses])=>({id,name,kind,model,bonuses,materials:8,components:3}));
- ACCESSORIES.push({id:'revival',name:'Relicário do Retorno',kind:'invertedBeetle',model:'revive',bonuses:{health:2},materials:8,components:3,revive:true});
+ ACCESSORIES.push({id:'revival',name:'Relicário do Retorno',kind:'invertedBeetle',model:'revive',bonuses:{health:300},materials:8,components:3,revive:true});
  ACCESSORIES.push({id:'orb',name:'Orbe Mágica',kind:'frog',model:'orb',bonuses:{},materials:12,components:5},...arcana.EGGS.map(e=>({...e,model:'egg',bonuses:{},materials:10,components:5})));
+ ACCESSORIES.push(...[
+  ['luckyWing','Élitro da Esquiva','ladybug','wings',{dodge:.008,speed:.02}],
+  ['silkStep','Passo de Seda','spider','web',{dodge:.01,haste:.01}],
+  ['dragonEye','Olho Prismático','dragonfly','eye',{dodge:.012,zoom:.025}],
+  ['snowVeil','Véu de Neve','snowmoth','wings',{dodge:.01,vision:25}],
+  ['titanHeart','Coração Titânico','turtle','core',{health:1200,regen:10}],
+  ['frostHeart','Coração da Geada','icebeetle','core',{health:1000,defense:.02}],
+  ['sandFang','Presa das Dunas','scorpion','fang',{damage:.1,haste:.015}],
+  ['coralCrown','Coroa de Coral','crab','shell',{health:700,mining:.08}]
+ ].map(([id,name,kind,model,bonuses])=>({id,name,kind,model,bonuses,materials:8,components:3})));
  const LEGACY={'Lanterna':['moth','Raro'],'Lente de Libélula':['wings','Épico'],'Botas de Gafanhoto':['wings','Lendário'],'Núcleo de Escavação':['mandible','Mítico'],'Observatório Astral':['moth','ULTRA'],'Asas de Fóton':['wings','SUPER'],'Magneto Cósmico':['magnet','ABSOLUT'],'Reator Quantium':['core','QUANTIUM'],'Olho de Aleph':['storm','ALEPH']};
  const num=(v,max=Number.MAX_SAFE_INTEGER)=>Math.min(max,Math.max(0,Math.floor(Number(v)||0)));
  const tier=name=>RARITIES.findIndex(r=>r===name),key=item=>item.type+':'+(item.accessoryId || item.kind || '')+':'+(item.oreRarity || item.rarity || item.name);
@@ -66,7 +76,7 @@
   for(const name of ['craftAttempts','craftsDestroyed','materialsCollected','stonesCollected','experienceEarned'])state.journal[name]=num(state.journal[name]);
   state.joinedAt=num(state.joinedAt)||Date.now();return state;
  }
- function bonuses(state){const out={speed:0,mining:0,damage:0,vision:0,zoom:0,haste:0,defense:0,health:0,regen:0,vampirism:0,xp:0,range:0,pickup:0,magnetRadius:0,slowResist:0};for(const ref of (state.accessories||[]).slice(0,slots(state.level))){if(!ref)continue;const def=ACCESSORIES.find(a=>a.id===ref.accessoryId),scale=SCALE[tier(ref.rarity)]||0;if(def?.id==='magnet')out.magnetRadius=Math.max(out.magnetRadius,magnetSpec(ref.rarity)?.radius||0);if(def)for(const [k,v] of Object.entries(def.bonuses))out[k]+=v*scale;}const caps={speed:2,mining:6,damage:4,vision:1800,zoom:.55,haste:.65,defense:.65,health:3000,regen:25,vampirism:.08,xp:2,range:900,pickup:1000,magnetRadius:magnets.MAX_RADIUS,slowResist:1};for(const k of Object.keys(out))out[k]=Math.min(out[k],caps[k]);out.zoom=Math.max(.45,1-out.zoom);for(const [name,value] of Object.entries(combat.armorBonuses(state.equipment?.armor?.name)))out[name]=(out[name]||0)+value;return out;}
+ function bonuses(state){const out={speed:0,mining:0,damage:0,vision:0,zoom:0,haste:0,defense:0,health:0,regen:0,vampirism:0,xp:0,range:0,pickup:0,magnetRadius:0,slowResist:0,dodge:0};for(const ref of (state.accessories||[]).slice(0,slots(state.level))){if(!ref)continue;const def=ACCESSORIES.find(a=>a.id===ref.accessoryId),scale=SCALE[tier(ref.rarity)]||0;if(def?.id==='magnet')out.magnetRadius=Math.max(out.magnetRadius,magnetSpec(ref.rarity)?.radius||0);if(def)for(const [k,v] of Object.entries(def.bonuses))out[k]+=v*scale;}const caps={speed:2,mining:6,damage:4,vision:1800,zoom:.55,haste:.65,defense:.65,health:300000,regen:3000,vampirism:.08,xp:2,range:900,pickup:1000,magnetRadius:magnets.MAX_RADIUS,slowResist:1,dodge:.6};for(const k of Object.keys(out))out[k]=Math.min(out[k],caps[k]);out.zoom=Math.max(.45,1-out.zoom);for(const [name,value] of Object.entries(combat.armorBonuses(state.equipment?.armor?.name)))out[name]=(out[name]||0)+value;return out;}
  function equip(state,index,ref){normalize(state);if(!Number.isInteger(index)||index<0||index>=slots(state.level))return false;if(!ref){state.accessories[index]=null;return true;}const item=accessory(ref.accessoryId,ref.rarity);if(!item)return false;const k=key(item),owned=state.inventory.filter(i=>key(i)===k).reduce((n,i)=>n+num(i.amount),0),used=state.accessories.filter((r,n)=>n!==index && r && key({type:'accessory',...r})===k).length;if(used>=owned)return false;state.accessories[index]={accessoryId:item.accessoryId,rarity:item.rarity};return true;}
  function componentCount(state,kind){return state.inventory.filter(i=>i.type==='component'&&i.kind===kind&&i.rarity!=='CHOSEN').reduce((n,i)=>n+num(i.amount),0);}
  const MAX_CRAFT_BATCH=10000,TORNADO_PULL_SCALE=.3;

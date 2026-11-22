@@ -14,7 +14,7 @@ const TALENTS = [
   {id:'fov',name:'Visão ampliada',symbol:'◉',description:'+8% de campo de visão máximo por nível. Ajuste com o scroll.',parent:'speed'},
   {id:'damage',name:'Impacto',symbol:'⚒',description:'+12% de dano por nível.',parent:null},
   {id:'speed',name:'Agilidade',symbol:'➜',description:'+8% de velocidade por nível.',parent:null},
-  {id:'vitality',name:'Vitalidade',symbol:'♥',description:'+20 de vida máxima por nível.',parent:null},
+  {id:'vitality',name:'Vitalidade',symbol:'♥',description:'Vida base: 1.000. Vitalidade adiciona 1.000 × nível²; com acessórios, até 400.000 de vida.',parent:null},
   {id:'crit',name:'Precisão',symbol:'✧',description:'+3% de chance de dano dobrado por nível.',parent:'damage'},
   {id:'range',name:'Alcance',symbol:'◎',description:'+18 de alcance de mineração por nível.',parent:'speed'},
   {id:'defense',name:'Proteção',symbol:'⛨',description:'Reduz o dano recebido em 4% por nível.',parent:'vitality'},
@@ -39,7 +39,7 @@ function normalizeProgression() {
   const spent = Object.values(player.talentRanks).reduce((sum, rank) => sum + rank*(rank+1)/2, 0);
   const legacyPoints = Math.max(0, Math.floor(player.level-1-spent));
   player.talentPoints = Number.isFinite(player.talentPoints) ? Math.max(0, Math.floor(player.talentPoints)) : legacyPoints;
-  player.maxHp = Math.max(player.maxHp || 100, 100 + talentRank('vitality')*20);
+  player.maxHp = GAME_CATALOG.playerHealth(player,EXPANSION.bonuses(player).health);
 }
 
 function materialRarity(item) {
@@ -103,7 +103,7 @@ function craftPickaxe(name) {
 }
 function resetTalentRanks(){
   const spent=TALENTS.reduce((sum,t)=>{const n=Math.max(0,Math.min(11,Math.floor(Number(player.talentRanks?.[t.id])||0)));return sum+n*(n+1)/2;},0);if(!spent)return false;
-  player.talentPoints=Math.max(0,Math.floor(Number(player.talentPoints)||0))+spent;player.talentRanks=Object.fromEntries(TALENTS.map(t=>[t.id,0]));player.talents={speed:0};player.maxHp=100+EXPANSION.bonuses(player).health;player.hp=Math.min(player.hp,player.maxHp);saveGame();return true;
+  player.talentPoints=Math.max(0,Math.floor(Number(player.talentPoints)||0))+spent;player.talentRanks=Object.fromEntries(TALENTS.map(t=>[t.id,0]));player.talents={speed:0};player.maxHp=GAME_CATALOG.playerHealth(player,EXPANSION.bonuses(player).health);player.hp=Math.min(player.hp,player.maxHp);saveGame();return true;
 }
 function unlockTalent(id) {
   if(isServerWorld())return requestPlayerAction('talent',{id});
@@ -114,7 +114,7 @@ function unlockTalent(id) {
   if(rank>=11 || player.talentPoints<cost || (talent.parent && !talentRank(talent.parent))) return false;
   player.talentPoints -= cost;
   player.talentRanks[id] = rank+1;
-  if(id==='vitality') { player.maxHp+=20; player.hp=Math.min(player.maxHp,player.hp+20); }
+  if(id==='vitality') { player.maxHp=GAME_CATALOG.playerHealth(player,EXPANSION.bonuses(player).health);player.hp=Math.min(player.maxHp,player.hp); }
   saveGame();
   return true;
 }

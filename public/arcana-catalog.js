@@ -9,7 +9,19 @@
   {id:'eggBee',kind:'bee',name:'Ovo de Abelha',count:3,cooldown:18},
   {id:'eggSpider',kind:'spider',name:'Ovo de Aranha',count:2,cooldown:20},
   {id:'eggMantis',kind:'mantis',name:'Ovo de Louva-a-deus',count:2,cooldown:20},
-  {id:'eggGuardian',kind:'guardian',name:'Ovo de Guardião',count:1,cooldown:28}
+  {id:'eggGuardian',kind:'guardian',name:'Ovo de Guardião',count:1,cooldown:28},
+  {id:'eggLadybug',kind:'ladybug',name:'Ovo de Joaninha',count:2,cooldown:18},
+  {id:'eggCentipede',kind:'centipede',name:'Ovo de Centopeia',count:2,cooldown:22},
+  {id:'eggCrab',kind:'crab',name:'Ovo de Caranguejo',count:2,cooldown:22},
+  {id:'eggHermit',kind:'hermit',name:'Ovo de Ermitão',count:1,cooldown:24},
+  {id:'eggTurtle',kind:'turtle',name:'Ovo de Tartaruga',count:1,cooldown:28},
+  {id:'eggDragonfly',kind:'dragonfly',name:'Ovo de Libélula',count:3,cooldown:18},
+  {id:'eggFrog',kind:'frog',name:'Ovo de Sapo',count:2,cooldown:22},
+  {id:'eggIcebeetle',kind:'icebeetle',name:'Ovo de Besouro Glacial',count:1,cooldown:26},
+  {id:'eggSnowmoth',kind:'snowmoth',name:'Ovo de Mariposa da Neve',count:3,cooldown:20},
+  {id:'eggScorpion',kind:'scorpion',name:'Ovo de Escorpião',count:2,cooldown:24},
+  {id:'eggScarab',kind:'scarab',name:'Ovo de Escaravelho',count:1,cooldown:24},
+  {id:'eggInverted',kind:'invertedBeetle',name:'Ovo de Besouro Invertido',count:1,cooldown:30}
  ];
  const SPELLS=[
   {id:'spark',name:'Esfera Arcana',icon:'✦',description:'Uma esfera veloz que explode no primeiro inimigo.',mana:14,cooldown:.65,mult:1.6,color:'#82f5ff',requires:null},

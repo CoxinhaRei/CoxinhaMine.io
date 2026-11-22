@@ -8,7 +8,7 @@ const SWORDS=PICKAXE_RECIPES.map((recipe,index)=>({
 }));
 // Initial menu preview and the shared runtime start with the real wooden sword.
 if(!player.equipment.weapon)player.equipment.weapon={...SWORDS[0]};
-rarities.push({name:'QUANTIUM',color:'#77e9ed',hp:16000000,mult:40000},{name:'ALEPH',color:'#ffe68b',hp:64000000,mult:80000});
+rarities.push({name:'QUANTIUM',color:'#77e9ed',hp:GAME_CATALOG.ORE_HP[9],mult:40000},{name:'ALEPH',color:'#ffe68b',hp:GAME_CATALOG.ORE_HP[10],mult:80000});
 rarities.push({...GAME_CATALOG.PRIMORDIAL});
 ORE_VALUES.QUANTIUM=50000;ORE_VALUES.ALEPH=150000;
 ORE_VALUES.PRIMORDIAL=500000;
@@ -153,9 +153,10 @@ function movePlayerPhysics(dt) {
 function takePlayerDamage(amount,dx=0,dy=0,cause='uma pedra') {
   if(isServerWorld())return false;
   const now=performance.now();
-  if(player.dead || (currentRealm==='garden' && getZone(player.x,player.y)==='P') || now<(player.hurtUntil || 0))return false;
+  if(player.dead || (currentRealm==='garden' && getZone(player.x,player.y)==='P'))return false;
+  if(Math.random()<utilityBonus('dodge')){damageNumbers.push({x:player.x,y:player.y-35,text:'ESQUIVA',life:.7});return false;}
   player.hp-=Math.max(1,amount*(1-talentRank('defense')*.04)*(1-armorReduction())-(player.defense || 0));
-  player.hurtUntil=now+600;
+
   player.lastDamageSource=cause;
   const length=Math.hypot(dx,dy)||1;
   player.vx=(player.vx || 0)+dx/length*180;player.vy=(player.vy || 0)+dy/length*180;

@@ -1,7 +1,7 @@
 // Rules loaded by both the authoritative server runtime and the browser.
-const chosenRarity={name:'CHOSEN',color:'#b9bec8',hp:8e9,mult:240000,craftOnly:true};
+const chosenRarity={name:'CHOSEN',color:'#b9bec8',hp:72000000000,mult:240000,craftOnly:true};
 rarities.splice(rarities.findIndex(r=>r.adminOnly),0,chosenRarity);
-GAME_CATALOG.NAMES.splice(11,0,'CHOSEN');GAME_CATALOG.ORE_RADII.splice(11,0,14000);GAME_CATALOG.ORE_HP.splice(11,0,8e9);GAME_CATALOG.XP_REWARDS.splice(11,0,1e9);
+GAME_CATALOG.NAMES.splice(11,0,'CHOSEN');GAME_CATALOG.ORE_RADII.splice(11,0,14000);GAME_CATALOG.ORE_HP.splice(11,0,72000000000);GAME_CATALOG.XP_REWARDS.splice(11,0,1e9);
 GAME_CATALOG.GRADIENTS.CHOSEN=['#7d838e','#f0f1f4','#a6adb7','#d6dae1'];ORE_VALUES.CHOSEN=450000;
 craftRecipes.ALEPH={next:'CHOSEN',chance:1};
 for(const def of EXPANSION.MOBS){CREATURES.push({...def});GAME_CATALOG.MOB_LOOT[def.kind]=def.drop;SPECIAL_MOB_ABILITIES[def.kind]={...SPECIAL_MOB_ABILITIES[def.kind.includes('Tornado')?'guardian':def.kind==='mantis'?'ladybug':def.kind==='scorpion'?'centipede':def.kind==='dragonfly'||def.kind==='snowmoth'?'bee':'beetle'],name:def.kind==='sandTornado'?'Tempestade de areia':def.kind==='iceTornado'?'Nevasca espiral':'Instinto de '+def.name};}
@@ -16,7 +16,7 @@ canvas.addEventListener('wheel',event=>{if(isUiBlocking()||typeof menuVisible===
 restoreUtility=()=>{EXPANSION.normalize(player);};
 ownsLantern=()=>EXPANSION.bonuses(player).vision>0;
 toggleLantern=()=>{};useUtilityAbility=()=>false;
-startOreCraft=name=>name!=='ALEPH'&&(isServerWorld()?requestPlayerAction('expansionFusion',{type:'material',rarity:name}):EXPANSION.fuse(player,{type:'material',rarity:name}));
+startOreCraft=()=>false;
 const oldNormalizeAdventure155=normalizeAdventure;
 normalizeAdventure=()=>{oldNormalizeAdventure155();EXPANSION.normalize(player);};
 const originalCreatureModel155=drawCreatureModel;

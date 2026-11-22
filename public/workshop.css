@@ -36,7 +36,7 @@
 .recipe-result { min-height: 16px; font-size: 11px; color: #fff7ae; text-align: center; }
 .talent-panel { width: min(650px, calc(100vw - 24px)); background: #dc6969; border-color: #a6464b; }
 .talent-panel .garden-panel-header { background: #ce5c62; border-color: #b34e57; }
-.talent-points { display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-weight: bold; }
+.talent-reset-status{padding:0 18px;min-height:1.3em}.talent-points .craft-pickaxe{width:auto;flex:0 0 auto;margin:0;padding:8px 12px}.talent-points { flex-wrap:wrap; display: flex; align-items: center; gap: 8px; padding: 10px 18px; font-weight: bold; }
 .talent-points b { display: grid; place-items: center; min-width: 36px; height: 36px; border: 3px solid #a5474b; border-radius: 50%; background: #bd5259; font-size: 20px; }
 .talent-points span { margin-left: auto; font-size: 11px; font-weight: normal; }
 .talent-scroll { overflow: auto; max-height: 38vh; }

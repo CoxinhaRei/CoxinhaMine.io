@@ -15,7 +15,27 @@ function drawSolarSun(effect){
   ctx.strokeStyle='#ffe6a6';ctx.lineWidth=4;for(let n=0;n<16;n++){const a=n*Math.PI/8+phase*.45;ctx.beginPath();ctx.moveTo(Math.cos(a)*r*1.1,Math.sin(a)*r*1.1);ctx.quadraticCurveTo(Math.cos(a+.2)*r*1.5,Math.sin(a+.2)*r*1.5,Math.cos(a+.1)*r*1.85,Math.sin(a+.1)*r*1.85);ctx.stroke();}
   const core=ctx.createRadialGradient(-r*.25,-r*.3,r*.05,0,0,r);core.addColorStop(0,'#ffffef');core.addColorStop(.55,'#ffe38a');core.addColorStop(1,'#f58b25');ctx.fillStyle=core;ctx.shadowColor='#ffb42f';ctx.shadowBlur=28;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='#fff4c1';ctx.lineWidth=3;for(let n=0;n<4;n++){ctx.beginPath();ctx.ellipse(0,Math.sin(phase+n)*r*.3,r*.75,r*.16,n*.7+phase*.2,0,Math.PI*1.7);ctx.stroke();}ctx.restore();return true;
 }
+function drawTitanAbility(effect){
+  const elapsed=effect.maxLife-effect.life,age=(effect.age||0)+elapsed,x=effect.x+(effect.vx||0)*elapsed,y=effect.y+(effect.vy||0)*elapsed;
+  ctx.save();ctx.translate(x,y);ctx.globalAlpha=Math.min(1,effect.life*2);
+  if(effect.kind==='voidTrident'){
+    ctx.rotate(effect.angle||0);const r=effect.radius;
+    const trail=ctx.createLinearGradient(-r*2,0,r,0);trail.addColorStop(0,'#652eff00');trail.addColorStop(.6,'#8f57ff88');trail.addColorStop(1,'#e5d9ff');ctx.fillStyle=trail;ctx.beginPath();ctx.moveTo(-r*2,-r*.2);ctx.lineTo(r*.5,0);ctx.lineTo(-r*2,r*.2);ctx.fill();
+    ctx.shadowColor='#a96aff';ctx.shadowBlur=25;ctx.strokeStyle='#a678ff';ctx.lineWidth=r*.075;ctx.lineCap='round';ctx.lineJoin='round';
+    ctx.beginPath();ctx.moveTo(-r*.95,0);ctx.lineTo(r*.95,0);ctx.moveTo(-r*.2,0);ctx.quadraticCurveTo(r*.5,-r*.25,r*.5,-r*.75);ctx.lineTo(r*.95,-r*.75);ctx.moveTo(-r*.2,0);ctx.quadraticCurveTo(r*.5,r*.25,r*.5,r*.75);ctx.lineTo(r*.95,r*.75);ctx.stroke();
+    ctx.fillStyle='#e8d5ff';for(const sy of [-.75,0,.75]){ctx.beginPath();ctx.moveTo(r*1.2,r*sy);ctx.lineTo(r*.8,r*(sy-.15));ctx.lineTo(r*.87,r*sy);ctx.lineTo(r*.8,r*(sy+.15));ctx.closePath();ctx.fill();}
+  }else{
+    const solar=effect.kind==='solarSystem',r=solar?effect.radius*Math.min(1,.15+age/3):effect.radius;
+    const halo=ctx.createRadialGradient(0,0,1,0,0,r);halo.addColorStop(0,solar?'#ffe3a080':'#100821c9');halo.addColorStop(.7,solar?'#ff8b3538':'#52248880');halo.addColorStop(1,solar?'#ff901000':'#a770ff00');ctx.fillStyle=halo;ctx.beginPath();ctx.arc(0,0,r,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=solar?'#ffd37c':'#a075e5';ctx.shadowColor=solar?'#ffae43':'#9858ff';ctx.shadowBlur=16;ctx.lineWidth=3;
+    for(let n=1;n<=4;n++){const orbit=r*n/4;ctx.beginPath();ctx.arc(0,0,orbit,0,Math.PI*2);ctx.stroke();for(let j=0;j<2;j++){const a=age*(solar?1.8:-.65)+n*1.7+j*Math.PI,px=Math.cos(a)*orbit,py=Math.sin(a)*orbit;ctx.fillStyle=solar?'#ffe7aa':'#cbabff';ctx.beginPath();ctx.arc(px,py,solar?12+n*5:5,0,Math.PI*2);ctx.fill();}}
+    if(solar){const core=ctx.createRadialGradient(0,0,2,0,0,Math.max(1,r*.18));core.addColorStop(0,'#ffffdf');core.addColorStop(.65,'#ffc04d');core.addColorStop(1,'#f57c23');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,r*.18,0,Math.PI*2);ctx.fill();}
+    else{ctx.lineWidth=4;ctx.beginPath();for(let n=0;n<100;n++){const a=n*.17-age,d=r*n/105;ctx.lineTo(Math.cos(a)*d,Math.sin(a)*d);}ctx.stroke();}
+  }
+  ctx.restore();return true;
+}
 function drawEnhancedAbility(effect){
+  if(['solarSystem','voidTrident','darkZone'].includes(effect.kind))return drawTitanAbility(effect);
   if(effect.kind==='solarSun')return drawSolarSun(effect);
   const progress=Math.max(0,Math.min(1,1-effect.life/effect.maxLife)),radius=Math.max(1,effect.radius*progress),color=effect.color || '#c5ffff';
   ctx.save();ctx.translate(effect.x,effect.y);ctx.globalAlpha=1-progress;

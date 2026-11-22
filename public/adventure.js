@@ -12,7 +12,7 @@ const UTILITIES=[LANTERN];
 TALENTS.push(
   {id:'vision',name:'Visão noturna',symbol:'◉',description:'+28 de visão na caverna por nível.',parent:'range'},
   {id:'resonance',name:'Ressonância',symbol:'✧',description:'Reduz a recarga das habilidades em 3% por nível.',parent:'haste'},
-  {id:'regeneration',name:'Recuperação',symbol:'♥',description:'Regenera 0,35 de vida por segundo por nível.',parent:'vitality'},
+  {id:'regeneration',name:'Recuperação',symbol:'♥',description:'Regenera 35 de vida por segundo por nível.',parent:'vitality'},
   {id:'spelunker',name:'Espeleólogo',symbol:'⌂',description:'+12% de XP na caverna por nível.',parent:'vision'},
   {id:'scavenger',name:'Coletor',symbol:'✦',description:'+3% de chance de minério extra por nível.',parent:'fortune'},
   {id:'sprint',name:'Passo subterrâneo',symbol:'➜',description:'+4% de velocidade na caverna por nível.',parent:'spelunker'}
@@ -49,7 +49,7 @@ function isBossRarity(rarity){return rarities.findIndex(r=>r.name===rarity?.name
 function createCreature(kind,rarity,x,y){
   const definition=CREATURES.find(c=>c.kind===kind) || CREATURES[0],index=Math.max(0,rarities.findIndex(r=>r.name===rarity.name));
   const hp=GAME_CATALOG.mobHealth(definition.hp,index),size=Math.min(currentRealm==='cave' ? 205 : 360,25*Math.pow(1.32,index))*(index>=7 ? 3 : 1);
-  return {...definition,id:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),x,y,rarity,hp,maxHp:hp,size,speed:definition.speed+index*4,damage:definition.damage*Math.pow(1.4,index),cooldown:0,angle:0,isBoss:index>6,pathTimer:0};
+  return {...definition,id:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),x,y,rarity,hp,maxHp:hp,size,speed:definition.speed+index*4,damage:GAME_CATALOG.mobDamage(definition.damage,index),cooldown:0,angle:0,isBoss:index>6,pathTimer:0};
 }
 function noteCreature(creature){
   if(!player.journal?.species || creature.summoned)return;
@@ -58,7 +58,7 @@ function noteCreature(creature){
 function updateAdventure(dt){
   if(isServerWorld()){updateSharedPresentation(dt);return;}
   if(player.dead)return;
-  if(talentRank('regeneration'))player.hp=Math.min(player.maxHp,player.hp+talentRank('regeneration')*.35*dt);
+  if(talentRank('regeneration'))player.hp=Math.min(player.maxHp,player.hp+talentRank('regeneration')*35*dt);
   if(currentRealm==='garden' && performance.now()>nextCreatureSpawn){
     nextCreatureSpawn=performance.now()+2200;
     const target=22;
@@ -118,7 +118,7 @@ function updateCreatureMovement(dt){
     }
     if(distance<player.size+mob.size*.8 && mob.cooldown===0){takePlayerDamage(mob.damage,dx,dy,mob.name+' '+mob.rarity.name);mob.cooldown=1;}
   }
-  if(safe && !player.dead)player.hp=Math.min(player.maxHp,player.hp+8*dt);
+  if(safe && !player.dead)player.hp=Math.min(player.maxHp,player.hp+player.maxHp*.04*dt);
 }
 function drawCreatureModel(kind,c,x,y,r,angle=0,phase=0,moving=false){
   c.save();c.translate(x,y);c.rotate(angle);
@@ -209,6 +209,9 @@ function damageEntity(target,damage,isMob){
 function equipmentAbility(item){
   if(!item || !['weapon','pickaxe'].includes(item.type))return null;
   if(item.name==='Solar'&&item.type==='weapon')return {...GAME_CATALOG.ability('Solar'),name:'Sol da Aurora',kind:'solarSun',radius:650,mult:8,duration:4.5,speed:360};
+  if(item.name==='Solar'&&item.type==='pickaxe')return {...GAME_CATALOG.ability('Solar'),name:'Sistema Solar',kind:'solarSystem',radius:1400,mult:12,duration:6,speed:0};
+  if(item.name==='Void'&&item.type==='weapon')return {...GAME_CATALOG.ability('Void'),name:'Tridente do Vazio',kind:'voidTrident',radius:650,mult:14,duration:1.8,speed:3200};
+  if(item.name==='Void'&&item.type==='pickaxe')return {...GAME_CATALOG.ability('Void'),name:'Domínio das Trevas',kind:'darkZone',radius:1600,mult:10,duration:6,speed:0};
   return GAME_CATALOG.ability(item?.name);
 }
 function useEquipmentAbility(type){

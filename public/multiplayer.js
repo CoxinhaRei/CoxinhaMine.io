@@ -7,7 +7,7 @@ function currentSession(){return guestCredentials || activeSession();}
 function playerDisplayName(p){return (p.name || 'Convidado')+(p.developerTest?' [DEV]':'')+(p.guest && p.name!=='Convidado' ? ' (Convidado)' : '');}
 function resetGuestSession(){
   guestCredentials=null;multiplayer.guest=false;multiplayer.ready=false;multiplayer.profileName='';window.accountProgressEnabled=false;
-  Object.assign(player,{magic:{awakened:false,ranks:{},selected:'spark'},mana:100,maxMana:100,name:'',developerTest:false,guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:100,maxHp:100,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
+  Object.assign(player,{magic:{awakened:false,ranks:{},selected:'spark'},mana:100,maxMana:100,name:'',developerTest:false,guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:1000,maxHp:1000,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
   const input=document.getElementById('nameInput');input.value='';input.readOnly=false;
   squadState={members:[]};renderSquad();
 }
@@ -140,8 +140,10 @@ function applyWorldSnapshot(snapshot){
   if(!multiplayer.ready || snapshot.realm!==currentRealm || (snapshot.self?.epoch!==undefined && snapshot.self.epoch!==multiplayer.movementEpoch))return;
   if(Array.isArray(snapshot.ores)){const previous=new Map(ores.map(ore=>[ore.id,ore]));ores=snapshot.ores.map(data=>Object.assign(previous.get(data.id) || {},data));if(Number.isSafeInteger(snapshot.oreSeq))socket.emit('oreAck',{realm:currentRealm,epoch:multiplayer.movementEpoch,seq:snapshot.oreSeq});}
   mobs=mergeNetworkEntities(mobs,snapshot.mobs);projectiles=mergeNetworkEntities(projectiles,snapshot.projectiles);bossMobHazards=snapshot.hazards;bossMobEffects=snapshot.effects;
-  for(const sun of snapshot.solarSuns||[]){const old=abilityEffects.find(e=>e.id===sun.id);if(old)Object.assign(old,sun);else abilityEffects.push(sun);}
+  for(const sun of [...(snapshot.solarSuns||[]),...(snapshot.equipmentEffects||[])]){const old=abilityEffects.find(e=>e.id===sun.id);if(old)Object.assign(old,sun);else abilityEffects.push(sun);}
   multiplayer.drops=snapshot.drops || [];multiplayer.timeOffset=snapshot.serverTime-Date.now();
+  if(snapshot.playerHit&&snapshot.playerHit.id!==multiplayer.lastHitId){multiplayer.lastHitId=snapshot.playerHit.id;const hit=snapshot.playerHit,distance=Math.hypot(hit.dx,hit.dy)||1;player.vx=(player.vx||0)+hit.dx/distance*100;player.vy=(player.vy||0)+hit.dy/distance*100;}
+  if(snapshot.playerDodge&&snapshot.playerDodge.id!==multiplayer.lastDodgeId){multiplayer.lastDodgeId=snapshot.playerDodge.id;damageNumbers.push({x:player.x,y:player.y-35,text:'ESQUIVA',life:.75});}
   const self=snapshot.self,history=self && pendingMovement.get(self.seq);
   if(multiplayer.protocol>=5 && self?.epoch===multiplayer.movementEpoch)networkMovement.reconcile(player,self,snapshot.serverTime,networkSpeed(),movePredictedPlayer);
   if(history && self.epoch===multiplayer.movementEpoch && self.seq>(multiplayer.correctedSeq || 0)){multiplayer.correctedSeq=self.seq;const dx=self.x-history.x,dy=self.y-history.y;if(Math.hypot(dx,dy)>2){player.x+=dx;player.y+=dy;for(const [seq,point] of pendingMovement)if(seq>=self.seq){point.x+=dx;point.y+=dy;}}}
@@ -159,8 +161,9 @@ socket.on('realmChanged',data=>{
   if(typeof irisTransition==='function')irisTransition(change);else change();
 });
 socket.on('entityHit',data=>{miningBurst(data.x,data.y,data.color,data.isMob ? 9 : 16);damageNumbers.push({x:data.x,y:data.y-25,text:Math.round(data.damage),life:.7});});
-socket.on('abilityEffect',effect=>{if(effect.kind==='solarEnd'){abilityEffects=abilityEffects.filter(e=>e.id!==effect.id);return;}if(effect.kind==='solarStop'){const old=abilityEffects.find(e=>e.id===effect.id);if(old)Object.assign(old,effect,{kind:'solarSun'});return;}abilityEffects.push(effect);});
+socket.on('abilityEffect',effect=>{if(effect.kind==='solarEnd'||effect.kind==='equipmentEnd'){abilityEffects=abilityEffects.filter(e=>e.id!==effect.id);return;}if(effect.kind==='solarStop'){const old=abilityEffects.find(e=>e.id===effect.id);if(old)Object.assign(old,effect,{kind:'solarSun'});return;}abilityEffects.push(effect);});
 socket.on('lootResult',result=>sharedNotice(result.qualified ? (result.itemDropped===false?'XP e moedas · sem item nesta vez · ':result.shared ? 'Loot do Squad · ' : 'Loot recebido · ')+result.entity+' '+result.rarity+' · '+((result.shared ? result.squadShare : result.share)*100).toFixed(1)+'% de participação' : 'Sem loot · participação '+(result.share*100).toFixed(1)+'% · mínimo 5%'));
+socket.on('playerDodge',()=>{damageNumbers.push({x:player.x,y:player.y-35,text:'ESQUIVA',life:.75});});
 socket.on('actionResult',result=>{if(!result.ok)sharedNotice(result.message);const message=document.getElementById('recipe-result');if(message && shopOpen)message.textContent=result.message;});
 socket.on('saveConfirmed',result=>{if(result.guest){sharedNotice('Convidado: crie uma conta para guardar seu progresso.');return;}networkStatus.title=(result.committed===false ? 'Banco indisponível; salvamento pendente' : 'Save confirmado no servidor')+' · '+new Date(result.at).toLocaleTimeString()+' · '+result.persistence;if(result.committed===false)sharedNotice('O banco está temporariamente indisponível. O servidor está tentando salvar novamente.');});
 const saveTools=document.createElement('section');saveTools.className='save-tools';
