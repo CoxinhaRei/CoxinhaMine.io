@@ -25,6 +25,9 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   const a=await login(url,'Alpha'),b=await login(url,'Beta',null,'Solar');sockets.push(a,b);
   assert.equal(a.profile.state.level,231);assert.equal(a.profile.state.coins,12345);
   const world=server.worlds.garden;world.nextSpawn=Infinity;world.game.ores=[];world.game.mobs=[];
+  // This transport/reward test creates its own combat targets. Random guardians
+  // after ore deaths must not kill or displace its stationary test accounts.
+  world.canSpawnNatural=()=>false;
   for(const actor of Object.values(server.actors))actor.state.hurtUntil=Date.now()+100000;
   Object.assign(server.actors[a.id].state,{x:80600,y:75000});Object.assign(server.actors[b.id].state,{x:80600,y:75100});a.emit('move',{x:80600,y:75000,aimAngle:0,selectedSlot:2});b.emit('move',{x:80600,y:75100,aimAngle:Math.PI/2,selectedSlot:2});
   await until(()=>server.actors[a.id]?.state.x===80600 && server.actors[b.id]?.state.y===75100,'player movement');
@@ -45,7 +48,7 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   const second=ore('exact-threshold',900200);await delay(365);a.emit('attack',{type:'pickaxe',targetId:second.id});await until(()=>second.hp===855190,'exact 5 percent hit');
   while(second.hp>0){b.emit('attack',{type:'pickaxe',targetId:second.id});await delay(365);}
   await until(()=>a.loots.length===2,'exact threshold reward');assert.equal(a.loots[1].qualified,true);
-  const resource=ore('pickaxe-only',2000000),enemy=world.game.createCreature('spider',world.game.rarities[7],81000,75200);enemy.hp=enemy.maxHp=10000000;enemy.noBossAbilities=true;enemy.speed=0;world.game.mobs.push(enemy);
+  const resource=ore('pickaxe-only',2000000),enemy=world.game.createCreature('spider',world.game.rarities[7],81000,75200);enemy.hp=enemy.maxHp=10000000;enemy.noBossAbilities=true;enemy.speed=0;enemy.damage=0;world.game.mobs.push(enemy);
   a.emit('attack',{type:'pickaxe',targetId:enemy.id});await delay(100);assert.equal(enemy.hp,enemy.maxHp,'pickaxe cannot attack mob');
   a.emit('move',{x:80600,y:75000,aimAngle:0,selectedSlot:0});await delay(80);a.emit('attack',{type:'weapon',targetId:resource.id});await delay(100);assert.equal(resource.hp,resource.maxHp,'sword cannot mine');
   a.emit('useAbility','pickaxe');await until(()=>resource.hp<resource.maxHp,'pickaxe ability');assert.equal(enemy.hp,enemy.maxHp,'pickaxe ability excludes mobs');

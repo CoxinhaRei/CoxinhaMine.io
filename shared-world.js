@@ -112,7 +112,7 @@ class SharedWorld{
     if(entity.hp<=0)return;
     const actual=Math.min(entity.hp,Math.max(0,amount)*(isMob && entity.shieldTime>0 ? .25 : 1));
     entity.hp-=actual;
-    if(actual>0&&!actor.state.dead){const rate=(actor.state.talentRanks?.drain||0)*.01+(this.game.utility(actor.state).vampirism||0);actor.state.hp=Math.min(actor.state.maxHp,actor.state.hp+actual*rate);}
+    if(actual>0&&!actor.state.dead){const rate=catalog.vampirismRate(actor.state,this.game.utility(actor.state).vampirism);actor.state.hp=Math.min(actor.state.maxHp,actor.state.hp+actual*rate);}
     if(!isMob)this.oreRevision++;
     if(isMob){entity.aggroUntil=Date.now()+12000;entity.aggroPlayerId=actor.profile.id;}
     if(!this.contributions.has(entity.id))this.contributions.set(entity.id,new Map());
@@ -252,7 +252,7 @@ class SharedWorld{
       if(!g.rarities.slice(7).some(r=>r.name===ore.rarity.name))continue;
       const near=this.nearest(ore);if(!near || Math.hypot(near.state.x-ore.x,near.state.y-ore.y)>ore.size+1800 || this.safe(near.state))continue;
       ore.shotTimer=(ore.shotTimer ?? 1.7)-dt;
-      if(ore.shotTimer<=0){ore.shotTimer=1.5;const tier=g.rarities.findIndex(r=>r.name===ore.rarity.name)-7,count=Math.min(600-g.projectiles.length,20+tier*8),aim=Math.atan2(near.state.y-ore.y,near.state.x-ore.x),spread=Math.min(1.5,1400/ore.size);for(let n=0;n<count;n++){const angle=aim+(n/Math.max(1,count-1)-.5)*spread,heading=aim+(n/Math.max(1,count-1)-.5)*1.8;g.projectiles.push({owner:ore.id,cause:'Pedra '+ore.rarity.name,x:ore.x+Math.cos(angle)*(ore.size+18),y:ore.y+Math.sin(angle)*(ore.size+18),vx:Math.cos(heading)*700,vy:Math.sin(heading)*700,r:12,life:4,damage:35,rotation:heading,kind:'stone'});}}
+      if(ore.shotTimer<=0){ore.shotTimer=1.5;const tier=g.rarities.findIndex(r=>r.name===ore.rarity.name)-7,count=Math.min(600-g.projectiles.length,20+tier*8),aim=Math.atan2(near.state.y-ore.y,near.state.x-ore.x),spread=Math.min(1.5,1400/ore.size);for(let n=0;n<count;n++){const angle=aim+(n/Math.max(1,count-1)-.5)*spread,heading=aim+(n/Math.max(1,count-1)-.5)*1.8;g.projectiles.push({owner:ore.id,cause:'Pedra '+ore.rarity.name,x:ore.x+Math.cos(angle)*(ore.size+18),y:ore.y+Math.sin(angle)*(ore.size+18),vx:Math.cos(heading)*700,vy:Math.sin(heading)*700,r:12,life:4,damage:catalog.ORE_PROJECTILE_DAMAGE,rotation:heading,kind:'stone'});}}
     }
     const owners=new Set([...g.ores,...g.mobs].map(e=>e.id));
     const projectileBodies=new SpatialIndex();
@@ -274,11 +274,11 @@ class SharedWorld{
       const s=actor.state;actor.contacts=actor.contacts || {};
       g.tickPlayer(s);
       for(const mob of g.mobs)if(Math.hypot(mob.x-s.x,mob.y-s.y)<mob.size*.8+20 && now>(actor.contacts[mob.id] || 0)){this.hurt(s,mob.damage,s.x-mob.x,s.y-mob.y,mob.name+' '+mob.rarity.name);actor.contacts[mob.id]=now+1000;}
-      for(const ore of g.ores)if(Math.hypot(ore.x-s.x,ore.y-s.y)<=ore.size+24)this.hurt(s,4*Math.pow(1.4,g.rarities.findIndex(r=>r.name===ore.rarity.name))*dt,s.x-ore.x,s.y-ore.y,'Pedra '+ore.rarity.name);
+      for(const ore of g.ores)if(Math.hypot(ore.x-s.x,ore.y-s.y)<=ore.size+24)this.hurt(s,catalog.oreContactDamage(g.rarities.findIndex(r=>r.name===ore.rarity.name))*dt,s.x-ore.x,s.y-ore.y,'Pedra '+ore.rarity.name);
       for(const hazard of g.hazards){const key='acid:'+hazard.owner+':'+hazard.x+':'+hazard.y;
         if(now>(actor.contacts[key] || 0) && Math.hypot(hazard.x-s.x,hazard.y-s.y)<hazard.radius+20 && g.lineClear(hazard.x,hazard.y,s.x,s.y)){this.hurt(s,hazard.damage,s.x-hazard.x,s.y-hazard.y,hazard.cause);actor.contacts[key]=now+800;}
       }
-      if(this.safe(s))s.hp=Math.min(s.maxHp,s.hp+s.maxHp*.04*dt);else s.hp=Math.min(s.maxHp,s.hp+((s.talentRanks?.regeneration || 0)*35+g.utility(s).regen)*dt);
+      if(this.safe(s))s.hp=Math.min(s.maxHp,s.hp+s.maxHp*.04*dt);else s.hp=Math.min(s.maxHp,s.hp+catalog.regeneration(s,g.utility(s).regen)*dt);
     }
     this.arcana.tick(dt);resolveWorldCollisions(this,this.live());
     for(const actor of live)this.collectDrops(actor,now);

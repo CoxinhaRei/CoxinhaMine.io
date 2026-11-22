@@ -56,7 +56,8 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
       ,tickPlayer(state){player=state;tickOreCraft();const max=GAME_CATALOG.playerHealth(state,EXPANSION.bonuses(state).health);state.maxHp=max;state.hp=Math.min(max,state.hp); }
       ,command(state,kind,data={}){
         player=state;
-        if(['accessoryMake','expansionFusion','fusion'].includes(kind))return false;
+        if(['accessoryMake','fusion'].includes(kind))return false;
+        if(kind==='expansionFusion')return data.rarity!=='ALEPH'&&EXPANSION.fuse(state,data);
         
         if(kind==='forgeChosen'){const ok=EXPANSION.fuse(state,{...data,rarity:'ALEPH'});if(ok)state.pendingCraft.forge=true;return ok;}
         if(kind==='accessoryEquip')return EXPANSION.equip(state,data.slot,data.item);
