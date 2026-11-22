@@ -1,0 +1,9 @@
+.chat-header{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px;color:#d6ecd7;font-size:11px;text-shadow:1px 1px #17392c}
+#chat-close{width:32px;height:28px;border:1px solid #8eb296;border-radius:5px;background:#254f40e8;color:#fff;font-size:22px;line-height:1;cursor:pointer}
+#chat-open{position:fixed;bottom:24px;left:65px;z-index:7;min-height:38px;padding:7px 13px;border:2px solid #80ae88;border-radius:6px;background:#204d3de8;color:#edf6db;font:700 12px Ubuntu,sans-serif;cursor:pointer;touch-action:manipulation}
+#chat-open[hidden]{display:none!important}
+#chat-open:focus-visible,#chat-close:focus-visible{outline:2px solid #e3ffa0;outline-offset:3px}
+.mobile-mode #chat-close{width:44px;height:44px;font-size:26px}
+.mobile-mode #chat-open{left:12px;bottom:228px;min-height:44px;min-width:84px}
+@media(max-width:760px){#chat-open{bottom:92px}}
+@media(max-height:500px){.mobile-mode #chat-open{left:120px;bottom:12px}}

@@ -146,7 +146,7 @@ function carveCaveChamber(px,py,radius){
   }
   caveMapImage=null;
 }
-function visionRadius(){return 100+talentRank('vision')*28+utilityBonus('vision')+(player.lanternOn && ownsLantern() ? 260 : 0);}
+function visionRadius(){return 100+talentRank('vision')*100+utilityBonus('vision')+(player.lanternOn && ownsLantern() ? 260 : 0);}
 function drawCaveDarkness(){
   if(currentRealm!=='cave')return;
   const radius=visionRadius()*cameraZoom(),x=canvas.width/2,y=canvas.height/2;

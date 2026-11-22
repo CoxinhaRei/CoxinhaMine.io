@@ -60,6 +60,17 @@
   ['sandFang','Presa das Dunas','scorpion','fang',{damage:.1,haste:.015}],
   ['coralCrown','Coroa de Coral','crab','shell',{health:700,mining:.08}]
  ].map(([id,name,kind,model,bonuses])=>({id,name,kind,model,bonuses,materials:8,components:3})));
+ ACCESSORIES.push(...[
+  ['broodFang','Presa da Ninhada','mantis','fang',{summonDamage:.15}],
+  ['swarmSting','Ferrão do Enxame','bee','sting',{summonDamage:.10,summonHaste:.04}],
+  ['broodHeart','Coração da Ninhada','frog','core',{summonHealth:.25}],
+  ['broodWings','Asas do Enxame','dragonfly','wings',{summonSpeed:.14}],
+  ['silkDrum','Tambor de Seda','spider','web',{summonHaste:.10}],
+  ['giantShell','Carapaça Colossal','beetle','shell',{size:.12,health:2500,defense:.02,speedPenalty:.025}],
+  ['titanCarapace','Couraça do Titã','turtle','shell',{size:.20,health:4000,defense:.025,speedPenalty:.04}]
+ ].map(([id,name,kind,model,bonuses])=>({id,name,kind,model,bonuses,materials:8,components:3})));
+ for(const def of ACCESSORIES){if(def.bonuses.speed)def.bonuses.speed*=3;if(def.bonuses.vision)def.bonuses.vision*=4;if(def.bonuses.zoom)def.bonuses.zoom*=4;}
+ for(const def of ACCESSORIES)for(const name of Object.keys(def.bonuses))if(name!=='speedPenalty'&&def.bonuses[name]>0)def.bonuses[name]*=combat.ACCESSORY_BUFF;
  const LEGACY={'Lanterna':['moth','Raro'],'Lente de Libélula':['wings','Épico'],'Botas de Gafanhoto':['wings','Lendário'],'Núcleo de Escavação':['mandible','Mítico'],'Observatório Astral':['moth','ULTRA'],'Asas de Fóton':['wings','SUPER'],'Magneto Cósmico':['magnet','ABSOLUT'],'Reator Quantium':['core','QUANTIUM'],'Olho de Aleph':['storm','ALEPH']};
  const num=(v,max=Number.MAX_SAFE_INTEGER)=>Math.min(max,Math.max(0,Math.floor(Number(v)||0)));
  const tier=name=>RARITIES.findIndex(r=>r===name),key=item=>item.type+':'+(item.accessoryId || item.kind || '')+':'+(item.oreRarity || item.rarity || item.name);
@@ -76,7 +87,7 @@
   for(const name of ['craftAttempts','craftsDestroyed','materialsCollected','stonesCollected','experienceEarned'])state.journal[name]=num(state.journal[name]);
   state.joinedAt=num(state.joinedAt)||Date.now();return state;
  }
- function bonuses(state){const out={speed:0,mining:0,damage:0,vision:0,zoom:0,haste:0,defense:0,health:0,regen:0,vampirism:0,xp:0,range:0,pickup:0,magnetRadius:0,slowResist:0,dodge:0};for(const ref of (state.accessories||[]).slice(0,slots(state.level))){if(!ref)continue;const def=ACCESSORIES.find(a=>a.id===ref.accessoryId),scale=SCALE[tier(ref.rarity)]||0;if(def?.id==='magnet')out.magnetRadius=Math.max(out.magnetRadius,magnetSpec(ref.rarity)?.radius||0);if(def)for(const [k,v] of Object.entries(def.bonuses))out[k]+=v*scale;}const caps={speed:2,mining:6,damage:4,vision:1800,zoom:.55,haste:.65,defense:.65,health:300000,regen:3000,vampirism:.12,xp:2,range:900,pickup:1000,magnetRadius:magnets.MAX_RADIUS,slowResist:1,dodge:.6};for(const k of Object.keys(out))out[k]=Math.min(out[k],caps[k]);out.zoom=Math.max(.45,1-out.zoom);for(const [name,value] of Object.entries(combat.armorBonuses(state.equipment?.armor?.name)))out[name]=(out[name]||0)+value;return out;}
+ function bonuses(state){const out={summonDamage:0,summonHealth:0,summonSpeed:0,summonHaste:0,size:0,speedPenalty:0,speed:0,mining:0,damage:0,vision:0,zoom:0,haste:0,defense:0,health:0,regen:0,vampirism:0,xp:0,range:0,pickup:0,magnetRadius:0,slowResist:0,dodge:0};for(const ref of (state.accessories||[]).slice(0,slots(state.level))){if(!ref)continue;const def=ACCESSORIES.find(a=>a.id===ref.accessoryId),scale=SCALE[tier(ref.rarity)]||0;if(def?.id==='magnet')out.magnetRadius=Math.max(out.magnetRadius,magnetSpec(ref.rarity)?.radius||0);if(def)for(const [k,v] of Object.entries(def.bonuses))out[k]+=v*scale;}const caps={summonDamage:6,summonHealth:6,summonSpeed:3,summonHaste:2,size:2,speedPenalty:.75,speed:6,mining:6,damage:4,vision:6000,zoom:.88,haste:.65,defense:.65,health:300000,regen:3000,vampirism:.12,xp:2,range:900,pickup:1000,magnetRadius:magnets.MAX_RADIUS,slowResist:1,dodge:.6};for(const k of Object.keys(out))out[k]=Math.min(out[k],caps[k]);out.zoom=Math.max(.12,1-out.zoom);for(const [name,value] of Object.entries(combat.armorBonuses(state.equipment?.armor?.name)))out[name]=(out[name]||0)+value;return out;}
  function equip(state,index,ref){normalize(state);if(!Number.isInteger(index)||index<0||index>=slots(state.level))return false;if(!ref){state.accessories[index]=null;return true;}const item=accessory(ref.accessoryId,ref.rarity);if(!item)return false;const k=key(item),owned=state.inventory.filter(i=>key(i)===k).reduce((n,i)=>n+num(i.amount),0),used=state.accessories.filter((r,n)=>n!==index && r && key({type:'accessory',...r})===k).length;if(used>=owned)return false;state.accessories[index]={accessoryId:item.accessoryId,rarity:item.rarity};return true;}
  function componentCount(state,kind){return state.inventory.filter(i=>i.type==='component'&&i.kind===kind&&i.rarity!=='CHOSEN').reduce((n,i)=>n+num(i.amount),0);}
  const MAX_CRAFT_BATCH=10000,TORNADO_PULL_SCALE=.3;

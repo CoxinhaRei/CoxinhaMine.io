@@ -142,7 +142,7 @@ function movePlayerPhysics(dt) {
     }
   }
   const length=Math.hypot(dx,dy);if(length>1){dx/=length;dy/=length;}
-  const speed=240*(1+talentRank('speed')*.08+(currentRealm==='cave' ? talentRank('sprint')*.04 : 0))*(1+utilityBonus('speed'));
+  const speed=GAME_CATALOG.movementSpeed(player,{speed:utilityBonus('speed'),speedPenalty:utilityBonus('speedPenalty')},currentRealm);
   if(isServerWorld() && multiplayer.protocol>=5){if(!player.dead && multiplayer.ready && socket.connected)networkMovement.input(player,dx,dy,dt,speed,movePredictedPlayer);return;}
   const blend=1-Math.exp(-9*dt);
   player.vx=(player.vx || 0)+(dx*speed-(player.vx || 0))*blend;
@@ -221,6 +221,7 @@ function getRemoteEquipment(remote) {
 }
 function drawHeldEquipment(item,x,y,angle,local,entity=player) {
   if(!item?.img?.complete || !item.img.naturalWidth)return;
+  const bodyOffset=Math.max(0,(entity.size||20)-20)*1.5;x+=Math.cos(angle)*bodyOffset;y+=Math.sin(angle)*bodyOffset;
   const remaining=local ? (player.swingUntil || 0)-performance.now() : (entity.attackUntil || 0)-Date.now();
   const swing=remaining>0 ? Math.sin(Math.min(1,remaining/180)*Math.PI)*.85 : 0;
   ctx.save();ctx.translate(x,y);ctx.rotate(angle+swing);

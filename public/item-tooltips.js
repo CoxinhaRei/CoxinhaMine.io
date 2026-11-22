@@ -2,7 +2,7 @@
 const itemTooltip155=document.createElement('aside');itemTooltip155.id='item-tooltip155';itemTooltip155.role='tooltip';itemTooltip155.hidden=true;document.body.append(itemTooltip155);
 const itemTipBindings155=new WeakMap();let itemTipOwner155=null,itemTipTimer155=0,itemTipTouch155=null,itemTipWorldAt155=0;
 function bindItemTooltip(element,item){if(!element||!['accessory','component','material','mob'].includes(item?.type))return;itemTipBindings155.set(element,item);element.dataset.itemTooltip='true';element.removeAttribute('title');if(!element.hasAttribute('tabindex')&&element.tagName!=='BUTTON')element.tabIndex=0;}
-function describeItem155(item){return ItemDetails.describe(item,{expansion:EXPANSION,catalog:GAME_CATALOG,creatures:CREATURES,rarities,oreValues:ORE_VALUES,abilities:SPECIAL_MOB_ABILITIES});}
+function describeItem155(item){return ItemDetails.describe(item,{state:typeof player==='undefined'?undefined:player,expansion:EXPANSION,catalog:GAME_CATALOG,creatures:CREATURES,rarities,oreValues:ORE_VALUES,abilities:SPECIAL_MOB_ABILITIES});}
 function hideItemTooltip155(){clearTimeout(itemTipTimer155);itemTipOwner155?.removeAttribute('aria-describedby');itemTipOwner155=null;itemTooltip155.hidden=true;}
 function showItemTooltip155(item,owner,x,y,touch=false){
   const info=describeItem155(item);if(!info)return;

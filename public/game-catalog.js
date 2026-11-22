@@ -4,7 +4,7 @@
   const NAMES=['Comum','Incomum','Raro','Épico','Lendário','Mítico','ULTRA','SUPER','ABSOLUT','QUANTIUM','ALEPH','PRIMORDIAL'];
   const PRIMORDIAL={name:'PRIMORDIAL',color:'#ffc5f7',hp:4e12,mult:160000,adminOnly:true};
   const catalog={
-    ORE_RADII,NAMES,PRIMORDIAL,
+    ORE_RADII,NAMES,PRIMORDIAL,ACCESSORY_BUFF:1.5,
     PICKAXE_POWER:[30,100,400,1600,10000,45000,120000,280000],
     SWORD_DAMAGE:[135,450,1800,7200,54000,180000,510000,1080000],
     ORE_HP:[150,350,900,2500,7500,24000,120000,18000000,90000000,3600000000,18000000000,4e12],
@@ -24,8 +24,12 @@
     oreContactDamage(tier){return Math.min(12,Math.pow(1.4,Math.max(0,Math.min(12,Number(tier)||0))));},
     ORE_PROJECTILE_DAMAGE:8,
     armorBonuses(name){return ({'Matéria Vermelha':{damage:.35,speed:.15,haste:.05},Diamante:{damage:.5,speed:.2,haste:.07},Void:{damage:.8,speed:.3,haste:.1},Solar:{damage:1,speed:.4,haste:.15}})[name]||{};},
-    cameraBounds(state,equipmentZoom=1){const rank=Math.max(0,Math.min(11,Math.floor(Number(state.talentRanks?.fov)||0)));return {min:Math.max(.25,equipmentZoom/(1+rank*.08)),max:1.4};},
-    lootTier(tier,random=Math.random){if(tier<7||tier>10)return tier;const n=random();return n<.6?tier-2:n<.65?tier-1:n<.66?tier:-1;},
+    cameraBounds(state,equipmentZoom=1){const rank=Math.max(0,Math.min(11,Math.floor(Number(state.talentRanks?.fov)||0)));return {min:Math.max(.08,equipmentZoom/(1+rank*.30)),max:1.4};},
+    playerRadius(sizeBonus=0){return 20*(1+Math.max(0,Math.min(2,Number(sizeBonus)||0)));},
+    movementSpeed(state,utility={},realm=state.realm){return 240*(1+Math.max(0,Math.min(11,state.talentRanks?.speed||0))*.08+(realm==='cave'?Math.max(0,Math.min(11,state.talentRanks?.sprint||0))*.04:0))*(1+(utility.speed||0))*(1-Math.max(0,Math.min(.75,utility.speedPenalty||0)));},
+    summonBoosts(state,utility={}){const rank=id=>Math.max(0,Math.min(11,Number(state.talentRanks?.[id])||0));return {damage:1+rank('broodpower')*.15+(utility.summonDamage||0),health:1+rank('broodvitality')*.20+(utility.summonHealth||0),speed:1+rank('broodspeed')*.12+(utility.summonSpeed||0),haste:1+rank('broodhaste')*.10+(utility.summonHaste||0)};},
+    lootChances(tier){return tier>=7&&tier<=10?{twoBelow:.6,oneBelow:.05,same:tier===10?.0003:.01,none:tier===10?.3497:.34}:{twoBelow:0,oneBelow:0,same:1,none:0};},
+    lootTier(tier,random=Math.random){if(tier<7||tier>10)return tier;const n=random(),odds=this.lootChances(tier),lower=odds.twoBelow+odds.oneBelow;return n<odds.twoBelow?tier-2:n<lower?tier-1:n<lower+odds.same?tier:-1;},
     ability(name){return {
       'Matéria Vermelha':{name:'Ruptura rubra',color:'#ff6868',radius:380,mult:2.5,cooldown:10},
       Diamante:{name:'Prisma',color:'#8df4fa',radius:560,mult:3,cooldown:12},

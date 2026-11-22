@@ -10,7 +10,7 @@ const CREATURES=[
 const LANTERN={id:'utility_lantern',name:'Lanterna',type:'utility',rarity:'Raro',color:'#3498db',amount:1,coins:500,materials:[['Comum',20],['Raro',8]],img:loadImg('sprites/lantern.png')};
 const UTILITIES=[LANTERN];
 TALENTS.push(
-  {id:'vision',name:'Visão noturna',symbol:'◉',description:'+28 de visão na caverna por nível.',parent:'range'},
+  {id:'vision',name:'Visão noturna',symbol:'◉',description:'+100 de iluminação na caverna por nível.',parent:'range'},
   {id:'resonance',name:'Ressonância',symbol:'✧',description:'Reduz a recarga das habilidades em 3% por nível.',parent:'haste'},
   {id:'regeneration',name:'Regeneração',symbol:'♥',description:'Por nível: regenera 35 de vida + 0,1% da vida máxima por segundo. Disponível diretamente, de I a XI.',parent:null},
   {id:'spelunker',name:'Espeleólogo',symbol:'⌂',description:'+12% de XP na caverna por nível.',parent:'vision'},
@@ -177,7 +177,7 @@ function returnFromDeath(){
 function drawDeadPlayer(x,y,entity=player){
   const size=(entity.size || player.size)*3;ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI/2);
   if(playerBodyImg.complete && playerBodyImg.naturalWidth)ctx.drawImage(playerBodyImg,-size/2,-size/2,size,size);
-  ctx.strokeStyle='#322e2c';ctx.lineWidth=3;
+  ctx.scale(size/60,size/60);ctx.strokeStyle='#322e2c';ctx.lineWidth=3;
   for(const px of [-7,7]){ctx.beginPath();ctx.moveTo(px-4,-6);ctx.lineTo(px+4,2);ctx.moveTo(px+4,-6);ctx.lineTo(px-4,2);ctx.stroke();}
   ctx.restore();
 }

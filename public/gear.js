@@ -50,6 +50,7 @@ function drawPlayerArmor(x,y,entity){
   const armor=entity===player ? player.equipment.armor : ARMORS.find(a=>a.name===entity.armor);
   if(!armor)return;
   ctx.save();
+  const bodyScale=(entity.size||20)/20;ctx.translate(x,y);ctx.scale(bodyScale,bodyScale);ctx.translate(-x,-y);
   if(armor.aura){
     if(settings.particles){
       const color=equipmentParticleColor(armor),time=performance.now()/750;

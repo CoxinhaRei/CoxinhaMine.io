@@ -11,7 +11,11 @@ const PICKAXE_RECIPES = [
 const TALENT_TIERS = ['Comum','Incomum','Raro','Épico','Lendário','Mítico','Ultra','Super','Absolut','Quantium','Aleph'];
 const TALENT_COLORS = ['#87bf68','#e0cb62','#619bd4','#a779c9','#db8d57','#e56593','#d372e2','#60d9cf','#eff2e5','#62bfee','#eada70'];
 const TALENTS = [
-  {id:'fov',name:'Visão ampliada',symbol:'◉',description:'+8% de campo de visão máximo por nível. Ajuste com o scroll.',parent:'speed'},
+  {id:'broodpower',name:'Fúria da Ninhada',symbol:'⚔',description:'+15% de dano das invocações dos ovos por nível.',parent:null},
+  {id:'broodvitality',name:'Vigor da Ninhada',symbol:'♥',description:'+20% de vida das invocações dos ovos por nível.',parent:null},
+  {id:'broodspeed',name:'Marcha do Enxame',symbol:'➜',description:'+12% de velocidade de movimento das invocações por nível.',parent:null},
+  {id:'broodhaste',name:'Frenesi do Enxame',symbol:'↻',description:'+10% de frequência de ataque das invocações por nível.',parent:'broodpower'},
+  {id:'fov',name:'Visão ampliada',symbol:'◉',description:'+30% de campo de visão máximo por nível. Ajuste com o scroll.',parent:'speed'},
   {id:'damage',name:'Impacto',symbol:'⚒',description:'+12% de dano por nível.',parent:null},
   {id:'speed',name:'Agilidade',symbol:'➜',description:'+8% de velocidade por nível.',parent:null},
   {id:'vitality',name:'Vitalidade',symbol:'♥',description:'Vida base: 1.000. Vitalidade adiciona 1.000 × nível²; com acessórios, até 400.000 de vida.',parent:null},
