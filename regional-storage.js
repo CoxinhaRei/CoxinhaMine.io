@@ -61,7 +61,7 @@ module.exports=function sharedStorage({db,file,key,request,initial,initialRaw=''
  function schedule(){if(!pending && !closed){pending=setTimeout(()=>{pending=null;if(transactions)schedule();else flush();},1500);pending.unref?.();}}
  db.write=returnValue=>{dirty=true;schedule();return returnValue;};
  async function flush(){
-  if(writing){const ok=await writing;return ok && dirty ? flush() : ok;}
+  if(writing){const current=writing,ok=await current;if(!ok)return false;return (writing&&writing!==current)||dirty ? flush() : ok;}
   if(!dirty)return !lastError;
   const snapshot=clone(db.getState()),ops=changes(baseline,snapshot);dirty=false;
   // Even an in-flight local rollback must fence a write whose HTTP reply was lost.

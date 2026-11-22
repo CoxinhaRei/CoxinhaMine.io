@@ -18,3 +18,8 @@ test('cave density filtering only rejects newly generated entities and retains e
 test('only twelve distant boss deposits remain awake; sleeping preserves their HP and does not create loot',async t=>{
  const s=await setup(t),w=s.worlds.garden,g=w.game;g.ores=Array.from({length:30},(_,n)=>({id:'far-boss-'+n,x:120000,y:100000+n*20,size:320,hp:100+n,maxHp:500,rarity:g.rarities[7],isBoss:true}));w.maintainActiveAreas([],Date.now());assert.equal(g.ores.length,12);assert.equal(w.dormantOres.size,18);assert.equal(w.dormantOres.get('far-boss-29').ore.hp,129);assert.equal(w.drops.length,0);
 });
+
+test('Quantium restores the former eight-mob target with immediate shared replenishment, while ore remains occasional and limited',async t=>{
+ const s=await setup(t),w=s.worlds.garden,q=atlas.build('garden').quantum,p={x:q.x,y:q.y},policy=World.densityFor(9);assert.equal(policy.mobs,8);assert.equal(policy.ores,2);assert.equal(policy.mobDelay,0);const a=addActor(s,'garden',p,'QuantumCrowdA'),b=addActor(s,'garden',{x:p.x+150,y:p.y},'QuantumCrowdB');
+ let allowed=0;for(let n=0;n<10000;n++)if(w.shouldSpawnOre(p,()=>(n+.5)/10000))allowed++;assert.equal(allowed,1200);assert.equal(w.shouldSpawnOre(atlas.spawn('garden'),()=>.99),true);w.shouldSpawnOre=()=>false;for(let n=0;n<15;n++){w.spawnAround(a);w.spawnAround(b);}const mobs=w.game.mobs.filter(m=>atlas.at('garden',m.x,m.y).tier===9);assert.equal(mobs.length,8);assert.equal(w.game.ores.length,0);assert.ok(mobs.every(m=>['ABSOLUT','QUANTIUM','ALEPH'].includes(m.rarity.name)));for(const m of mobs)w.dormantMobs.set(m.id,{mob:m,since:Date.now()});w.game.mobs=[];assert.equal(w.canSpawnNatural('mob',p.x,p.y),false,'Sleeping creatures still fill the shared population budget');
+});

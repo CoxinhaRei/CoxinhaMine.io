@@ -47,7 +47,7 @@ test('every biome actually spawns creatures in every territory, with species, ra
    for(let n=0;n<4;n++)world.spawnAround(actor);
    assert.ok(g.mobs.length>=(tier>=7?1:2),realm+' tier '+tier+' really spawns mobs');
    if(realm!=='cave'){assert.ok(g.ores.length>0,realm+' tier '+tier+' really spawns ore');if(tier===8)assert.ok(g.ores.some(o=>o.rarity.name==='ABSOLUT'),realm+' white territory contains a real Absolut deposit');}
-   for(const mob of g.mobs){const region=atlas.at(realm,mob.x,mob.y),index=E.tier(mob.rarity.name);assert.ok(atlas.pool(realm,region.tier).includes(mob.kind)||mob.kind==='invertedBeetle');assert.ok(region.tier===8?[7,8,9].includes(index):[region.tier,Math.max(0,region.tier-1)].includes(index));assert.equal(region.safe,false);if(realm!=='cave')assert.equal(atlas.blocked(realm,mob.x,mob.y,mob.size*.65),false);}
+   for(const mob of g.mobs){const region=atlas.at(realm,mob.x,mob.y),index=E.tier(mob.rarity.name);assert.ok(atlas.pool(realm,region.tier).includes(mob.kind)||mob.kind==='invertedBeetle');assert.ok(region.tier===9?[8,9,10].includes(index):region.tier===8?[7,8,9].includes(index):[region.tier,Math.max(0,region.tier-1)].includes(index));assert.equal(region.safe,false);if(realm!=='cave')assert.equal(atlas.blocked(realm,mob.x,mob.y,mob.size*.65),false);}
    if(realm!=='cave')for(let i=0;i<g.ores.length;i++){const ore=g.ores[i];assert.equal(atlas.blocked(realm,ore.x,ore.y,ore.size),false);assert.ok(Math.hypot(ore.x-p.x,ore.y-p.y)>=ore.size+350);for(let j=0;j<i;j++)assert.ok(Math.hypot(ore.x-g.ores[j].x,ore.y-g.ores[j].y)>=ore.size+g.ores[j].size+69.9);}
   }delete s.actors[actor.socket.id];
  }

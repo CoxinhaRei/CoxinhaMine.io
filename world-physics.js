@@ -44,13 +44,22 @@ function resolveOreContact(world,state,radius,mass){
   }
 }
 function movePlayerBody(world,state,x,y){
-  world.game.moveEntity(state,x,y,20);
-  resolveOreContact(world,state,20,400);
+  const radius=state.size||20;world.game.moveEntity(state,x,y,radius);
+  resolveOreContact(world,state,radius,400*(radius/20)**2);
+}
+function syncPlayerBody(world,state){
+  const radius=require('./public/game-catalog').playerRadius(world.game.utility(state).size);if(state.size===radius)return;
+  const blocked=(x,y)=>world.realm==='cave'?world.game.wall(x,y,radius):atlas.blocked(world.realm,x,y,radius);
+  if(blocked(state.x,state.y)){
+    let spot=null;for(let distance=10;distance<=180&&!spot;distance+=10)for(let n=0;n<16;n++){const angle=n*Math.PI/8,x=state.x+Math.cos(angle)*distance,y=state.y+Math.sin(angle)*distance;if(!blocked(x,y)){spot={x,y};break;}}
+    if(!spot)return;state.x=spot.x;state.y=spot.y;
+  }
+  state.size=radius;
 }
 function resolveWorldCollisions(world,actors){
   const g=world.game;oreIndex(world);
   const relevant=g.mobs.filter(m=>actors.some(a=>Math.hypot(a.state.x-m.x,a.state.y-m.y)<Math.max(3000,a.viewRadius || 3000)+m.size));
-  const bodies=[...actors.map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:20,mass:400,player:true,state:a.state})),...relevant.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,mass:physics.mass(m),state:m})),...(world.arcana?.allies||[]).filter(m=>m.hp>0).map(m=>({id:'a:'+m.id,x:m.x,y:m.y,radius:m.size,mass:physics.mass(m),ally:true,state:m}))],index=new SpatialIndex();
+  const bodies=[...actors.map(a=>({id:'p:'+a.profile.id,x:a.state.x,y:a.state.y,radius:a.state.size||20,mass:400*((a.state.size||20)/20)**2,player:true,state:a.state})),...relevant.map(m=>({id:'m:'+m.id,x:m.x,y:m.y,radius:m.size*.7,mass:physics.mass(m),state:m})),...(world.arcana?.allies||[]).filter(m=>m.hp>0).map(m=>({id:'a:'+m.id,x:m.x,y:m.y,radius:m.size,mass:physics.mass(m),ally:true,state:m}))],index=new SpatialIndex();
   for(const body of bodies)index.insert(body);
   for(const body of bodies){
     resolveOreContact(world,body.state,body.radius,body.mass);
@@ -65,4 +74,4 @@ function resolveWorldCollisions(world,actors){
 }
 function segmentHitsCircle(ax,ay,bx,by,x,y,radius){const dx=bx-ax,dy=by-ay,length=dx*dx+dy*dy,t=length ? Math.max(0,Math.min(1,((x-ax)*dx+(y-ay)*dy)/length)) : 0;return (ax+dx*t-x)**2+(ay+dy*t-y)**2<radius*radius;}
 function segmentCircleEntry(ax,ay,bx,by,x,y,radius){const fx=ax-x,fy=ay-y,c=fx*fx+fy*fy-radius*radius;if(c<=0)return 0;const dx=bx-ax,dy=by-ay,a=dx*dx+dy*dy;if(!a)return null;const b=2*(fx*dx+fy*dy),discriminant=b*b-4*a*c;if(discriminant<0)return null;const t=(-b-Math.sqrt(discriminant))/(2*a);return t>=0&&t<=1?t:null;}
-module.exports={SpatialIndex,resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,moveOre,movePlayerBody,oreIndex,resolveOreContact};
+module.exports={SpatialIndex,resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,moveOre,movePlayerBody,syncPlayerBody,oreIndex,resolveOreContact};

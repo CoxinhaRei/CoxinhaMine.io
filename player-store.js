@@ -53,11 +53,11 @@ module.exports=function playerStore(db,game){
     state.journal.species=state.journal.species && typeof state.journal.species==='object' ? state.journal.species : {};
     state.journal.unlocked=Array.isArray(state.journal.unlocked) ? state.journal.unlocked.slice(0,100) : [];
     state.abilityReadyAt={};for(const type of ['weapon','pickaxe','utility'])state.abilityReadyAt[type]=safeNumber(raw.abilityReadyAt?.[type],0,0,Date.now()+120000);
-    state.magic=require('./public/arcana-catalog').normalize(raw.magic);state.mana=safeNumber(raw.mana,100,0,364);state.maxMana=100;state.magicReadyAt=safeNumber(raw.magicReadyAt,0,0,Date.now()+7000);
+    state.magic=require('./public/arcana-catalog').normalize(raw.magic);state.mana=safeNumber(raw.mana,100,0,546);state.maxMana=100;state.magicReadyAt=safeNumber(raw.magicReadyAt,0,0,Date.now()+7000);
     state.pendingCraft=raw.pendingCraft && typeof raw.pendingCraft.from==='string' ? clone(raw.pendingCraft) : null;
     state.accessoryVersion=raw.accessoryVersion;state.accessories=Array.isArray(raw.accessories)?clone(raw.accessories):[];state.joinedAt=raw.joinedAt;state.playTimeMs=safeNumber(raw.playTimeMs);state.reviveReadyAt=safeNumber(raw.reviveReadyAt,0,0,Date.now()+180000);game.expansion.normalize(state);
     state.checkpoints=require('./checkpoints').normalize(raw.checkpoints);
-    state.maxHp=require('./public/game-catalog').playerHealth(state,game.utility(state).health);state.hp=state.maxHp;state.size=20;state.damage=10;
+    state.maxHp=require('./public/game-catalog').playerHealth(state,game.utility(state).health);state.hp=state.maxHp;state.size=require('./public/game-catalog').playerRadius(game.utility(state).size);state.damage=10;
     const arrival=game.expansion.mapFor('garden').spawn;state.x=arrival.x;state.y=arrival.y;state.realm='garden';state.dead=false;state.deathCause='';state.selectedSlot=2;state.vx=0;state.vy=0;
     return state;
   }

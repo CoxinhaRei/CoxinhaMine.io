@@ -17,7 +17,7 @@ test('dodge accessories use a capped independent authoritative roll per hit and 
  const {a,w,events}=await setup(t);a.state.inventory=[E.accessory('dragonEye','CHOSEN',20)];a.state.level=475;a.state.accessories=Array.from({length:20},()=>({accessoryId:'dragonEye',rarity:'CHOSEN'}));assert.equal(E.bonuses(a.state).dodge,.6);a.state.hp=1000;w.combatRandom=()=>.599;assert.equal(w.hurt(a.state,100),false);assert.equal(a.state.hp,1000);assert.ok(w.snapshot(a).playerDodge.id);w.combatRandom=()=>.6;assert.equal(w.hurt(a.state,100),true);assert.equal(w.hurt(a.state,100),true);assert.equal(a.state.hp,800);
 });
 test('every mob species has its own auto egg and passive accessory, with bounded group sizes; drops can select each new egg',async t=>{
- const {a,w}=await setup(t);assert.equal(A.EGGS.length,20);assert.equal(E.ACCESSORIES.length,50);w.lootRandom=()=>0;
+ const {a,w}=await setup(t);assert.equal(A.EGGS.length,20);assert.equal(E.ACCESSORIES.length,57);w.lootRandom=()=>0;
  for(const def of w.game.creatures){const egg=A.EGGS.find(e=>e.kind===def.kind);assert.ok(egg,def.kind);assert.ok(egg.count>=1&&egg.count<=4);assert.ok(E.ACCESSORIES.some(e=>e.kind===def.kind&&e.model!=='egg'));const pool=E.ACCESSORIES.filter(e=>e.kind===def.kind),index=pool.findIndex(e=>e.id===egg.id);w.accessoryRandom=()=>(index+.1)/pool.length;const m=w.game.createCreature(def.kind,w.game.rarities[0],82400,75000);w.game.mobs=[m];w.drops=[];w.damage(a,m,m.maxHp,true);assert.ok(w.drops.some(d=>d.item.accessoryId===egg.id),def.kind+' egg drop');}
 });
 function ore(w,id,x,y){return {id,x,y,size:24,hp:1e12,maxHp:1e12,rarity:w.game.rarities[2]};}
@@ -34,9 +34,9 @@ test('Void pickaxe dark zone pulls selected deposits with physics, preserves gia
 test('fusion returns to the menu while accessory recipes stay disabled and shop/Chosen remain',()=>{
  const g=runtime('garden'),s=g.fresh(),html=fs.readFileSync(require.resolve('../public/index.html'),'utf8'),hud=fs.readFileSync(require.resolve('../public/hud.js'),'utf8');assert.match(html,/<script src="craft-ui/);assert.match(hud,/data-panel="craft"/);for(const kind of ['accessoryMake','fusion'])assert.equal(g.command(s,kind,{name:'Comum',id:'sting',type:'material',rarity:'Comum'}),false);assert.match(fs.readFileSync(require.resolve('../server.js'),'utf8'),/chosen.forge\(a/);assert.ok(g.pickaxes.length>0&&g.armors.length>0);
 });
-test('Quantium is one reachable inset inside each original Absolut area, fits Aleph, and rolls exactly 0.9% Aleph',()=>{
+test('Quantium is one reachable inset inside each original Absolut area, fits Aleph, and rolls exactly 3% Aleph',()=>{
  const atlas=require('../public/map-atlas');for(const realm of Object.keys(atlas.LAYOUTS)){const m=atlas.build(realm),q=m.quantum;let quantum=0,absolute=0,clear=false;for(let i=0;i<m.tiers.length;i++){if(m.tiers[i]===9){quantum++;const x=(i%m.cols+.5)*m.tile,y=(Math.floor(i/m.cols)+.5)*m.tile;assert.ok(Math.hypot(x-q.x,y-q.y)<=q.radius);if(m.open[i]&&!atlas.blocked(realm,x,y,10000))clear=true;}if(m.tiers[i]===8)absolute++;}assert.ok(quantum>0&&quantum<absolute/2,realm+' small Quantium inset');assert.ok(clear,realm+' contains room for giant Aleph');assert.equal(atlas.at(realm,q.x,q.y).tier,9);assert.ok(m.gates.some(g=>(g.a===8&&g.b===9)||(g.a===9&&g.b===8)),realm+' has an entrance from Absolut');}
- const counts={};for(let n=0;n<100000;n++){const tier=atlas.rollTier(9,()=>(n+.5)/100000);counts[tier]=(counts[tier]||0)+1;}assert.deepEqual(counts,{8:39100,9:60000,10:900});
+ const counts={};for(let n=0;n<100000;n++){const tier=atlas.rollTier(9,()=>(n+.5)/100000);counts[tier]=(counts[tier]||0)+1;}assert.deepEqual(counts,{8:37000,9:60000,10:3000});
 });
 test('continuous damage has the same total across tick sizes and resetting/relearning vitality cannot heal',async t=>{
  const {a,w}=await setup(t);a.state.hp=1000;for(let n=0;n<10;n++)w.hurt(a.state,.2);const chunked=a.state.hp;a.state.hp=1000;w.hurt(a.state,2);assert.ok(Math.abs(a.state.hp-chunked)<1e-8);assert.equal(w.hurt(a.state,NaN),false);assert.equal(w.hurt(a.state,0),false);

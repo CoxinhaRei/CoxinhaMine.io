@@ -80,21 +80,24 @@ module.exports=class ArcanaWorld{
   this.bolts=this.bolts.filter(b=>b.life>0);
   for(const m of this.allies)if(m.hp<=0){const group=this.groups.get(m.group);if(group)group.ready[m.index]=this.clock+m.cooldown;}this.allies=this.allies.filter(m=>m.hp>0);
   // Groups are tied to an equipped slot and a live session, never a permanent world mob.
-  const valid=new Set();for(const a of actors){let count=this.allies.filter(m=>m.ownerId===a.profile.id&&m.hp>0).length;
+  const valid=new Set();for(const a of actors){let count=this.allies.filter(m=>m.ownerId===a.profile.id&&m.hp>0).length;const boosts=require('./public/game-catalog').summonBoosts(a.state,E.bonuses(a.state));
    for(const [slot,ref] of (a.state.accessories||[]).slice(0,E.slots(a.state.level)).entries()){
     const egg=ref&&A.EGGS.find(e=>e.id===ref.accessoryId);if(!egg||!a.state.inventory.some(i=>i.accessoryId===ref.accessoryId&&i.rarity===ref.rarity&&i.amount>0))continue;
     const key=a.socket.id+':'+slot+':'+ref.accessoryId+':'+ref.rarity;valid.add(key);let group=this.groups.get(key);if(!group){group={ready:Array(egg.count).fill(0)};this.groups.set(key,group);}
+    const rarity=g.rarities.find(r=>r.name===ref.rarity);if(!rarity)continue;
+    if(!group.base){const b=g.createCreature(egg.kind,rarity,a.state.x,a.state.y);group.base={size:b.size,maxHp:b.maxHp,damage:b.damage,speed:b.speed};}
+    group.stats=A.summonStats(group.base,egg,E.tier(ref.rarity),boosts);
     for(let n=0;n<egg.count;n++){if(this.allies.some(m=>m.group===key&&m.index===n&&m.hp>0)||this.clock<group.ready[n]||count>=A.LIMIT||this.allies.length>=192)continue;
-     const rarity=g.rarities.find(r=>r.name===ref.rarity);if(!rarity)continue;const base=g.createCreature(egg.kind,rarity,a.state.x,a.state.y),r=base.size*.7,angle=n*Math.PI*2/egg.count,x=a.state.x+Math.cos(angle)*(r+80),y=a.state.y+Math.sin(angle)*(r+80);
+     const base=g.createCreature(egg.kind,rarity,a.state.x,a.state.y),r=base.size*.7,angle=n*Math.PI*2/egg.count,x=a.state.x+Math.cos(angle)*(r+80),y=a.state.y+Math.sin(angle)*(r+80);
      if(this.wall(x,y,r))continue;
-     const stats=A.summonStats(base,egg,E.tier(ref.rarity));
-     this.allies.push({id:'ally-'+crypto.randomUUID(),group:key,slot,eggId:egg.id,index:n,ownerId:a.profile.id,owner:a.socket.id,ownerName:a.name,kind:egg.kind,name:base.name,rarity:rarity.name,x,y,size:r,maxHp:base.maxHp*1.4,hp:base.maxHp*1.4,...stats,speed:Math.max(170,base.speed||120)*4,angle,phase:0,attackAt:0,hurtAt:0,cooldown:egg.cooldown,summoned:true,noRewards:true});count++;
+     const stats=group.stats;
+     this.allies.push({id:'ally-'+crypto.randomUUID(),group:key,slot,eggId:egg.id,index:n,ownerId:a.profile.id,owner:a.socket.id,ownerName:a.name,kind:egg.kind,name:base.name,rarity:rarity.name,x,y,size:r,hp:stats.maxHp,...stats,angle,phase:0,attackAt:0,hurtAt:0,cooldown:egg.cooldown,summoned:true,noRewards:true});count++;
     }
    }
   }
   this.allies=this.allies.filter(m=>valid.has(m.group)&&active.has(m.ownerId));for(const key of this.groups.keys())if(!valid.has(key))this.groups.delete(key);
   const targetMobs=g.mobs.filter(m=>m.hp>0&&!m.noRewards&&!m.summoned);
-  for(const m of this.allies){const a=active.get(m.ownerId);if(!a)continue;let target=null,best=2600+m.size;for(const enemy of (w.safe(a.state)?[]:targetMobs)){const d=distance(m,enemy)-enemy.size;if(d<best&&g.lineClear(m.x,m.y,enemy.x,enemy.y)){best=d;target=enemy;}}
+  for(const m of this.allies){const a=active.get(m.ownerId);if(!a)continue;const stats=this.groups.get(m.group)?.stats;if(stats){if(m.maxHp!==stats.maxHp)m.hp=Math.min(stats.maxHp,m.hp/Math.max(1,m.maxHp)*stats.maxHp);Object.assign(m,stats);}let target=null,best=2600+m.size;for(const enemy of (w.safe(a.state)?[]:targetMobs)){const d=distance(m,enemy)-enemy.size;if(d<best&&g.lineClear(m.x,m.y,enemy.x,enemy.y)){best=d;target=enemy;}}
    const goal=target||{x:a.state.x+Math.cos(m.index*2.4)*150,y:a.state.y+Math.sin(m.index*2.4)*150};const d=distance(m,goal),contact=m.size+(target?.size||65);m.angle=Math.atan2(goal.y-m.y,goal.x-m.x);m.moving=d>contact*.8;
    if(!target&&d>4500){m.x=a.state.x;m.y=a.state.y;}else if(m.moving)summonBody.move(w,m,m.x+Math.cos(m.angle)*Math.min(d-contact*.7,m.speed*dt),m.y+Math.sin(m.angle)*Math.min(d-contact*.7,m.speed*dt));
    m.phase+=dt*(m.moving?8:1);

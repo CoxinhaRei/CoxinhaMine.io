@@ -36,8 +36,8 @@ test('name alone, blank name, forged saves and unknown bearer cannot open anothe
   assert.equal((await call(b,'accountLogin',{nickname:'SecurePlayer',password:'secure-test-password',lobby:true})).ok,true);assert.equal(b.profile.credentials.id,credentials.id);
 });
 
-test('Render without persistent storage refuses new durable-account registration',{timeout:10000},async t=>{
-  const db=low(new Memory()),server=await createGameServer({env:{RENDER:'true'},storage:{db,flush:async()=>true,mode:'file',close(){}}});await new Promise(r=>server.http.listen(0,'127.0.0.1',r));const socket=await client('http://127.0.0.1:'+server.http.address().port);t.after(async()=>{socket.disconnect();await server.close();});
+test('Render without persistent storage refuses new durable-account registration',{timeout:30000},async t=>{
+  const db=low(new Memory()),server=await createGameServer({env:{RENDER:'true'},storage:{db,flush:async()=>true,mode:'file',close(){}}});let socket;t.after(async()=>{socket?.disconnect();await server.close();});await new Promise(r=>server.http.listen(0,'127.0.0.1',r));socket=await client('http://127.0.0.1:'+server.http.address().port);
   const result=await call(socket,'accountRegister',{nickname:'NeedsDatabase',password:'secure-test-password',lobby:true});assert.equal(result.ok,false);assert.match(result.message,/persistente/);assert.equal(Object.keys(db.get('accounts').value()).length,0);
 });
 

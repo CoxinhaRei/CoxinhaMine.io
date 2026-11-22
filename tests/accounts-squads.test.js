@@ -36,8 +36,8 @@ test('accounts preserve guest progress, protect passwords, rotate sessions and r
   actorD.state.x=90000;actorD.state.y=75000;
   const ore={id:'squad-ore',x:81300,y:75000,size:100,hp:1000,maxHp:1000,rarity:g.rarities[7]};g.ores.push(ore);
   const start=new Map([b,c,d,e].map(s=>[s.id,{coins:server.actors[s.id].state.coins,mined:server.actors[s.id].state.journal.mined}]));
-  world.damage(actorB,ore,30,false);world.damage(actorC,ore,20,false);
-  assert.equal(world.snapshot(actorC).squadContribution[ore.id],.05,'group damage sums to threshold');
+  world.damage(actorB,ore,50,false);
+  assert.equal(world.snapshot(actorC).squadContribution[ore.id],.05,'one member reaches the shared threshold alone');
   world.damage(server.actors[f.id],ore,950,false);
   await until(()=>c.loots.length===1 && b.loots.length===1);
   const firstDrop=world.drops.find(d=>d.item.type==='material');assert.ok(firstDrop);assert.equal(actorB.state.inventory.filter(i=>i.type==='material').length,0,'material is on the ground before pickup');
