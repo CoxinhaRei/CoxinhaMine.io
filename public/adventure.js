@@ -200,7 +200,7 @@ function damageEntity(target,damage,isMob){
   if(target.hp>0)return;
   if(isMob && (target.noRewards || target.summoned)){removeMobAndSummons(target);return;}
   const index=Math.max(0,rarities.findIndex(r=>r.name===target.rarity.name));
-  player.xp+=160*Math.pow(1.8,index)*(1+talentRank('xp')*.1)*(currentRealm==='cave' ? 1.8+talentRank('spelunker')*.12 : 1);
+  player.xp+=(isMob?GAME_CATALOG.experienceReward(target.rarity.name,true):160*Math.pow(1.8,index))*(1+talentRank('xp')*.1)*(currentRealm==='cave' ? 1.8+talentRank('spelunker')*.12 : 1);
   player.coins+=Math.max(5,Math.round(5*Math.pow(1.8,index)));
   addOreMaterial(target.rarity,Math.random()<talentRank('fortune')*.02+talentRank('scavenger')*.03 ? 2 : 1);
   if(isMob){removeMobAndSummons(target);recordJournal('kills');}

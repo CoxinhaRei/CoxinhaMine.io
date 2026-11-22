@@ -36,6 +36,7 @@
       info.name=def.name;info.kind=tier>=7?'Criatura · boss':'Criatura';info.description=descriptions[item.kind]||'Uma criatura deste mundo.';
       const maximum=item.maxHp??C.mobHealth(def.hp,tier);
       info.rows=[['Vida',item.hp===undefined?number(maximum):number(item.hp)+' / '+number(maximum)],['Dano de contato',number(item.damage??C.mobDamage(def.damage,tier))],['Comportamento',def.temperament==='hostile'?'Hostil':'Neutro · revida ao ser atacado'],['Drop',C.MOB_LOOT[item.kind]||def.drop||'Material de criatura'],['Acessórios','Diretamente da espécie']];if(tier>=7&&tier<=10)info.note='Itens: 60% duas raridades abaixo, 5% uma abaixo, 1% da mesma raridade; 34% sem item.';
+      info.rows.push(['XP base',number(item.summoned?0:C.experienceReward(rarity,true))]);
       if(tier>=7)info.rows.push(['Habilidade especial',abilities[item.kind]?.name||'Ataques especiais de boss']);
       if(item.summoned)info.note='Invocação: não concede drops nem XP.';
     }else return null;

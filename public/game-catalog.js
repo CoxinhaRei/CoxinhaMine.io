@@ -9,6 +9,8 @@
     SWORD_DAMAGE:[135,450,1800,7200,54000,180000,510000,1080000],
     ORE_HP:[150,350,900,2500,7500,24000,120000,18000000,90000000,3600000000,18000000000,4e12],
     XP_REWARDS:[20,60,220,1000,6000,30000,250000,2000000,12000000,80000000,500000000,5000000000],
+    mobXpMultiplier(rarity){return ({SUPER:6,ABSOLUT:8,QUANTIUM:10,ALEPH:12})[rarity]||3;},
+    experienceReward(rarity,isMob=false){const base=this.XP_REWARDS[this.NAMES.indexOf(rarity)]||1000000000;return base*(isMob?this.mobXpMultiplier(rarity):1);},
     MOB_LOOT:{guardian:'Fragmento do Guardião',ladybug:'Élitro Rubro',bee:'Ferrão',ant:'Mandíbula',spider:'Seda de Aranha',beetle:'Carapaça',centipede:'Glândula de Veneno'},
     totalXpForLevel(level){const n=Math.max(0,Number(level)-1);return Math.round(100*n+(100000000000-29900)*Math.pow(n/299,4));},
     xpForLevel(level){return Math.max(100,this.totalXpForLevel(level+1)-this.totalXpForLevel(level));},
