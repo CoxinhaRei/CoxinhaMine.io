@@ -1,6 +1,6 @@
 # CoxinhaMine.io 1.5.5
 
-Patch atual: `release-155-read4`. Leia [PATCH-LEITURA-SAVE.md](PATCH-LEITURA-SAVE.md) para o conflito de leitura e gravação com jogadores ativos. Leia [PATCH-CONFIRMACAO-SAVE.md](PATCH-CONFIRMACAO-SAVE.md) para a recuperação de gravações sem resposta. Veja [PATCH-SESSOES.md](PATCH-SESSOES.md) para o bloqueio de conta reservada. Leia [PATCH-RECUPERACAO-MAGNETOS.md](PATCH-RECUPERACAO-MAGNETOS.md) para as correções de login e as novidades.
+Patch atual: `release-155-density1`. Leia [PATCH-DENSIDADE.md](PATCH-DENSIDADE.md) para a redução de entidades nas regiões raras. Leia [PATCH-LEITURA-SAVE.md](PATCH-LEITURA-SAVE.md) para o conflito de leitura e gravação com jogadores ativos. Leia [PATCH-CONFIRMACAO-SAVE.md](PATCH-CONFIRMACAO-SAVE.md) para a recuperação de gravações sem resposta. Veja [PATCH-SESSOES.md](PATCH-SESSOES.md) para o bloqueio de conta reservada. Leia [PATCH-RECUPERACAO-MAGNETOS.md](PATCH-RECUPERACAO-MAGNETOS.md) para as correções de login e as novidades.
 
 Pacote completo da atualização. Leia [DEPLOY.md](DEPLOY.md) para enviar ao GitHub/Render e [CHANGELOG-1.5.5.md](CHANGELOG-1.5.5.md) para as novidades.
 

@@ -4,9 +4,32 @@ const expansion=require('./public/expansion');
 const atlas=require('./public/map-atlas');
 const {resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,SpatialIndex,oreIndex}=require('./world-physics');
 
+const RARE_DENSITY=Object.freeze({7:Object.freeze({mobs:2,ores:3,radius:8000,delay:10000}),8:Object.freeze({mobs:1,ores:2,radius:10000,delay:20000})});
 class SharedWorld{
+  static densityFor(tier){return RARE_DENSITY[tier]||null;}
+  densityKey(type,x,y,tier){return type+':'+tier+':'+Math.floor(x/8000)+':'+Math.floor(y/8000);}
+  canSpawnNatural(type,x,y,now=Date.now()){
+    const tier=atlas.at(this.realm,x,y).tier,policy=RARE_DENSITY[tier];if(!policy)return true;
+    if((this.spawnCooldowns.get(this.densityKey(type,x,y,tier))||0)>now)return false;
+    const cap=type==='mob'?policy.mobs:policy.ores,active=type==='mob'?this.game.mobs:this.game.ores,dormant=type==='mob'?this.dormantMobs:this.dormantOres;let count=0;
+    const counts=e=>e.hp>0&&!e.summoned&&!e.noRewards&&Math.hypot(e.x-x,e.y-y)<policy.radius+e.size&&atlas.at(this.realm,e.x,e.y).tier===tier;
+    for(const e of active)if(counts(e)&&++count>=cap)return false;
+    for(const entry of dormant.values())if(counts(entry.mob||entry.ore)&&++count>=cap)return false;
+    return true;
+  }
+  noteNaturalSpawn(type,entity,now=Date.now()){
+    const tier=atlas.at(this.realm,entity.x,entity.y).tier,policy=RARE_DENSITY[tier];if(!policy)return;
+    this.spawnCooldowns.set(this.densityKey(type,entity.x,entity.y,tier),now+policy.delay);
+    if(this.spawnCooldowns.size>512){for(const [key,until] of this.spawnCooldowns)if(until<=now)this.spawnCooldowns.delete(key);while(this.spawnCooldowns.size>512)this.spawnCooldowns.delete(this.spawnCooldowns.keys().next().value);}
+  }
+  populateSparseCave(state){
+    if(!this.canSpawnNatural('ore',state.x,state.y)&&!this.canSpawnNatural('mob',state.x,state.y))return;
+    const g=this.game,oldOres=new Set(g.ores),oldMobs=new Set(g.mobs);g.populateCave(state);
+    const ores=g.ores.filter(e=>!oldOres.has(e)),mobs=g.mobs.filter(e=>!oldMobs.has(e));g.ores=g.ores.filter(e=>oldOres.has(e));g.mobs=g.mobs.filter(e=>oldMobs.has(e));
+    for(const [type,list] of [['ore',ores],['mob',mobs]])for(const entity of list){if(this.canSpawnNatural(type,entity.x,entity.y)){(type==='ore'?g.ores:g.mobs).push(entity);this.noteNaturalSpawn(type,entity);}else{if(type==='ore'){g.forgetDormantOre(entity);const deposit=g.cave.deposits?.find(d=>d.id===entity.id);if(deposit)deposit.spawned=false;}else g.cave.populated.delete(Math.floor(entity.y/500)*g.cave.columns+Math.floor(entity.x/500));}}
+  }
   constructor(realm,actors,store,io){
-    this.realm=realm;this.actors=actors;this.store=store;this.io=io;this.contributions=new Map();this.squadCredits=new Map();this.drops=[];this.revision=0;this.nextSpawn=0;this.dormantOres=new Map();this.dormantMobs=new Map();this.nextMaintenance=0;this.oreRevision=0;
+    this.realm=realm;this.actors=actors;this.store=store;this.io=io;this.contributions=new Map();this.squadCredits=new Map();this.drops=[];this.revision=0;this.nextSpawn=0;this.spawnCooldowns=new Map();this.dormantOres=new Map();this.dormantMobs=new Map();this.nextMaintenance=0;this.oreRevision=0;
     this.game=createRuntime(realm,(state,amount,dx,dy,cause)=>this.hurt(state,amount,dx,dy,cause));
     const home=expansion.LANDMARKS.desert.find(p=>p.id==='forge');this.forge=realm==='desert'?{id:'chosen-forge',name:'Coxinha Forjadora',x:home.x,y:home.y,homeX:home.x,homeY:home.y,size:340,roam:1200,speed:42,targetX:home.x,targetY:home.y,angle:0,timer:0}:null;
     this.arcana=new (require('./arcana'))(this);
@@ -122,30 +145,30 @@ class SharedWorld{
     this.contributions.delete(entity.id);
     this.squadCredits.delete(entity.id);
     if(!isMob && Math.random()<.28 && this.game.mobs.length<180){
-      const mob=this.game.createCreature('guardian',entity.rarity,entity.x,entity.y);this.game.mobs.push(mob);this.announceSpawn(mob,true);
+      if(this.canSpawnNatural('mob',entity.x,entity.y)){const mob=this.game.createCreature('guardian',entity.rarity,entity.x,entity.y);this.game.mobs.push(mob);this.noteNaturalSpawn('mob',mob);this.announceSpawn(mob,true);}
     }
   }
   spawnAround(actor){
     const g=this.game,state=actor.state;g.bind(state);
-    if(this.realm==='cave'){g.populateCave(state);g.ores=g.ores.filter(o=>this.portalClear(o));for(const ore of g.ores)this.announceSpawn(ore,false);for(const mob of g.mobs)this.announceSpawn(mob,true);this.spawnTerritoryMobs(actor);return;}
+    if(this.realm==='cave'){this.populateSparseCave(state);g.ores=g.ores.filter(o=>this.portalClear(o));for(const ore of g.ores)this.announceSpawn(ore,false);for(const mob of g.mobs)this.announceSpawn(mob,true);this.spawnTerritoryMobs(actor);return;}
     this.spawnTerritoryMobs(actor);
     if(atlas.at(this.realm,state.x,state.y).tier===8)this.addBoss('ABSOLUT',actor);
     const index=oreIndex(this);
     for(let x=state.x-2000;x<state.x+2000;x+=600)for(let y=state.y-2000;y<state.y+2000;y+=600){
       const cx=Math.floor(x/600),cy=Math.floor(y/600),key=cx+','+cy;
-      if((this.oreCellCounts.get(key) || 0)>=4)continue;
+      if((this.oreCellCounts.get(key) || 0)>=4||!this.canSpawnNatural('ore',cx*600+300,cy*600+300))continue;
       const nearby=[...index.query(cx*600+300,cy*600+300,2400)],ore=g.spawnGardenCell(cx,cy,nearby);
-      if(ore && (!this.portalClear(ore)||this.live().some(a=>Math.hypot(a.state.x-ore.x,a.state.y-ore.y)<ore.size+350)||(this.forge && Math.hypot(ore.x-this.forge.homeX,ore.y-this.forge.homeY)<ore.size+this.forge.roam+800))){g.ores=g.ores.filter(o=>o!==ore);continue;}
-      if(ore){this.announceSpawn(ore,false);index.insert({id:ore.id,x:ore.x,y:ore.y,radius:ore.size,rarity:ore.rarity,state:ore});this.oreCellCounts.set(key,(this.oreCellCounts.get(key) || 0)+1);this.physicsOreCount=g.ores.length;}
+      if(ore && (!this.canSpawnNatural('ore',ore.x,ore.y)||!this.portalClear(ore)||this.live().some(a=>Math.hypot(a.state.x-ore.x,a.state.y-ore.y)<ore.size+350)||(this.forge && Math.hypot(ore.x-this.forge.homeX,ore.y-this.forge.homeY)<ore.size+this.forge.roam+800))){g.ores=g.ores.filter(o=>o!==ore);continue;}
+      if(ore){this.noteNaturalSpawn('ore',ore);this.announceSpawn(ore,false);index.insert({id:ore.id,x:ore.x,y:ore.y,radius:ore.size,rarity:ore.rarity,state:ore});this.oreCellCounts.set(key,(this.oreCellCounts.get(key) || 0)+1);this.physicsOreCount=g.ores.length;}
     }
     if(atlas.at(this.realm,state.x,state.y).tier===8 && Math.random()<.01)this.addBoss('QUANTIUM',actor);
   }
   spawnTerritoryMobs(actor){
-    const g=this.game,s=actor.state,region=atlas.at(this.realm,s.x,s.y),target=region.tier>=7?8:12;
+    const g=this.game,s=actor.state,region=atlas.at(this.realm,s.x,s.y),target=RARE_DENSITY[region.tier]?.mobs||12;
     let nearby=g.mobs.filter(m=>!m.summoned&&Math.hypot(m.x-s.x,m.y-s.y)<4000+m.size).length;
     for(let attempt=0;attempt<90&&nearby<target&&g.mobs.length<180;attempt++){
       const angle=Math.random()*Math.PI*2,distance=(region.safe?1600:500)+Math.random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=atlas.roll(this.realm,x,y);
-      if(tier<0||!area.open)continue;
+      if(tier<0||!area.open||!this.canSpawnNatural('mob',x,y))continue;
       const pool=atlas.pool(this.realm,area.tier),definition=pool[Math.floor(Math.random()*pool.length)],kind=definition==='beetle'&&Math.random()<.00025?'invertedBeetle':definition,mob=g.createCreature(kind,g.rarities[tier],x,y);
       if(Math.hypot(x-s.x,y-s.y)<mob.size+500||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+mob.size*.75)||g.mobs.some(o=>Math.hypot(o.x-x,o.y-y)<(o.size+mob.size)*.75))continue;
       if(this.realm==='cave'){
@@ -154,7 +177,7 @@ class SharedWorld{
         if(g.wall(x,y,mob.size*.75))g.carveChamber(x,y,mob.size+550);
         if(g.wall(x,y,mob.size*.75))continue;
       }else if(!catalog.gardenOrePositionValid(x,y,mob.size,atlas.SIZE)||atlas.blocked(this.realm,x,y,mob.size*.75))continue;
-      mob.regionTier=area.tier;g.mobs.push(mob);this.announceSpawn(mob,true);nearby++;
+      mob.regionTier=area.tier;g.mobs.push(mob);this.noteNaturalSpawn('mob',mob);this.announceSpawn(mob,true);nearby++;
     }
   }
   addBoss(name,actor){
@@ -162,9 +185,9 @@ class SharedWorld{
     const size=catalog.oreRadius(name),desired=name==='SUPER'||name==='ALEPH'?7:8;
     for(let n=0;n<36;n++){
       const a=Math.random()*Math.PI*2,d=size+2000+Math.random()*3000,x=actor?actor.state.x+Math.cos(a)*d:size+500+Math.random()*(atlas.SIZE-size*2-1000),y=actor?actor.state.y+Math.sin(a)*d:size+500+Math.random()*(atlas.SIZE-size*2-1000);
-      if(atlas.at(this.realm,x,y).tier!==desired||atlas.blocked(this.realm,x,y,size)||!catalog.gardenOrePositionValid(x,y,size,atlas.SIZE)||!this.portalClear({x,y,size})||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+size+150)||g.mobs.some(m=>Math.hypot(m.x-x,m.y-y)<m.size+size+150)||this.live().some(a=>Math.hypot(a.state.x-x,a.state.y-y)<size+500))continue;
+      if(atlas.at(this.realm,x,y).tier!==desired||!this.canSpawnNatural('ore',x,y)||atlas.blocked(this.realm,x,y,size)||!catalog.gardenOrePositionValid(x,y,size,atlas.SIZE)||!this.portalClear({x,y,size})||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+size+150)||g.mobs.some(m=>Math.hypot(m.x-x,m.y-y)<m.size+size+150)||this.live().some(a=>Math.hypot(a.state.x-x,a.state.y-y)<size+500))continue;
       if(this.forge&&Math.hypot(x-this.forge.homeX,y-this.forge.homeY)<size+this.forge.roam+800)continue;
-      const ore={id:'ore-'+require('crypto').randomUUID(),x,y,size,hp:rarity.hp,maxHp:rarity.hp,rarity,isBoss:true};g.ores.push(ore);this.announceSpawn(ore,false);return ore;
+      const ore={id:'ore-'+require('crypto').randomUUID(),x,y,size,hp:rarity.hp,maxHp:rarity.hp,rarity,isBoss:true};g.ores.push(ore);this.noteNaturalSpawn('ore',ore);this.announceSpawn(ore,false);return ore;
     }
   }
   portalClear(entity){return expansion.portalsFor(this.realm).every(p=>Math.hypot(entity.x-p.x,entity.y-p.y)>entity.size+p.r+220);}
@@ -172,7 +195,7 @@ class SharedWorld{
     if(now<this.nextMaintenance)return;this.nextMaintenance=now+1000;
     const g=this.game,near=ore=>live.some(a=>Math.hypot(ore.x-a.state.x,ore.y-a.state.y)<Math.max(5000,(a.viewRadius || 3000)+1200)+ore.size),important=ore=>ore.isBoss || g.rarities.findIndex(r=>r.name===ore.rarity?.name)>=7;
     let changed=false,keptBosses=0;const kept=[];
-    for(const ore of g.ores){if(near(ore)||(important(ore)&&keptBosses++<64))kept.push(ore);else{this.dormantOres.set(ore.id,{ore,since:now});changed=true;}}
+    for(const ore of g.ores){if(near(ore)||(important(ore)&&keptBosses++<12))kept.push(ore);else{this.dormantOres.set(ore.id,{ore,since:now});changed=true;}}
     for(const [id,entry] of this.dormantOres){
       if(entry.ore.hp<=0 || now-entry.since>600000){g.forgetDormantOre(entry.ore);this.dormantOres.delete(id);continue;}
       if(near(entry.ore)){kept.push(entry.ore);this.dormantOres.delete(id);changed=true;}

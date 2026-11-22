@@ -43,3 +43,9 @@
 
 - Discard and repeat a catalogue/profile read when a concurrent save overtakes it. A delayed read can no longer replace the reference of a newer confirmed write.
 - Preserve changes made during a read and keep independent active player inventories intact. Real unknown-version conflicts still block unsafe writes.
+
+## Rare-region population nerf
+
+- SUPER regions use local budgets of 2 natural mobs and 3 ores; ABSOLUT uses 1 natural mob and 2 ores. Natural replenishment has shared sector cooldowns of 10 and 20 seconds.
+- Apply the budgets to surface/cave generation, special deposits and ore guardians. Sleeping entities count toward the budget.
+- Keep at most 12 distant boss deposits awake instead of 64, preserving health and contribution while others sleep.
