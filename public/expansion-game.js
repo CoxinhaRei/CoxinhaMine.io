@@ -8,7 +8,11 @@ for(const def of EXPANSION.MOBS){CREATURES.push({...def});GAME_CATALOG.MOB_LOOT[
 const legacyUtilityDefinitions=[...UTILITIES];UTILITIES.length=0;
 equippedUtility=()=>null;
 utilityBonus=name=>EXPANSION.bonuses(player)[name]||0;
-cameraZoom=()=>EXPANSION.bonuses(player).zoom;
+let preferredCameraZoom=null;try{const value=Number(localStorage.getItem('coxinha_camera_zoom155'));if(value>=.25&&value<=1.4)preferredCameraZoom=value;}catch{}
+function cameraBounds(){return GAME_CATALOG.cameraBounds(player,EXPANSION.bonuses(player).zoom);}
+function setCameraZoom(value){const bounds=cameraBounds();preferredCameraZoom=Math.max(bounds.min,Math.min(bounds.max,Number(value)||bounds.min));try{localStorage.setItem('coxinha_camera_zoom155',String(preferredCameraZoom));}catch{}return preferredCameraZoom;}
+cameraZoom=()=>{const bounds=cameraBounds();return Math.max(bounds.min,Math.min(bounds.max,preferredCameraZoom??bounds.min));};
+canvas.addEventListener('wheel',event=>{if(isUiBlocking()||typeof menuVisible==='function'&&menuVisible()||!Number.isFinite(event.deltaY))return;event.preventDefault();setCameraZoom(cameraZoom()*Math.exp(-Math.max(-240,Math.min(240,event.deltaY))*.0015));},{passive:false});
 restoreUtility=()=>{EXPANSION.normalize(player);};
 ownsLantern=()=>EXPANSION.bonuses(player).vision>0;
 toggleLantern=()=>{};useUtilityAbility=()=>false;

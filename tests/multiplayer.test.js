@@ -50,7 +50,7 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   a.emit('move',{x:80600,y:75000,aimAngle:0,selectedSlot:0});await delay(80);a.emit('attack',{type:'weapon',targetId:resource.id});await delay(100);assert.equal(resource.hp,resource.maxHp,'sword cannot mine');
   a.emit('useAbility','pickaxe');await until(()=>resource.hp<resource.maxHp,'pickaxe ability');assert.equal(enemy.hp,enemy.maxHp,'pickaxe ability excludes mobs');
   const oreAfter=resource.hp;a.emit('useAbility','weapon');await until(()=>enemy.hp<enemy.maxHp,'sword ability');assert.equal(resource.hp,oreAfter,'sword ability excludes ores');
-  const alpha=server.actors[a.id],coins=alpha.state.coins;a.emit('savePlayer',{coins:1e12,level:99999});await delay(100);assert.equal(alpha.state.coins,coins);assert.notEqual(alpha.state.level,99999);
+  world.solarSuns.length=0;const alpha=server.actors[a.id],coins=alpha.state.coins;a.emit('savePlayer',{coins:1e12,level:99999});await delay(100);assert.equal(alpha.state.coins,coins);assert.notEqual(alpha.state.level,99999);
   const helper=world.game.createCreature('spider',world.game.rarities[5],81000,75500);helper.summoned=true;helper.noRewards=true;helper.summonerId=enemy.id;world.game.mobs.push(helper);
   const beforeHelper=JSON.stringify([alpha.state.xp,alpha.state.coins,alpha.state.inventory,alpha.state.journal.kills]);world.damage(alpha,helper,helper.maxHp,true);
   assert.equal(JSON.stringify([alpha.state.xp,alpha.state.coins,alpha.state.inventory,alpha.state.journal.kills]),beforeHelper,'summoned mobs never grant rewards');

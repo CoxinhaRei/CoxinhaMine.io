@@ -78,6 +78,7 @@ talentPanel.innerHTML=`<header class="garden-panel-header"><h1>Talentos</h1><but
   <div class="talent-scroll"><div class="talent-stage"><svg viewBox="0 0 600 430" aria-hidden="true"><path d="M100 55V350 M300 55V245 M500 55V245"/></svg><div id="talent-nodes"></div></div></div>
   <p class="talent-footnote">Ative o talento anterior para abrir o ramo. O próximo nível custa 1 PT a mais, até Aleph.</p>`;
 document.body.append(talentPanel);
+const resetTalentsButton=document.createElement('button');resetTalentsButton.type='button';resetTalentsButton.className='craft-pickaxe';resetTalentsButton.textContent='Resetar talentos';resetTalentsButton.title='Devolve todos os pontos. Disponível no menu ou em refúgios.';resetTalentsButton.onclick=()=>{if(isServerWorld())requestPlayerAction('talentReset');else if(menuVisible()||getZone(player.x,player.y)==='P')resetTalentRanks();};talentPanel.querySelector('.talent-points').append(resetTalentsButton);
 talentPanel.querySelector('.panel-close').onclick=()=>{talentsOpen=false;};
 talentPanel.addEventListener('pointerover',()=>{movementAimActive=false;});
 const talentPositions=TALENTS.map((_,index)=>[index%3,Math.floor(index/3)]);
@@ -101,7 +102,7 @@ const talentDetail=document.createElement('div');talentDetail.className='talent-
 function renderTalentTree(){
   talentPanel.hidden=!talentsOpen;
   if(!talentsOpen)return;
-  document.getElementById('tree-points').textContent=player.talentPoints || 0;
+  document.getElementById('tree-points').textContent=player.talentPoints || 0;resetTalentsButton.disabled=!Object.values(player.talentRanks||{}).some(rank=>rank>0);
   for(const button of nodeContainer.children){
     const talent=TALENTS.find(t=>t.id===button.dataset.talent),rank=talentRank(talent.id),parent=talent.parent && TALENTS.find(t=>t.id===talent.parent);
     const locked=parent && !talentRank(parent.id);

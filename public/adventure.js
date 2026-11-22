@@ -208,6 +208,7 @@ function damageEntity(target,damage,isMob){
 }
 function equipmentAbility(item){
   if(!item || !['weapon','pickaxe'].includes(item.type))return null;
+  if(item.name==='Solar'&&item.type==='weapon')return {...GAME_CATALOG.ability('Solar'),name:'Sol da Aurora',kind:'solarSun',radius:650,mult:8,duration:4.5,speed:360};
   return GAME_CATALOG.ability(item?.name);
 }
 function useEquipmentAbility(type){

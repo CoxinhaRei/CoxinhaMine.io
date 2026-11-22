@@ -140,6 +140,7 @@ function applyWorldSnapshot(snapshot){
   if(!multiplayer.ready || snapshot.realm!==currentRealm || (snapshot.self?.epoch!==undefined && snapshot.self.epoch!==multiplayer.movementEpoch))return;
   if(Array.isArray(snapshot.ores)){const previous=new Map(ores.map(ore=>[ore.id,ore]));ores=snapshot.ores.map(data=>Object.assign(previous.get(data.id) || {},data));if(Number.isSafeInteger(snapshot.oreSeq))socket.emit('oreAck',{realm:currentRealm,epoch:multiplayer.movementEpoch,seq:snapshot.oreSeq});}
   mobs=mergeNetworkEntities(mobs,snapshot.mobs);projectiles=mergeNetworkEntities(projectiles,snapshot.projectiles);bossMobHazards=snapshot.hazards;bossMobEffects=snapshot.effects;
+  for(const sun of snapshot.solarSuns||[]){const old=abilityEffects.find(e=>e.id===sun.id);if(old)Object.assign(old,sun);else abilityEffects.push(sun);}
   multiplayer.drops=snapshot.drops || [];multiplayer.timeOffset=snapshot.serverTime-Date.now();
   const self=snapshot.self,history=self && pendingMovement.get(self.seq);
   if(multiplayer.protocol>=5 && self?.epoch===multiplayer.movementEpoch)networkMovement.reconcile(player,self,snapshot.serverTime,networkSpeed(),movePredictedPlayer);
@@ -158,8 +159,8 @@ socket.on('realmChanged',data=>{
   if(typeof irisTransition==='function')irisTransition(change);else change();
 });
 socket.on('entityHit',data=>{miningBurst(data.x,data.y,data.color,data.isMob ? 9 : 16);damageNumbers.push({x:data.x,y:data.y-25,text:Math.round(data.damage),life:.7});});
-socket.on('abilityEffect',effect=>abilityEffects.push(effect));
-socket.on('lootResult',result=>sharedNotice(result.qualified ? (result.shared ? 'Loot do Squad · ' : 'Loot recebido · ')+result.entity+' '+result.rarity+' · '+((result.shared ? result.squadShare : result.share)*100).toFixed(1)+'% de participação' : 'Sem loot · participação '+(result.share*100).toFixed(1)+'% · mínimo 5%'));
+socket.on('abilityEffect',effect=>{if(effect.kind==='solarEnd'){abilityEffects=abilityEffects.filter(e=>e.id!==effect.id);return;}if(effect.kind==='solarStop'){const old=abilityEffects.find(e=>e.id===effect.id);if(old)Object.assign(old,effect,{kind:'solarSun'});return;}abilityEffects.push(effect);});
+socket.on('lootResult',result=>sharedNotice(result.qualified ? (result.itemDropped===false?'XP e moedas · sem item nesta vez · ':result.shared ? 'Loot do Squad · ' : 'Loot recebido · ')+result.entity+' '+result.rarity+' · '+((result.shared ? result.squadShare : result.share)*100).toFixed(1)+'% de participação' : 'Sem loot · participação '+(result.share*100).toFixed(1)+'% · mínimo 5%'));
 socket.on('actionResult',result=>{if(!result.ok)sharedNotice(result.message);const message=document.getElementById('recipe-result');if(message && shopOpen)message.textContent=result.message;});
 socket.on('saveConfirmed',result=>{if(result.guest){sharedNotice('Convidado: crie uma conta para guardar seu progresso.');return;}networkStatus.title=(result.committed===false ? 'Banco indisponível; salvamento pendente' : 'Save confirmado no servidor')+' · '+new Date(result.at).toLocaleTimeString()+' · '+result.persistence;if(result.committed===false)sharedNotice('O banco está temporariamente indisponível. O servidor está tentando salvar novamente.');});
 const saveTools=document.createElement('section');saveTools.className='save-tools';

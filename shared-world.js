@@ -4,6 +4,7 @@ const expansion=require('./public/expansion');
 const atlas=require('./public/map-atlas');
 const {resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,SpatialIndex,oreIndex}=require('./world-physics');
 
+const gRarity=(game,tier)=>tier>=0?game.rarities[tier]:null;
 const RARE_DENSITY=Object.freeze({7:Object.freeze({mobs:2,ores:3,radius:8000,delay:10000}),8:Object.freeze({mobs:1,ores:2,radius:10000,delay:20000})});
 class SharedWorld{
   static densityFor(tier){return RARE_DENSITY[tier]||null;}
@@ -29,7 +30,7 @@ class SharedWorld{
     for(const [type,list] of [['ore',ores],['mob',mobs]])for(const entity of list){if(this.canSpawnNatural(type,entity.x,entity.y)){(type==='ore'?g.ores:g.mobs).push(entity);this.noteNaturalSpawn(type,entity);}else{if(type==='ore'){g.forgetDormantOre(entity);const deposit=g.cave.deposits?.find(d=>d.id===entity.id);if(deposit)deposit.spawned=false;}else g.cave.populated.delete(Math.floor(entity.y/500)*g.cave.columns+Math.floor(entity.x/500));}}
   }
   constructor(realm,actors,store,io){
-    this.realm=realm;this.actors=actors;this.store=store;this.io=io;this.contributions=new Map();this.squadCredits=new Map();this.drops=[];this.revision=0;this.nextSpawn=0;this.spawnCooldowns=new Map();this.dormantOres=new Map();this.dormantMobs=new Map();this.nextMaintenance=0;this.oreRevision=0;
+    this.realm=realm;this.actors=actors;this.store=store;this.io=io;this.contributions=new Map();this.squadCredits=new Map();this.drops=[];this.revision=0;this.nextSpawn=0;this.lootRandom=()=>Math.random();this.solarSuns=[];this.spawnCooldowns=new Map();this.dormantOres=new Map();this.dormantMobs=new Map();this.nextMaintenance=0;this.oreRevision=0;
     this.game=createRuntime(realm,(state,amount,dx,dy,cause)=>this.hurt(state,amount,dx,dy,cause));
     const home=expansion.LANDMARKS.desert.find(p=>p.id==='forge');this.forge=realm==='desert'?{id:'chosen-forge',name:'Coxinha Forjadora',x:home.x,y:home.y,homeX:home.x,homeY:home.y,size:340,roam:1200,speed:42,targetX:home.x,targetY:home.y,angle:0,timer:0}:null;
     this.arcana=new (require('./arcana'))(this);
@@ -73,8 +74,16 @@ class SharedWorld{
     let damage=(10+(isMob ? tool.damage : tool.power))*(1+(state.talentRanks?.damage || 0)*.12)*(isMob ? 1+(utility.damage||0) : 1+(utility.mining || 0));
     if(Math.random()<(state.talentRanks?.crit || 0)*.03)damage*=2;
     this.damage(actor,entity,damage,isMob);
-    state.hp=Math.min(state.maxHp,state.hp+damage*((state.talentRanks?.drain || 0)*.01+(utility.vampirism||0)));
+
     return true;
+  }
+  launchSolarSun(actor,ability,damage){
+    const angle=actor.state.aimAngle||0,sun={id:require('crypto').randomUUID(),actor,x:actor.state.x,y:actor.state.y,vx:Math.cos(angle)*ability.speed,vy:Math.sin(angle)*ability.speed,radius:ability.radius,life:ability.duration,maxLife:ability.duration,age:0,damage};this.solarSuns.push(sun);
+    this.emit('abilityEffect',{id:sun.id,kind:'solarSun',name:ability.name,x:sun.x,y:sun.y,vx:sun.vx,vy:sun.vy,radius:sun.radius,life:sun.life,maxLife:sun.life,color:ability.color,owner:actor.socket.id});
+  }
+  tickSolarSuns(dt,live){
+    for(const sun of this.solarSuns){if(!live.includes(sun.actor)||sun.actor.state.dead){sun.life=0;}else{const used=Math.min(dt,sun.life),x=sun.x+sun.vx*used,y=sun.y+sun.vy*used;if(this.game.lineClear(sun.x,sun.y,x,y)){sun.x=x;sun.y=y;}else if(sun.vx||sun.vy){sun.vx=sun.vy=0;this.emit('abilityEffect',{...sun,actor:undefined,kind:'solarStop',maxLife:sun.life,owner:sun.actor.socket.id});}for(const mob of [...this.game.mobs]){const p=this.game.surface(mob,sun);if(Math.hypot(p.x-sun.x,p.y-sun.y)<=sun.radius&&this.game.lineClear(sun.x,sun.y,p.x,p.y))this.arcana.hit(sun.actor,mob,sun.damage*used,true,sun,'#ffe580');}sun.life-=used;sun.age+=used;}if(sun.life<=0)this.emit('abilityEffect',{id:sun.id,kind:'solarEnd',x:sun.x,y:sun.y});}
+    this.solarSuns=this.solarSuns.filter(sun=>sun.life>0);
   }
   ability(actor,type){
     const state=actor.state,g=this.game,now=Date.now(),utility=g.utility(state);
@@ -83,7 +92,8 @@ class SharedWorld{
     if(!ability || now<(state.abilityReadyAt[type] || 0))return false;
     state.abilityReadyAt[type]=now+ability.cooldown*1000*(1-(state.talentRanks?.resonance || 0)*.03);state.attackUntil=now+180;
     const power=type==='utility' ? state.equipment.pickaxe?.power || 30 : type==='weapon' ? item.damage : item.power;
-    const damage=(power+10)*ability.mult*(1+(state.talentRanks?.damage || 0)*.12+state.level*.02);
+    const damage=(power+10)*ability.mult*(1+(state.talentRanks?.damage || 0)*.12+state.level*.02)*(1+(utility.damage||0));
+    if(type==='weapon'&&ability.kind==='solarSun'){this.launchSolarSun(actor,ability,damage);this.store.save(actor.profile);actor.socket.emit('playerState',this.store.clientState(actor.profile));return true;}
     const targets=type==='weapon' ? g.mobs.map(e=>[e,true]) : type==='pickaxe' ? g.ores.map(e=>[e,false]) : [...g.mobs.map(e=>[e,true]),...g.ores.map(e=>[e,false])];
     for(const [entity,isMob] of targets){
       const surface=g.surface(entity,state);
@@ -99,6 +109,7 @@ class SharedWorld{
     if(entity.hp<=0)return;
     const actual=Math.min(entity.hp,Math.max(0,amount)*(isMob && entity.shieldTime>0 ? .25 : 1));
     entity.hp-=actual;
+    if(actual>0&&!actor.state.dead){const rate=(actor.state.talentRanks?.drain||0)*.01+(this.game.utility(actor.state).vampirism||0);actor.state.hp=Math.min(actor.state.maxHp,actor.state.hp+actual*rate);}
     if(!isMob)this.oreRevision++;
     if(isMob){entity.aggroUntil=Date.now()+12000;entity.aggroPlayerId=actor.profile.id;}
     if(!this.contributions.has(entity.id))this.contributions.set(entity.id,new Map());
@@ -114,7 +125,7 @@ class SharedWorld{
     if(entity.hp>0)return;
     if(isMob)this.game.removeMobAndSummons(entity);else this.game.ores=this.game.ores.filter(e=>e.id!==entity.id);
     if(!entity.noRewards && !entity.summoned){
-      const tier=Math.max(0,this.game.rarities.findIndex(r=>r.name===entity.rarity.name));
+      const tier=Math.max(0,this.game.rarities.findIndex(r=>r.name===entity.rarity.name)),lootTier=isMob?catalog.lootTier(tier,this.lootRandom):tier;
       const awards=new Map();
       for(const [id,damage] of ledger)if(damage/entity.maxHp>=.05-1e-12)awards.set(id,{share:damage/entity.maxHp,shared:false,squadShare:0});
       for(const [groupId,credits] of this.squadCredits.get(entity.id) || [])for(const [id,damage] of credits){
@@ -134,12 +145,16 @@ class SharedWorld{
           for(const same of Object.values(this.actors).filter(a=>a.profile.id===id))same.socket.emit('playerState',this.store.clientState(profile));
         }
         const record=Object.values(this.actors).find(a=>a.profile.id===id);
-        record?.socket.emit('lootResult',{entity:entity.name || 'Pedra',rarity:entity.rarity.name,qualified:true,...participation});
+        record?.socket.emit('lootResult',{entity:entity.name || 'Pedra',rarity:entity.rarity.name,qualified:true,itemDropped:lootTier>=0,dropRarity:gRarity(this.game,lootTier)?.name||null,...participation});
       }
       for(const [id,damage] of ledger)if(!awards.has(id))Object.values(this.actors).find(a=>a.profile.id===id)?.socket.emit('lootResult',{entity:entity.name || 'Pedra',rarity:entity.rarity.name,qualified:false,share:damage/entity.maxHp});
       if(awards.size){
-        const point=isMob ? entity : this.game.surface(entity,actor.state),item=isMob&&entity.kind==='invertedBeetle'?expansion.accessory('revival',entity.rarity.name):isMob ? {type:'component',kind:entity.kind,name:this.game.lootName(entity.kind),rarity:entity.rarity.name,color:entity.rarity.color,amount:1} : {type:'material',name:entity.rarity.name,oreRarity:entity.rarity.name,rarity:entity.rarity.name,color:entity.rarity.color,amount:1};
-        this.drops.push({id:'drop-'+require('crypto').randomUUID(),x:point.x,y:point.y,item,createdAt:Date.now(),expiresAt:Date.now()+180000,claims:new Set(awards.keys())});if(isMob&&entity.kind==='invertedBeetle')this.drops.push({id:'drop-'+require('crypto').randomUUID(),x:point.x+28,y:point.y,item:{type:'component',kind:entity.kind,name:this.game.lootName(entity.kind),rarity:entity.rarity.name,amount:1},createdAt:Date.now(),expiresAt:Date.now()+180000,claims:new Set(awards.keys())});
+        const rarity=gRarity(this.game,lootTier);
+        if(rarity){const point=isMob?entity:this.game.surface(entity,actor.state),items=[];
+          if(isMob){items.push({type:'component',kind:entity.kind,name:this.game.lootName(entity.kind),rarity:rarity.name,color:rarity.color,amount:1});const pool=expansion.ACCESSORIES.filter(a=>a.kind===entity.kind),definition=entity.kind==='invertedBeetle'?pool.find(a=>a.id==='revival'):pool[Math.floor(Math.random()*pool.length)];if(definition){const accessory=expansion.accessory(definition.id,rarity.name);if(accessory)items.push(accessory);}}
+          else items.push({type:'material',name:rarity.name,oreRarity:rarity.name,rarity:rarity.name,color:rarity.color,amount:1});
+          items.forEach((item,index)=>this.drops.push({id:'drop-'+require('crypto').randomUUID(),x:point.x+index*32,y:point.y,item,createdAt:Date.now(),expiresAt:Date.now()+180000,claims:new Set(awards.keys())}));
+        }
       }
     }
     this.contributions.delete(entity.id);
@@ -215,7 +230,7 @@ class SharedWorld{
   }
   tick(dt=.05){
     const g=this.game,live=this.live(),now=Date.now();
-    this.tickLive=live;this.tickForge(dt);
+    this.tickLive=live;this.tickForge(dt);this.tickSolarSuns(dt,live);
     if(!live.length){this.arcana.tick(dt);this.drops=this.drops.filter(d=>d.expiresAt>now && d.claims.size);this.tickLive=null;return;}
     this.maintainActiveAreas(live,now);
     if(now>this.nextSpawn){this.nextSpawn=now+1000;for(const actor of live)this.spawnAround(actor);if(this.realm!=='cave'){if(Math.random()<.005)this.addBoss('SUPER');if(Math.random()<.0025)this.addBoss('ABSOLUT');if(Math.random()<.000075)this.addBoss('QUANTIUM');if(Math.random()<.0000005)this.addBoss('ALEPH');}}
@@ -298,7 +313,7 @@ class SharedWorld{
     const squadContribution={},team=this.squads?.groupFor(actor.profile.id);
     if(team)for(const [id,groups] of this.squadCredits){const entity=entities.get(id),credit=groups.get(team.id)?.get(actor.profile.id);if(entity && credit)squadContribution[id]=credit/entity.maxHp;}
     if(this.baseMaze && this.mapVersion!==(g.cave.revision || 0)){this.mapVersion=g.cave.revision || 0;this.mapDelta=[];for(let i=0;i<this.baseMaze.length;i++)if(g.cave.maze[i] && !this.baseMaze[i])this.mapDelta.push(i);}
-    return {...this.arcana.snapshot(actor),forge:this.forge&&near(this.forge)?{id:this.forge.id,name:this.forge.name,x:this.forge.x,y:this.forge.y,size:this.forge.size,angle:this.forge.angle}:null,slowUntil:s.slowUntil||0,realm:this.realm,revision:this.revision,serverTime:Date.now(),self:{x:s.x,y:s.y,vx:s.vx || 0,vy:s.vy || 0,seq:actor.moveSeq || 0,epoch:actor.movementEpoch || 1},mapVersion:this.mapVersion,mapDelta:actor.mapAckRealm===this.realm && actor.mapAckVersion===this.mapVersion ? undefined : this.mapDelta,...this.orePacket(actor,clean),mobs:g.mobs.filter(near).map(clean),projectiles:g.projectiles.filter(near).map(p=>({id:p.id,owner:p.owner,x:p.x,y:p.y,vx:p.vx,vy:p.vy,r:p.r,life:p.life,rotation:p.rotation,kind:p.kind})),hazards:g.hazards.filter(near),effects:g.effects.filter(near),drops:this.drops.filter(near).map(d=>({id:d.id,x:d.x,y:d.y,item:d.item,createdAt:d.createdAt,expiresAt:d.expiresAt,eligible:d.claims.has(actor.profile.id)})),contribution,squadContribution,hp:s.hp,maxHp:s.maxHp,dead:s.dead,deathCause:s.deathCause};
+    return {solarSuns:this.solarSuns.filter(near).map(({actor,...sun})=>({...sun,owner:actor.socket.id,kind:'solarSun',maxLife:sun.life})),...this.arcana.snapshot(actor),forge:this.forge&&near(this.forge)?{id:this.forge.id,name:this.forge.name,x:this.forge.x,y:this.forge.y,size:this.forge.size,angle:this.forge.angle}:null,slowUntil:s.slowUntil||0,realm:this.realm,revision:this.revision,serverTime:Date.now(),self:{x:s.x,y:s.y,vx:s.vx || 0,vy:s.vy || 0,seq:actor.moveSeq || 0,epoch:actor.movementEpoch || 1},mapVersion:this.mapVersion,mapDelta:actor.mapAckRealm===this.realm && actor.mapAckVersion===this.mapVersion ? undefined : this.mapDelta,...this.orePacket(actor,clean),mobs:g.mobs.filter(near).map(clean),projectiles:g.projectiles.filter(near).map(p=>({id:p.id,owner:p.owner,x:p.x,y:p.y,vx:p.vx,vy:p.vy,r:p.r,life:p.life,rotation:p.rotation,kind:p.kind})),hazards:g.hazards.filter(near),effects:g.effects.filter(near),drops:this.drops.filter(near).map(d=>({id:d.id,x:d.x,y:d.y,item:d.item,createdAt:d.createdAt,expiresAt:d.expiresAt,eligible:d.claims.has(actor.profile.id)})),contribution,squadContribution,hp:s.hp,maxHp:s.maxHp,dead:s.dead,deathCause:s.deathCause};
   }
 }
 module.exports=SharedWorld;

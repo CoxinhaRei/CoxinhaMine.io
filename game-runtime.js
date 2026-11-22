@@ -65,6 +65,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
         if(kind==='weapon')return craftSword(data.name);
         if(kind==='gear')return craftGear((data.type==='armor' ? ARMORS : UTILITIES).find(r=>r.name===data.name));
         if(kind==='talent')return unlockTalent(data.id);
+        if(kind==='talentReset')return resetTalentRanks();
         if(kind==='fusion')return data.name!=='ALEPH' && startOreCraft(data.name);
         if(kind==='equip'){
           if(!['weapon','pickaxe','armor'].includes(data.type))return false;

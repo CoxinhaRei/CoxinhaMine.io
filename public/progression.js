@@ -11,6 +11,7 @@ const PICKAXE_RECIPES = [
 const TALENT_TIERS = ['Comum','Incomum','Raro','Épico','Lendário','Mítico','Ultra','Super','Absolut','Quantium','Aleph'];
 const TALENT_COLORS = ['#87bf68','#e0cb62','#619bd4','#a779c9','#db8d57','#e56593','#d372e2','#60d9cf','#eff2e5','#62bfee','#eada70'];
 const TALENTS = [
+  {id:'fov',name:'Visão ampliada',symbol:'◉',description:'+8% de campo de visão máximo por nível. Ajuste com o scroll.',parent:'speed'},
   {id:'damage',name:'Impacto',symbol:'⚒',description:'+12% de dano por nível.',parent:null},
   {id:'speed',name:'Agilidade',symbol:'➜',description:'+8% de velocidade por nível.',parent:null},
   {id:'vitality',name:'Vitalidade',symbol:'♥',description:'+20 de vida máxima por nível.',parent:null},
@@ -99,6 +100,10 @@ function craftPickaxe(name) {
   equipPickaxe(name);
   addChat('Picareta de '+name+' criada e equipada!');
   return true;
+}
+function resetTalentRanks(){
+  const spent=TALENTS.reduce((sum,t)=>{const n=Math.max(0,Math.min(11,Math.floor(Number(player.talentRanks?.[t.id])||0)));return sum+n*(n+1)/2;},0);if(!spent)return false;
+  player.talentPoints=Math.max(0,Math.floor(Number(player.talentPoints)||0))+spent;player.talentRanks=Object.fromEntries(TALENTS.map(t=>[t.id,0]));player.talents={speed:0};player.maxHp=100+EXPANSION.bonuses(player).health;player.hp=Math.min(player.hp,player.maxHp);saveGame();return true;
 }
 function unlockTalent(id) {
   if(isServerWorld())return requestPlayerAction('talent',{id});

@@ -49,3 +49,11 @@
 - SUPER regions use local budgets of 2 natural mobs and 3 ores; ABSOLUT uses 1 natural mob and 2 ores. Natural replenishment has shared sector cooldowns of 10 and 20 seconds.
 - Apply the budgets to surface/cave generation, special deposits and ore guardians. Sleeping entities count toward the budget.
 - Keep at most 12 distant boss deposits awake instead of 64, preserving health and contribution while others sleep.
+
+## Combat, loot and talent update
+
+- Natural mobs drop species accessories and components. SUPER+ loot rolls: 60% two tiers lower, 5% one tier lower, 1% same tier, 34% no item; qualifying players still earn kill XP and coins.
+- SUPER mob health is doubled. ABSOLUT and higher have 12x health; sword base damage is tripled.
+- Free talent refunds in menus and safe refuges, with exact point recovery and no duplicate refunds.
+- Expanded Vision I–XI, wheel zoom within earned limits, and a touch-compatible Zoom control in settings.
+- Ability and magic vampirism uses actual damage. The Solar sword launches Dawn Sun, a moving sustained area attack with shared visuals.
