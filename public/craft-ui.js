@@ -1,19 +1,19 @@
 // The server calculates each attempt. Five orbiting cards represent the selected batch.
-fusionPanel.classList.add('exp-fusion','craft-rework');fusionPanel.querySelector('.fusion-body').remove();
+fusionPanel.setAttribute('aria-label','Forja');fusionPanel.classList.add('exp-fusion','craft-rework');const forgeTitle=fusionPanel.querySelector('h1');if(forgeTitle)forgeTitle.textContent='Forja';fusionPanel.querySelector('.fusion-body').remove();
 fusionPanel.insertAdjacentHTML('beforeend',`<div class="exp-body">
-  <canvas id="craft-wheel155" width="500" height="225" aria-label="Cinco itens com bordas de raridade giram e se unem ao craftar"></canvas>
+  <canvas id="craft-wheel155" width="500" height="225" aria-label="Cinco itens com bordas de raridade giram e se unem ao forjar"></canvas>
   <h2 id="craft-title155"></h2><p id="craft-info155"></p>
   <div class="craft-selection"><label>Raridade <select id="craft-rarity155" aria-label="Raridade para craftar"></select></label><div class="craft-quantity"><span>Tentativas</span><button type="button" id="craft-less155" aria-label="Reduzir tentativas pela metade">÷2</button><input id="craft-count155" type="number" min="1" step="1" value="1" aria-label="Quantidade de tentativas"><button type="button" id="craft-more155" aria-label="Dobrar tentativas">×2</button><button type="button" id="craft-max155">Máx.</button></div></div>
-  <p id="craft-stock155"></p><button id="craft-start155" class="craft-pickaxe">Craftar</button><p id="craft-result155" role="status"></p>
-  <nav class="system-tabs" id="craft-types155"><button data-type="material">Minérios</button><button data-type="component">Drops</button><button data-type="accessory">Acessórios</button><button data-type="recipes">Criar acessório</button></nav>
+  <p id="craft-stock155"></p><button id="craft-start155" class="craft-pickaxe">Forjar</button><p id="craft-result155" role="status"></p>
+  <nav class="system-tabs" id="craft-types155"><button data-type="material">Minérios</button><button data-type="component">Drops</button><button data-type="accessory">Acessórios</button></nav>
   <div class="craft-collection-tools"><input id="craft-search155" type="search" placeholder="Buscar ingrediente ou acessório" aria-label="Buscar no craft"><small>Uma linha por item · raridades lado a lado →</small></div>
   <div id="craft-owned155" class="craft-matrix" aria-label="Itens do craft organizados por tipo e raridade"></div>
 </div>`);
 let craftType155='material',craftChoice155=null,craftGridKey155='',craftQuantity155=1,craftSending155=false,craftHoldTimer155=null,craftHoldRepeat155=null;
 const craftCanvas155=document.getElementById('craft-wheel155'),craftBrush155=craftCanvas155.getContext('2d'),craftRarity155=document.getElementById('craft-rarity155');
 for(const name of EXPANSION.RARITIES){const option=document.createElement('option');option.value=option.textContent=name;craftRarity155.append(option);}
-function craftLimit155(){if(!craftChoice155)return 0;return craftChoice155.mode==='make'?EXPANSION.makeLimit(player,craftChoice155.accessoryId):['ALEPH','CHOSEN'].includes(craftChoice155.rarity)?0:EXPANSION.fusionLimit(player,craftChoice155);}
-function chooseCraft155(item,mode){if(player.pendingCraft||craftSending155)return;craftChoice155={...item,rarity:item.oreRarity||item.rarity,mode};craftQuantity155=1;craftResult=null;craftGridKey155='';renderCraftPanel();}
+function craftLimit155(){if(!craftChoice155)return 0;return ['ALEPH','CHOSEN'].includes(craftChoice155.rarity)?0:EXPANSION.fusionLimit(player,craftChoice155);}
+function chooseCraft155(item,mode){if(player.pendingCraft||craftSending155)return;craftChoice155={...item,rarity:item.oreRarity||item.rarity,mode:'fusion'};craftQuantity155=1;craftResult=null;craftGridKey155='';renderCraftPanel();}
 function changeCraftQuantity155(direction){if(player.pendingCraft||craftSending155||!craftChoice155)return false;const previous=craftQuantity155;craftQuantity155=CraftLayout.quantity(craftQuantity155,direction,craftLimit155());renderCraftPanel();return previous!==craftQuantity155;}
 function stopCraftHold155(){clearTimeout(craftHoldTimer155);clearInterval(craftHoldRepeat155);craftHoldTimer155=craftHoldRepeat155=null;}
 for(const [id,direction] of [['craft-less155',-1],['craft-more155',1]]){
@@ -26,12 +26,12 @@ document.getElementById('craft-count155').onchange=e=>{craftQuantity155=Math.max
 document.getElementById('craft-count155').oninput=e=>{const value=Number(e.target.value);if(Number.isSafeInteger(value)&&value>=1)craftQuantity155=Math.min(craftLimit155()||1,value);};
 document.getElementById('craft-max155').onclick=()=>{craftQuantity155=Math.max(1,craftLimit155());renderCraftPanel();};
 craftRarity155.onchange=()=>{if(!craftChoice155)return;const r=craftRarity155.value,old=craftChoice155,item=old.type==='accessory'?EXPANSION.accessory(old.accessoryId,r):{...old,rarity:r,oreRarity:old.type==='material'?r:undefined,name:old.type==='material'?r:old.name};chooseCraft155(item,craftType155==='recipes'&&r==='Comum'?'make':'fusion');};
-document.querySelectorAll('#craft-types155 button').forEach(b=>b.onclick=()=>{if(player.pendingCraft||craftSending155)return;stopCraftHold155();craftType155=b.dataset.type;craftChoice155=null;craftQuantity155=1;craftResult=null;craftGridKey155='';renderCraftPanel();});
+document.querySelectorAll('#craft-types155 button').forEach(b=>b.onclick=()=>{if(player.pendingCraft||craftSending155||!['material','component','accessory'].includes(b.dataset.type))return;stopCraftHold155();craftType155=b.dataset.type;craftChoice155=null;craftQuantity155=1;craftResult=null;craftGridKey155='';renderCraftPanel();});
 document.getElementById('craft-search155').oninput=()=>{craftGridKey155='';renderCraftPanel();};
 document.getElementById('craft-start155').onclick=()=>{
   if(!craftChoice155||craftSending155||player.pendingCraft||craftQuantity155>craftLimit155())return;
   const choice=craftChoice155;craftSending155=true;craftResult=null;stopCraftHold155();
-  const accepted=choice.mode==='make'?requestPlayerAction('accessoryMake',{id:choice.accessoryId,count:craftQuantity155}):requestPlayerAction('expansionFusion',{type:choice.type,rarity:choice.rarity,accessoryId:choice.accessoryId,kind:choice.kind,count:craftQuantity155});
+  const accepted=requestPlayerAction('expansionFusion',{type:choice.type,rarity:choice.rarity,accessoryId:choice.accessoryId,kind:choice.kind,count:craftQuantity155});
   if(!accepted)craftSending155=false;renderCraftPanel();
 };
 socket.on('actionResult',()=>{craftSending155=false;craftGridKey155='';});socket.on('disconnect',()=>{craftSending155=false;stopCraftHold155();});
@@ -66,7 +66,7 @@ renderCraftPanel=function(){
   document.getElementById('craft-info155').textContent=choice?(make?'Por tentativa: 8 minérios Comum + 3 '+GAME_CATALOG.MOB_LOOT[EXPANSION.ACCESSORIES.find(a=>a.id===choice.accessoryId).kind]+' de qualquer raridade':'Por tentativa: 5 iguais · falha destrói 1–4')+' · '+percent+' de sucesso':'';
   document.getElementById('craft-stock155').textContent=choice?limit.toLocaleString('pt-BR')+' tentativas disponíveis · clique ou segure ×2: 1 → 2 → 4 → 8…'+(limit===EXPANSION.MAX_CRAFT_BATCH?' · limite por lote':''):'';
   if(['ALEPH','CHOSEN'].includes(rarity)&&!make)document.getElementById('craft-info155').textContent=rarity==='ALEPH'?'Leve 5 ou mais ALEPH iguais à Coxinha Forjadora no Deserto.':'Chosen não tem fusão nesta bancada.';
-  document.getElementById('craft-start155').disabled=!choice||blocked||limit<craftQuantity155;document.getElementById('craft-start155').textContent=blocked?'Craftando…':'Craftar'+(craftQuantity155>1?' · '+craftQuantity155.toLocaleString('pt-BR')+' tentativas':'');
+  document.getElementById('craft-start155').disabled=!choice||blocked||limit<craftQuantity155;document.getElementById('craft-start155').textContent=blocked?'Forjando…':'Forjar'+(craftQuantity155>1?' · '+craftQuantity155.toLocaleString('pt-BR')+' tentativas':'');
   const successes=anim?.successes??(anim?.success?1:0),attempts=anim?.count||1;
   document.getElementById('craft-result155').textContent=craftSending155?'Enviando lote…':active?'Combinando '+attempts.toLocaleString('pt-BR')+' tentativa(s)…':anim?(attempts>1?successes.toLocaleString('pt-BR')+' sucessos · '+(attempts-successes).toLocaleString('pt-BR')+' falhas · '+(anim.consumed??anim.lost).toLocaleString('pt-BR')+' itens consumidos':anim.success?anim.name+' '+anim.to+' criado!':'Falhou · '+anim.lost+' itens destruídos'):'Itens equipados não são consumidos. Cada tentativa tem a sua própria chance.';
   const c=craftBrush155,now=Date.now()+(multiplayer.timeOffset||0),duration=anim?EXPANSION.craftDurationOf(anim):0,elapsed=anim?Math.max(0,now-anim.startedAt):0,t=anim?Math.min(1,elapsed/duration):0;

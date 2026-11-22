@@ -12,7 +12,7 @@ const UTILITIES=[LANTERN];
 TALENTS.push(
   {id:'vision',name:'Visão noturna',symbol:'◉',description:'+28 de visão na caverna por nível.',parent:'range'},
   {id:'resonance',name:'Ressonância',symbol:'✧',description:'Reduz a recarga das habilidades em 3% por nível.',parent:'haste'},
-  {id:'regeneration',name:'Recuperação',symbol:'♥',description:'Regenera 35 de vida por segundo por nível.',parent:'vitality'},
+  {id:'regeneration',name:'Regeneração',symbol:'♥',description:'Por nível: regenera 35 de vida + 0,1% da vida máxima por segundo. Disponível diretamente, de I a XI.',parent:null},
   {id:'spelunker',name:'Espeleólogo',symbol:'⌂',description:'+12% de XP na caverna por nível.',parent:'vision'},
   {id:'scavenger',name:'Coletor',symbol:'✦',description:'+3% de chance de minério extra por nível.',parent:'fortune'},
   {id:'sprint',name:'Passo subterrâneo',symbol:'➜',description:'+4% de velocidade na caverna por nível.',parent:'spelunker'}
@@ -58,7 +58,7 @@ function noteCreature(creature){
 function updateAdventure(dt){
   if(isServerWorld()){updateSharedPresentation(dt);return;}
   if(player.dead)return;
-  if(talentRank('regeneration'))player.hp=Math.min(player.maxHp,player.hp+talentRank('regeneration')*35*dt);
+  player.hp=Math.min(player.maxHp,player.hp+GAME_CATALOG.regeneration(player,utilityBonus('regen'))*dt);
   if(currentRealm==='garden' && performance.now()>nextCreatureSpawn){
     nextCreatureSpawn=performance.now()+2200;
     const target=22;
@@ -195,6 +195,7 @@ function damageEntity(target,damage,isMob){
   if(isMob)target.aggroUntil=performance.now()+12000;
   if(isMob && target.shieldTime>0)damage*=.25;
   const surface=targetSurface(target);
+  damage=Math.min(target.hp,Math.max(0,damage));player.hp=Math.min(player.maxHp,player.hp+damage*GAME_CATALOG.vampirismRate(player,utilityBonus('vampirism')));
   target.hp-=damage;target.hit=6;miningBurst(surface.x,surface.y,target.rarity.color,isMob ? 9 : 16);damageNumbers.push({x:surface.x,y:surface.y-20,text:Math.round(damage),life:.65});
   if(target.hp>0)return;
   if(isMob && (target.noRewards || target.summoned)){removeMobAndSummons(target);return;}

@@ -24,12 +24,12 @@
       const creature=creatures.find(c=>c.kind===item.kind),recipes=E.ACCESSORIES.filter(a=>a.kind===item.kind);
       info.name=item.name||C.MOB_LOOT[item.kind]||creature?.drop||'Drop de criatura';info.kind='Drop de criatura';
       info.description='Material obtido de '+(creature?.name||'uma criatura')+'. Não concede bônus sozinho.';
-      info.rows=[['Origem',creature?.name||'Criatura'],['Uso','Venda e ofertas ALEPH na forja Chosen'],['Venda por unidade',number(Math.round(8*Math.pow(1.8,tier)))+' moedas']];
+      info.rows=[['Origem',creature?.name||'Criatura'],['Uso','Venda, fusão de raridade e forja Chosen'],['Venda por unidade',number(Math.round(8*Math.pow(1.8,tier)))+' moedas']];
       if(recipes.length)info.rows.push(['Acessórios da espécie',recipes.map(a=>a.name).join(', ')]);
-      info.note='Acessórios e ovos vêm diretamente dos mobs. A forja Chosen continua no Deserto.';
+      info.note='Acessórios e ovos vêm dos mobs. Junte 5 iguais na Forja para tentar a próxima raridade. Chosen é forjado no Deserto.';
     }else if(item.type==='material'){
       info.kind='Minério · material';info.description='Pedra coletada pela mineração. Serve como ingrediente; não concede bônus ao carregar.';
-      info.rows=[['Uso','Compra de equipamentos e forja Chosen'],['Venda por unidade',number((oreValues[rarity]||item.value||1)*5)+' moedas']];
+      info.rows=[['Uso','Equipamentos, fusão de raridade e forja Chosen'],['Venda por unidade',number((oreValues[rarity]||item.value||1)*5)+' moedas']];
       info.note='Use na Loja. A forja Chosen recebe ofertas de ALEPH.';
     }else if(item.type==='mob'){
       const def=creatures.find(c=>c.kind===item.kind);if(!def)return null;

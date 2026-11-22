@@ -95,7 +95,7 @@ function renderInventoryDetail(row){
   const lines=[['Quantidade',quantity]];
   if(item.type==='accessory')lines.push(['Efeitos',accessoryDescription(item.accessoryId,item.rarity)],['Uso','Passivo · equipado nos slots de acessórios']);
   if(item.type==='material')lines.push(['Uso','Receitas e fusão'],['Venda por unidade',((ORE_VALUES[materialRarity(item)] || item.value || 1)*5).toLocaleString('pt-BR')+' moedas']);
-  if(item.type==='component')lines.push(['Origem',CREATURES.find(c=>c.kind===item.kind)?.name || 'Criatura'],['Uso','Craft de acessórios e fusão de raridade'],['Venda por unidade',Math.round(8*Math.pow(1.8,rarityIndex)).toLocaleString('pt-BR')+' moedas']);
+  if(item.type==='component')lines.push(['Origem',CREATURES.find(c=>c.kind===item.kind)?.name || 'Criatura'],['Uso','Fusão de raridade e venda'],['Venda por unidade',Math.round(8*Math.pow(1.8,rarityIndex)).toLocaleString('pt-BR')+' moedas']);
   if(item.type==='weapon')lines.push(['Dano',SWORDS.find(s=>s.name===item.name)?.damage || item.damage || 0],['Uso','Combate e habilidades']);
   if(item.type==='pickaxe')lines.push(['Poder',pickaxes.find(p=>p.name===item.name)?.power || item.power || 0],['Uso','Mineração e habilidades']);
   if(item.type==='armor')lines.push(['Defesa',Math.round((ARMORS.find(a=>a.name===item.name)?.defense || 0)*100)+'% menos dano'],['Visual',item.aura ? 'Aura de partículas' : 'Armadura visível']);

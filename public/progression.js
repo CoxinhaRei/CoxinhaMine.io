@@ -16,9 +16,9 @@ const TALENTS = [
   {id:'speed',name:'Agilidade',symbol:'➜',description:'+8% de velocidade por nível.',parent:null},
   {id:'vitality',name:'Vitalidade',symbol:'♥',description:'Vida base: 1.000. Vitalidade adiciona 1.000 × nível²; com acessórios, até 400.000 de vida.',parent:null},
   {id:'crit',name:'Precisão',symbol:'✧',description:'+3% de chance de dano dobrado por nível.',parent:'damage'},
-  {id:'range',name:'Alcance',symbol:'◎',description:'+18 de alcance de mineração por nível.',parent:'speed'},
+  {id:'range',name:'Alcance',symbol:'◎',description:'+18 de alcance de ataques e mineração por nível. Pode investir diretamente.',parent:null},
   {id:'defense',name:'Proteção',symbol:'⛨',description:'Reduz o dano recebido em 4% por nível.',parent:'vitality'},
-  {id:'drain',name:'Vampirismo',symbol:'◒',description:'Recupera 1% do dano em vida por nível.',parent:'crit'},
+  {id:'drain',name:'Vampirismo',symbol:'◒',description:'Recupera 1,5% do dano real em vida por nível.',parent:'crit'},
   {id:'haste',name:'Ritmo',symbol:'↻',description:'Reduz a espera entre golpes em 5% por nível.',parent:'range'},
   {id:'fortune',name:'Prosperidade',symbol:'✦',description:'+2% de chance de minério extra por nível.',parent:'defense'},
   {id:'xp',name:'Aprendizado',symbol:'★',description:'+10% de experiência por nível.',parent:'drain'}
@@ -141,7 +141,7 @@ function handleMiningClick(screenX,screenY) {
   if(Math.random()<talentRank('crit')*.03+(player.crit || 0)/100) damage*=2;
   const target = mob || ore;
   damageEntity(target,damage,!!mob);
-  player.hp=Math.min(player.maxHp,player.hp+damage*(talentRank('drain')*.01+(player.lifesteal || 0)/100));
+
 }
 
 function spawnOreGuardian(ore) {

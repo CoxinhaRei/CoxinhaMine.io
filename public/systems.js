@@ -155,7 +155,7 @@ function takePlayerDamage(amount,dx=0,dy=0,cause='uma pedra') {
   const now=performance.now();
   if(player.dead || (currentRealm==='garden' && getZone(player.x,player.y)==='P'))return false;
   if(Math.random()<utilityBonus('dodge')){damageNumbers.push({x:player.x,y:player.y-35,text:'ESQUIVA',life:.7});return false;}
-  player.hp-=Math.max(1,amount*(1-talentRank('defense')*.04)*(1-armorReduction())-(player.defense || 0));
+  player.hp-=Math.max(0,amount*(1-talentRank('defense')*.04)*(1-armorReduction())-(player.defense || 0));
 
   player.lastDamageSource=cause;
   const length=Math.hypot(dx,dy)||1;
@@ -179,7 +179,7 @@ function updateCombatWorld(dt) {
     if(distance<ore.size+player.size){
       const penetration=ore.size+player.size-distance;
       moveWithWalls(player,player.x+(dx || 1)/(distance || 1)*penetration,player.y+dy/(distance || 1)*penetration,player.size);
-      takePlayerDamage(4*Math.pow(1.4,index),dx || 1,dy,'Pedra '+ore.rarity.name);
+      takePlayerDamage(GAME_CATALOG.oreContactDamage(index)*dt,dx || 1,dy,'Pedra '+ore.rarity.name);
     }
   }
   for(const entity of [...ores,...mobs]){
@@ -193,7 +193,7 @@ function updateCombatWorld(dt) {
       entity.shotTimer=2.5;
       for(let n=0;n<5;n++){
         const angle=Math.random()*Math.PI*2,index=Math.max(0,rarities.findIndex(r=>r.name===entity.rarity.name)),speed=640+index*35;
-        projectiles.push({owner:entity.id,cause:(entity.name || 'Pedra')+' '+entity.rarity.name,x:entity.x+Math.cos(angle)*(size+18),y:entity.y+Math.sin(angle)*(size+18),vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:9+Math.random()*6,life:3,damage:14+index*3,rotation:angle});
+        projectiles.push({owner:entity.id,cause:(entity.name || 'Pedra')+' '+entity.rarity.name,x:entity.x+Math.cos(angle)*(size+18),y:entity.y+Math.sin(angle)*(size+18),vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:9+Math.random()*6,life:3,damage:GAME_CATALOG.ORE_PROJECTILE_DAMAGE,rotation:angle});
       }
     }
   }

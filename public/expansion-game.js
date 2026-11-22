@@ -16,7 +16,7 @@ canvas.addEventListener('wheel',event=>{if(isUiBlocking()||typeof menuVisible===
 restoreUtility=()=>{EXPANSION.normalize(player);};
 ownsLantern=()=>EXPANSION.bonuses(player).vision>0;
 toggleLantern=()=>{};useUtilityAbility=()=>false;
-startOreCraft=()=>false;
+startOreCraft=name=>name!=='ALEPH'&&(isServerWorld()?requestPlayerAction('expansionFusion',{type:'material',rarity:name}):EXPANSION.fuse(player,{type:'material',rarity:name}));
 const oldNormalizeAdventure155=normalizeAdventure;
 normalizeAdventure=()=>{oldNormalizeAdventure155();EXPANSION.normalize(player);};
 const originalCreatureModel155=drawCreatureModel;
