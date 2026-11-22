@@ -17,6 +17,7 @@ function buildCaveMaze(){
   for(let y=1;y<=3;y++)for(let x=1;x<=3;x++)grid[y*CAVE.columns+x]=1;
   CAVE.maze=grid;
   for(const gate of MAP_ATLAS.build('cave').gates)carveCaveChamber(gate.x,gate.y,gate.radius-200);
+  if(typeof CHECKPOINT_CATALOG!=='undefined')for(const cp of CHECKPOINT_CATALOG.places('cave'))if(cp.tier>0)carveCaveChamber(cp.x,cp.y,650);
   CAVE.deposits=[];
   const chamberRandom=seededRandom(2983);
   for(let y=15000;y<CAVE.height-12000;y+=20000)for(let x=15000;x<CAVE.width-12000;x+=20000){

@@ -32,6 +32,7 @@ function atlasProjection(realm,w,h,padding=7){const d=MAP_ATLAS.dimensions(realm
 function paintAtlas(c,w,h,large=false){
  const realm=currentRealm,p=atlasProjection(realm,w,h,large?16:5),image=atlasMapImage(realm),screen=(x,y)=>({x:p.x+x*p.scale,y:p.y+y*p.scale});c.clearRect(0,0,w,h);c.fillStyle='#142a25';c.fillRect(0,0,w,h);c.imageSmoothingEnabled=false;c.drawImage(image,p.x,p.y,p.w,p.h);
  const dot=(x,y,r,fill,label)=>{const s=screen(x,y);c.fillStyle=fill;c.strokeStyle='#203630';c.lineWidth=1.5;c.beginPath();c.arc(s.x,s.y,r,0,Math.PI*2);c.fill();c.stroke();if(label){c.font='bold '+(large?11:7)+'px Ubuntu';c.textAlign='center';c.lineWidth=3;c.strokeText(label,s.x,s.y-r-4);c.fillStyle='#fff';c.fillText(label,s.x,s.y-r-4);}};
+ if(typeof CHECKPOINT_CATALOG!=='undefined')for(const cp of CHECKPOINT_CATALOG.places(realm)){const active=typeof multiplayer!=='undefined'&&multiplayer.checkpoint?.id===cp.id;dot(cp.x,cp.y,large?4:2.5,active?'#baff93':'#dfc997',large?'⚑ '+(active?'Checkpoint ativo':'Acampamento'):null);}
  for(const gate of MAP_ATLAS.build(realm).gates)dot(gate.x,gate.y,large?3:1.5,'#e8cd82');
  for(const portal of EXPANSION.portalsFor(realm))dot(portal.x,portal.y,large?4:2.5,EXPANSION.mapFor(portal.to).color,large?EXPANSION.mapFor(portal.to).name:null);
  if(realm==='desert'){const f=multiplayer.forge||EXPANSION.LANDMARKS.desert.find(p=>p.id==='forge');dot(f.x,f.y,large?5:3,'#fff',large?'Forjadora':null);}
