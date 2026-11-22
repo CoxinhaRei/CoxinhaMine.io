@@ -61,7 +61,7 @@ function sellInventoryMaterial(item,amount){
 function renderInventoryPanel(){
   inventoryPanel.hidden=!inventoryOpen;if(!inventoryOpen)return;
   const search=document.getElementById('inventory-search').value.toLocaleLowerCase('pt-BR'),rarity=document.getElementById('inventory-rarity').value;
-  const rows=inventoryRows(),signature=JSON.stringify([inventoryType,search,rarity,selectedInventoryKey,rows.map(r=>[r.key,r.quantity,r.item.power,r.item.damage]),Object.values(player.equipment).map(i=>i?.name)]);
+  const rows=inventoryRows(),signature=JSON.stringify([inventoryType,search,rarity,player.level,player.ascensions,selectedInventoryKey,rows.map(r=>[r.key,r.quantity,r.item.power,r.item.damage]),Object.values(player.equipment).map(i=>i?.name)]);
   if(signature===inventorySignature)return;inventorySignature=signature;
   inventoryPanel.querySelectorAll('[data-inventory-type]').forEach(b=>b.classList.toggle('active',b.dataset.inventoryType===inventoryType));
   const visible=rows.filter(row=>(inventoryType==='all' || row.item.type===inventoryType) && (rarity==='all' || row.rarityIndex===Number(rarity)) && (row.item.name+' '+(INVENTORY_TYPES[row.item.type] || '')).toLocaleLowerCase('pt-BR').includes(search));
@@ -76,7 +76,7 @@ function renderInventoryPanel(){
     button.setAttribute('aria-label',button.title);bindItemTooltip(button,{...row.item,amount:row.quantity});
     const src=itemPreview(row.item);
     if(src){const image=document.createElement('img');image.src=src;image.alt='';button.append(image);}else{const icon=document.createElement('span');icon.className='armor-preview';icon.textContent='⛨';button.append(icon);}
-    const name=document.createElement('b');name.textContent=row.item.name;
+    const name=document.createElement('b');name.textContent=(!GAME_CATALOG.canUse(player,row.item)?'🔒 ':'')+row.item.name;
     const label=document.createElement('small');label.textContent=rarities[row.rarityIndex].name+' · '+INVENTORY_TYPES[row.item.type];
     const count=document.createElement('em');count.textContent=['material','component','accessory'].includes(row.item.type) ? '×'+row.quantity : equippedItem(row.item) ? '✓' : '1';
     button.append(name,label,count);button.onclick=()=>{selectedInventoryKey=row.key;inventorySignature='';renderInventoryPanel();};grid.append(button);
@@ -92,7 +92,7 @@ function renderInventoryDetail(row){
   const src=itemPreview(item);if(src){const image=document.createElement('img');image.className='detail-preview';image.src=src;image.alt=item.name;detail.append(image);}
   detail.append(title,rarity);
   const stats=document.createElement('dl');
-  const lines=[['Quantidade',quantity]];
+  const lines=[['Quantidade',quantity]];if(GAME_CATALOG.ascensions(player))lines.push(['Nível para usar',GAME_CATALOG.itemLevel(item)],['Estado',GAME_CATALOG.canUse(player,item)?'Disponível':'Trancado após ascensão']);
   if(item.type==='accessory')lines.push(['Efeitos',accessoryDescription(item.accessoryId,item.rarity)],['Uso','Passivo · equipado nos slots de acessórios']);
   if(item.type==='material')lines.push(['Uso','Receitas e fusão'],['Venda por unidade',((ORE_VALUES[materialRarity(item)] || item.value || 1)*5).toLocaleString('pt-BR')+' moedas']);
   if(item.type==='component')lines.push(['Origem',CREATURES.find(c=>c.kind===item.kind)?.name || 'Criatura'],['Uso','Fusão de raridade e venda'],['Venda por unidade',Math.round(8*Math.pow(1.8,rarityIndex)).toLocaleString('pt-BR')+' moedas']);
@@ -107,7 +107,7 @@ function renderInventoryDetail(row){
     for(const [text,amount] of [['Vender 1',1],['Vender 5',5],['Vender pilha',quantity]]){const button=document.createElement('button');button.textContent=text;button.disabled=quantity<amount;button.onclick=()=>sellInventoryMaterial(item,amount);actions.append(button);}detail.append(actions);
   }else{
     if(item.type==='accessory'){const select=document.createElement('select');select.setAttribute('aria-label','Slot do acessório');for(let i=0;i<EXPANSION.slots(player.level);i++){const option=document.createElement('option'),ref=player.accessories?.[i];option.value=i;option.textContent='Slot '+(i+1)+(ref?' · '+EXPANSION.ACCESSORIES.find(a=>a.id===ref.accessoryId)?.name:' · vazio');option.selected=i===selectedAccessorySlot;select.append(option);}select.onchange=()=>{selectedAccessorySlot=Number(select.value);inventorySignature='';renderInventoryPanel();if(!menuVisible())updateGameHud();};detail.append(select);}
-    const action=document.createElement('button');action.className='craft-pickaxe';if(item.type==='accessory'){const current=player.accessories?.[selectedAccessorySlot],same=current?.accessoryId===item.accessoryId&&current.rarity===item.rarity,used=(player.accessories||[]).filter((ref,n)=>n!==selectedAccessorySlot&&ref?.accessoryId===item.accessoryId&&ref.rarity===item.rarity).length;action.textContent=same?'Equipado neste slot ✓':'Equipar no slot '+(selectedAccessorySlot+1);action.disabled=same||used>=quantity;}else{action.textContent=equippedItem(item)?'Equipado ✓':'Equipar';action.disabled=equippedItem(item);}action.onclick=()=>equipInventoryItem(item);detail.append(action);
+    const action=document.createElement('button');action.className='craft-pickaxe';if(item.type==='accessory'){const current=player.accessories?.[selectedAccessorySlot],same=current?.accessoryId===item.accessoryId&&current.rarity===item.rarity,used=(player.accessories||[]).filter((ref,n)=>n!==selectedAccessorySlot&&ref?.accessoryId===item.accessoryId&&ref.rarity===item.rarity).length;action.textContent=same?'Equipado neste slot ✓':'Equipar no slot '+(selectedAccessorySlot+1);action.disabled=same||used>=quantity;}else{action.textContent=equippedItem(item)?'Equipado ✓':'Equipar';action.disabled=equippedItem(item);}if(!GAME_CATALOG.canUse(player,item)){action.disabled=true;action.textContent='🔒 Requer nível '+GAME_CATALOG.itemLevel(item);}action.onclick=()=>equipInventoryItem(item);detail.append(action);
     if(item.type==='accessory'&&player.accessories?.[selectedAccessorySlot]){const remove=document.createElement('button');remove.className='craft-pickaxe';remove.textContent='Retirar do slot '+(selectedAccessorySlot+1);remove.onclick=()=>requestPlayerAction('accessoryEquip',{slot:selectedAccessorySlot,item:null});detail.append(remove);}
   }
 }

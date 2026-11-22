@@ -27,7 +27,7 @@ document.getElementById('craft-pickaxe').onclick=()=>{
 function renderWorkshop(){
   workshop.hidden=!shopOpen;if(!shopOpen)return;
   const recipes=shopCategory==='utility' ? UTILITIES : shopCategory==='armor' ? ARMORS : shopCategory==='weapon' ? SWORDS : PICKAXE_RECIPES;
-  const state=JSON.stringify([shopCategory,selectedRecipe,player.coins,Object.values(player.equipment).map(i=>i?.name),player.inventory.map(i=>[i.name,i.type,i.amount])]);
+  const state=JSON.stringify([shopCategory,selectedRecipe,player.coins,player.level,player.ascensions,Object.values(player.equipment).map(i=>i?.name),player.inventory.map(i=>[i.name,i.type,i.amount])]);
   if(state===lastShopState)return;lastShopState=state;
   catalog.replaceChildren();
   recipes.forEach((recipe,index)=>{
@@ -36,7 +36,7 @@ function renderWorkshop(){
     const span=document.createElement('span');span.textContent=recipe.name;
     const small=document.createElement('small');
     const owned=['utility','armor'].includes(shopCategory) ? ownsGear(recipe) : shopCategory==='weapon' ? ownedSword(recipe.name) : ownedPickaxe(recipe.name);
-    small.textContent=player.equipment[shopCategory]?.name===recipe.name ? 'EQUIPADA' : owned ? 'OBTIDA' : 'RECEITA';
+    small.textContent=!GAME_CATALOG.canUse(player,recipe)?'🔒 LV. '+GAME_CATALOG.itemLevel(recipe):player.equipment[shopCategory]?.name===recipe.name ? 'EQUIPADA' : owned ? 'OBTIDA' : 'RECEITA';
     button.style.setProperty('--rarity',rarities[itemRarityIndex(recipe)].color);decorateRarity(button,itemRarityIndex(recipe));button.classList.toggle('selected',selectedRecipe===recipe.name);
     button.setAttribute('aria-pressed',String(selectedRecipe===recipe.name));button.append(img,span,small);
     button.onclick=()=>{selectedRecipe=recipe.name;lastShopState='';document.getElementById('recipe-result').textContent='';renderWorkshop();};catalog.append(button);
@@ -53,20 +53,21 @@ function renderWorkshop(){
   document.getElementById('recipe-name').textContent=recipe.name;
   document.getElementById('recipe-power').textContent=shopCategory==='utility' ? recipe.description : shopCategory==='armor' ? Math.round(recipe.defense*100)+'% de redução de dano'+(recipe.aura ? ' · aura de partículas' : ' · proteção visível') : 'Dano +'+(shopCategory==='weapon' ? recipe.damage : pickaxes[index].power);
   const ingredients=[{name:'Moedas',have:player.coins,need:recipe.coins,color:'#f6d76c',coin:true},...recipe.materials.map(([name,count])=>({name,have:materialCount(name),need:count,color:rarities.find(r=>r.name===name).color}))];
+  for(const [kind,need] of GAME_CATALOG.gearComponents(recipe,shopCategory))ingredients.push({name:GAME_CATALOG.MOB_LOOT[kind]||CREATURES.find(m=>m.kind===kind)?.drop||kind,kind,have:GAME_CATALOG.componentCount(player,kind),need,color:'#b2d3a0'});
   const materials=document.getElementById('recipe-materials');materials.replaceChildren();
   for(const entry of ingredients){
     const chip=document.createElement('div');chip.className='ingredient '+(entry.have>=entry.need ? 'ready' : 'missing');
     chip.style.setProperty('--item-color',entry.color);
     const icon=document.createElement('i');icon.className=entry.coin ? 'coin-icon' : 'ore-icon';icon.style.background=entry.color;
-    if(!entry.coin){icon.style.background='transparent';const image=document.createElement('img');image.src=itemPreview({type:'material',oreRarity:entry.name,name:entry.name});image.alt='';icon.append(image);}
+    if(!entry.coin){icon.style.background='transparent';const image=document.createElement('img');image.src=itemPreview(entry.kind?{type:'component',kind:entry.kind,rarity:'Comum',name:entry.name}:{type:'material',oreRarity:entry.name,name:entry.name});image.alt='';icon.append(image);}
     const label=document.createElement('div'),name=document.createElement('span'),count=document.createElement('b');
     name.textContent=entry.name;count.textContent=entry.have.toLocaleString('pt-BR')+' / '+entry.need.toLocaleString('pt-BR');
     label.append(name,count);chip.append(icon,label);materials.append(chip);
   }
   document.getElementById('recipe-prerequisite').textContent=shopCategory==='utility' ? 'Equipe uma utilidade por vez. A lanterna continua disponível no F.' : shopCategory==='armor' ? 'A armadura protege em qualquer slot selecionado. Receita independente.' : index ? 'Requer possuir '+recipes[index-1].name+'.' : 'Equipamento inicial.';
   const action=document.getElementById('craft-pickaxe'),equipped=player.equipment[shopCategory]?.name===recipe.name;
-  action.textContent=equipped ? 'Equipada ✓' : status.owned ? 'Equipar' : 'Criar e equipar';
-  action.disabled=equipped || (!status.owned && (!status.previousReady || !status.coinsReady || !status.materialsReady));
+  action.textContent=!GAME_CATALOG.canUse(player,recipe)?'🔒 Requer nível '+GAME_CATALOG.itemLevel(recipe):equipped ? 'Equipada ✓' : status.owned ? 'Equipar' : 'Criar e equipar';
+  action.disabled=!GAME_CATALOG.canUse(player,recipe)||equipped || (!status.owned && (!status.previousReady || !status.coinsReady || !status.materialsReady));
   workshop.querySelectorAll('[data-shop]').forEach(b=>b.classList.toggle('active',b.dataset.shop===shopCategory));
 }
 

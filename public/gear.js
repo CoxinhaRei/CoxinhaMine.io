@@ -28,14 +28,14 @@ function cameraZoom(){return equippedUtility()?.zoom || 1;}
 function worldViewWidth(){return canvas.width/cameraZoom();}
 function worldViewHeight(){return canvas.height/cameraZoom();}
 function ownsGear(recipe){return player.equipment[recipe.type]?.name===recipe.name || player.inventory.some(i=>i.type===recipe.type && i.name===recipe.name && (i.amount ?? 1)>0);}
-function gearStatus(recipe){return {owned:ownsGear(recipe),previousReady:true,coinsReady:player.coins>=recipe.coins,materialsReady:recipe.materials.every(([name,count])=>materialCount(name)>=count)};}
+function gearStatus(recipe){return {owned:ownsGear(recipe),previousReady:true,coinsReady:player.coins>=recipe.coins,materialsReady:GAME_CATALOG.canUse(player,recipe)&&GAME_CATALOG.gearComponentsReady(player,recipe)&&recipe.materials.every(([name,count])=>materialCount(name)>=count)};}
 function craftGear(recipe){
   if(isServerWorld())return recipe && requestPlayerAction('gear',{type:recipe.type,name:recipe.name});
-  if(!recipe || player.dead)return false;
+  if(!recipe || player.dead || !GAME_CATALOG.canUse(player,recipe))return false;
   const state=gearStatus(recipe);
   if(!state.owned){
     if(!state.coinsReady || !state.materialsReady || !consumeMaterials(recipe.materials))return false;
-    player.coins-=recipe.coins;player.inventory.push({...recipe});
+    GAME_CATALOG.consumeGearComponents(player,recipe);player.coins-=recipe.coins;player.inventory.push({...recipe});
   }
   player.equipment[recipe.type]={...recipe};if(recipe.type==='utility')player.selectedSlot=3;
   restoreUtility();saveGame();return true;

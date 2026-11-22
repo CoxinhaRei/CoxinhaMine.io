@@ -68,12 +68,12 @@ function recipeStatus(recipe) {
     owned:ownedPickaxe(recipe.name),
     previousReady:!previous || ownedPickaxe(previous),
     coinsReady:player.coins >= recipe.coins,
-    materialsReady:recipe.materials.every(([name,amount]) => materialCount(name) >= amount)
+    materialsReady:GAME_CATALOG.canUse(player,recipe)&&GAME_CATALOG.gearComponentsReady(player,recipe)&&recipe.materials.every(([name,amount]) => materialCount(name) >= amount)
   };
 }
 function equipPickaxe(name) {
   if(isServerWorld())return requestPlayerAction('equip',{type:'pickaxe',name});
-  if(!ownedPickaxe(name)) return false;
+  if(!ownedPickaxe(name)||!GAME_CATALOG.canUse(player,{name})) return false;
   const definition = pickaxes.find(p => p.name === name);
   if(!definition) return false;
   player.equipment.pickaxe = {...definition,id:'pickaxe_'+name,type:'pickaxe',img:pickaxeSprites[name]};
@@ -98,6 +98,7 @@ function craftPickaxe(name) {
     }
   }
   player.inventory = player.inventory.filter(item => item.type !== 'material' || item.amount > 0);
+  GAME_CATALOG.consumeGearComponents(player,recipe);
   player.coins -= recipe.coins;
   const definition = pickaxes.find(p => p.name === name);
   player.inventory.push({...definition,id:'pickaxe_'+name,type:'pickaxe',amount:1,color:TALENT_COLORS[PICKAXE_RECIPES.indexOf(recipe)],img:pickaxeSprites[name]});

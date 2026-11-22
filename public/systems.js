@@ -9,7 +9,7 @@ const SWORDS=PICKAXE_RECIPES.map((recipe,index)=>({
 // Initial menu preview and the shared runtime start with the real wooden sword.
 if(!player.equipment.weapon)player.equipment.weapon={...SWORDS[0]};
 rarities.push({name:'QUANTIUM',color:'#77e9ed',hp:GAME_CATALOG.ORE_HP[9],mult:40000},{name:'ALEPH',color:'#ffe68b',hp:GAME_CATALOG.ORE_HP[10],mult:80000});
-rarities.push({...GAME_CATALOG.PRIMORDIAL});
+rarities.push({...GAME_CATALOG.CHOSEN},{...GAME_CATALOG.PRIMORDIAL});
 ORE_VALUES.QUANTIUM=50000;ORE_VALUES.ALEPH=150000;
 ORE_VALUES.PRIMORDIAL=500000;
 craftRecipes.ABSOLUT={next:'QUANTIUM',chance:.05};
@@ -59,7 +59,7 @@ function restoreSword() {
 function ownedSword(name) {return player.equipment.weapon?.name===name || player.inventory.some(i=>i.type==='weapon' && i.name===name);}
 function swordRecipeStatus(recipe) {
   const index=SWORDS.indexOf(recipe);
-  return {owned:ownedSword(recipe.name),previousReady:!index || ownedSword(SWORDS[index-1].name),coinsReady:player.coins>=recipe.coins,materialsReady:recipe.materials.every(([name,amount])=>materialCount(name)>=amount)};
+  return {owned:ownedSword(recipe.name),previousReady:!index || ownedSword(SWORDS[index-1].name),coinsReady:player.coins>=recipe.coins,materialsReady:GAME_CATALOG.canUse(player,recipe)&&GAME_CATALOG.gearComponentsReady(player,recipe)&&recipe.materials.every(([name,amount])=>materialCount(name)>=amount)};
 }
 function consumeMaterials(requirements) {
   if(!requirements.every(([name,amount])=>materialCount(name)>=amount))return false;
@@ -80,9 +80,10 @@ function craftSword(name) {
   const status=swordRecipeStatus(recipe);
   if(!status.owned){
     if(!status.previousReady || !status.coinsReady || !status.materialsReady)return false;
-    consumeMaterials(recipe.materials);player.coins-=recipe.coins;
+    consumeMaterials(recipe.materials);GAME_CATALOG.consumeGearComponents(player,recipe);player.coins-=recipe.coins;
     player.inventory.push({...recipe});
   }
+  if(!GAME_CATALOG.canUse(player,recipe))return false;
   player.equipment.weapon={...recipe};player.selectedSlot=0;
   saveGame();return true;
 }

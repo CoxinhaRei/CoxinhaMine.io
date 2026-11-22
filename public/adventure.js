@@ -21,7 +21,7 @@ let abilityEffects=[];
 let damageNumbers=[];
 let nextCreatureSpawn=0;
 const itemPreviewCache=new Map();
-function xpForLevel(level){return GAME_CATALOG.xpForLevel(level);}
+function xpForLevel(level){return GAME_CATALOG.xpForLevel(level,player.ascensions||0);}
 function normalizeAdventure(){
   if(player.progressionVersion!==3){
     const fraction=Math.max(0,Math.min(1,player.xp/(player.xpToNext || 100)));
@@ -48,7 +48,7 @@ function toggleLantern(){if(player.dead || !ownsLantern())return;player.lanternO
 function isBossRarity(rarity){return rarities.findIndex(r=>r.name===rarity?.name)>6;}
 function createCreature(kind,rarity,x,y){
   const definition=CREATURES.find(c=>c.kind===kind) || CREATURES[0],index=Math.max(0,rarities.findIndex(r=>r.name===rarity.name));
-  const hp=GAME_CATALOG.mobHealth(definition.hp,index),size=Math.min(currentRealm==='cave' ? 205 : 360,25*Math.pow(1.32,index))*(index>=7 ? 3 : 1);
+  const hp=GAME_CATALOG.mobHealth(definition.hp,index),size=GAME_CATALOG.mobRadius(index,currentRealm==='cave');
   return {...definition,id:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),x,y,rarity,hp,maxHp:hp,size,speed:definition.speed+index*4,damage:GAME_CATALOG.mobDamage(definition.damage,index),cooldown:0,angle:0,isBoss:index>6,pathTimer:0};
 }
 function noteCreature(creature){

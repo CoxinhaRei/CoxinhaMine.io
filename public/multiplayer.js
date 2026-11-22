@@ -7,14 +7,15 @@ function currentSession(){return guestCredentials || activeSession();}
 function playerDisplayName(p){return (p.name || 'Convidado')+(p.developerTest?' [DEV]':'')+(p.guest && p.name!=='Convidado' ? ' (Convidado)' : '');}
 function resetGuestSession(){
   guestCredentials=null;multiplayer.guest=false;multiplayer.ready=false;multiplayer.profileName='';window.accountProgressEnabled=false;
-  Object.assign(player,{magic:{awakened:false,ranks:{},selected:'spark'},mana:100,maxMana:100,name:'',developerTest:false,guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:1000,maxHp:1000,size:20,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
+  Object.assign(player,{ascensions:0,summonsEnabled:true,mount:null,magic:{awakened:false,ranks:{},selected:'spark'},mana:100,maxMana:100,name:'',developerTest:false,guest:false,level:1,xp:0,xpToNext:GAME_CATALOG.xpForLevel(1),coins:0,inventory:[],equipment:{weapon:{...SWORDS[0]},pickaxe:{...pickaxes[0],type:'pickaxe'}},talents:{},talentRanks:{},talentPoints:0,hp:1000,maxHp:1000,size:20,journal:{},abilityReadyAt:{},pendingCraft:null,dead:false});
   const input=document.getElementById('nameInput');input.value='';input.readOnly=false;
   squadState={members:[]};renderSquad();
 }
 const networkMovement=new MovementNet.Predictor();window.networkMovement=networkMovement;
 function networkSpeed(){return (player.slowUntil>Date.now()?Math.max(.55,1-.45*(1-utilityBonus('slowResist'))):1)*GAME_CATALOG.movementSpeed(player,{speed:utilityBonus('speed'),speedPenalty:utilityBonus('speedPenalty')},currentRealm);}
 function movePredictedPlayer(state,x,y){
-  const radius=state.size||20;moveWithWalls(state,x,y,radius);
+  const radius=state.mount?.radius||state.size||20,start={x:state.x,y:state.y};moveWithWalls(state,x,y,radius);
+  if(state.mount){let first=1;for(const ore of ores){if(ore.hp<=0)continue;const min=radius+ore.size;if(Math.hypot(start.x-ore.x,start.y-ore.y)<=min&&Math.hypot(state.x-ore.x,state.y-ore.y)>Math.hypot(start.x-ore.x,start.y-ore.y))continue;const at=BODY_PHYSICS.segmentCircleEntry(start.x,start.y,state.x,state.y,ore.x,ore.y,min);if(at!==null)first=Math.min(first,at);}state.x=start.x+(state.x-start.x)*first;state.y=start.y+(state.y-start.y)*first;return;}
   for(const ore of ores){const minimum=ore.size+radius;if(Math.abs(state.x-ore.x)>minimum || Math.abs(state.y-ore.y)>minimum)continue;const c=BODY_PHYSICS.contact(state,radius,400*(radius/20)**2,ore,ore.size,BODY_PHYSICS.oreMass(ore.size));if(c)moveWithWalls(state,state.x+c.nx*c.overlap*c.share,state.y+c.ny*c.overlap*c.share,radius);}
 }
 function renderedPlayerPosition(){return {x:player.x+networkMovement.offsetX,y:player.y+networkMovement.offsetY};}
@@ -48,7 +49,7 @@ function beginSharedSession({lobby=false}={}){
 }
 function applyServerPlayer(state){
   if(state.dead && !player.dead)enterDeath(state.deathCause);
-  const keys=['size','magic','mana','maxMana','developerTest','playTimeMs','reviveReadyAt','accessories','accessoryVersion','joinedAt','guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
+  const keys=['ascensions','summonsEnabled','mount','size','magic','mana','maxMana','developerTest','playTimeMs','reviveReadyAt','accessories','accessoryVersion','joinedAt','guest','level','xp','xpToNext','coins','inventory','equipment','talents','talentRanks','talentPoints','maxHp','hp','abilityReadyAt','journal','pendingCraft','dead','deathCause','saveRevision','selectedSlot'];
   for(const key of keys)if(state[key]!==undefined)player[key]=state[key];
   player.progressionVersion=3;restoreEquipment();restoreArmor();
   if(typeof inventorySignature!=='undefined')inventorySignature='';if(typeof lastShopState!=='undefined')lastShopState='';
@@ -149,7 +150,7 @@ function applyWorldSnapshot(snapshot){
   if(history && self.epoch===multiplayer.movementEpoch && self.seq>(multiplayer.correctedSeq || 0)){multiplayer.correctedSeq=self.seq;const dx=self.x-history.x,dy=self.y-history.y;if(Math.hypot(dx,dy)>2){player.x+=dx;player.y+=dy;for(const [seq,point] of pendingMovement)if(seq>=self.seq){point.x+=dx;point.y+=dy;}}}
   multiplayer.checkpoint=snapshot.checkpoint||null;multiplayer.contribution=snapshot.contribution;player.hp=snapshot.hp;player.maxHp=snapshot.maxHp;if(snapshot.size)player.size=snapshot.size;
   multiplayer.magicHitIds ||= new Map();let miningHitFx=0;for(const hit of snapshot.magicHits||[]){const key=currentRealm+':'+hit.id;if(multiplayer.magicHitIds.has(key))continue;multiplayer.magicHitIds.set(key,performance.now());if(hit.kind==='mining'&&miningHitFx++<4)miningBurst(hit.x,hit.y,hit.color,6);damageNumbers.push({x:hit.x,y:hit.y-25,text:Math.round(hit.damage),life:.7});}damageNumbers=damageNumbers.slice(-128);for(const [key,at] of multiplayer.magicHitIds)if(performance.now()-at>2000)multiplayer.magicHitIds.delete(key);
-  multiplayer.allies=mergeNetworkEntities(multiplayer.allies||[],snapshot.allies||[]);multiplayer.magicEffects=snapshot.magicEffects||[];multiplayer.magicBolts=snapshot.magicBolts||[];multiplayer.mentor=snapshot.mentor||null;player.mana=snapshot.mana||0;player.maxMana=snapshot.maxMana||100;multiplayer.magicReadyIn=snapshot.magicReadyIn||0;multiplayer.beamActive=!!snapshot.beamActive;
+  multiplayer.allies=mergeNetworkEntities(multiplayer.allies||[],snapshot.allies||[]);multiplayer.magicEffects=snapshot.magicEffects||[];multiplayer.magicBolts=snapshot.magicBolts||[];multiplayer.mentor=snapshot.mentor||null;player.mana=snapshot.mana||0;player.maxMana=snapshot.maxMana||100;player.mount=snapshot.mount||null;player.summonsEnabled=snapshot.summonsEnabled!==false;multiplayer.magicReadyIn=snapshot.magicReadyIn||0;multiplayer.beamActive=!!snapshot.beamActive;
   multiplayer.forge=snapshot.forge||null;multiplayer.squadContribution=snapshot.squadContribution || {};player.slowUntil=snapshot.slowUntil||0;
   if(currentRealm==='cave' && multiplayer.mapVersion!==snapshot.mapVersion && Array.isArray(snapshot.mapDelta)){buildCaveMaze();for(const index of snapshot.mapDelta)CAVE.maze[index]=1;multiplayer.mapVersion=snapshot.mapVersion;caveMapImage=null;socket.emit('mapAck',{realm:currentRealm,version:snapshot.mapVersion});}
   if(snapshot.dead && !player.dead)enterDeath(snapshot.deathCause);
