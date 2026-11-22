@@ -6,23 +6,27 @@ const {resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,SpatialIndex,
 
 const gRarity=(game,tier)=>tier>=0?game.rarities[tier]:null;
 const strongestSquadContributor=credits=>{let damage=0;for(const value of credits.values())damage=Math.max(damage,value);return damage;};
-const RARE_DENSITY=Object.freeze({7:Object.freeze({mobs:2,ores:3,radius:8000,delay:10000}),8:Object.freeze({mobs:1,ores:2,radius:10000,delay:20000}),9:Object.freeze({mobs:8,ores:2,radius:14000,delay:30000,mobDelay:0,oreChance:.12})});
+const RARE_DENSITY=Object.freeze({7:Object.freeze({mobs:2,ores:3,radius:8000,delay:10000}),8:Object.freeze({mobs:1,ores:2,radius:10000,delay:20000}),9:Object.freeze({mobs:64,ores:2,radius:14000,delay:30000,mobDelay:0,oreChance:.12,wave:16,attempts:520})});
 class SharedWorld{
   static densityFor(tier){return RARE_DENSITY[tier]||null;}
   shouldSpawnOre(state,random=Math.random){return atlas.at(this.realm,state.x,state.y).tier!==9||random()<RARE_DENSITY[9].oreChance;}
+  naturalCount(type,x,y,tier,limit=Infinity){
+    const policy=RARE_DENSITY[tier];if(!policy)return 0;let count=0;
+    const counts=e=>e.hp>0&&!e.summoned&&!e.noRewards&&(tier===9?(e.regionTier===9||atlas.at(this.realm,e.x,e.y).tier===9):(Math.hypot(e.x-x,e.y-y)<policy.radius+e.size&&atlas.at(this.realm,e.x,e.y).tier===tier));
+    for(const e of (type==='mob'?this.game.mobs:this.game.ores))if(counts(e)&&++count>=limit)return count;
+    for(const entry of (type==='mob'?this.dormantMobs:this.dormantOres).values())if(counts(entry.mob||entry.ore)&&++count>=limit)return count;
+    return count;
+  }
   densityKey(type,x,y,tier){return type+':'+tier+':'+Math.floor(x/8000)+':'+Math.floor(y/8000);}
   canSpawnNatural(type,x,y,now=Date.now()){
     if(!checkpointCatalog.clear(this.realm,x,y,450))return false;
     const tier=atlas.at(this.realm,x,y).tier,policy=RARE_DENSITY[tier];if(!policy)return true;
     if((this.spawnCooldowns.get(this.densityKey(type,x,y,tier))||0)>now)return false;
-    const cap=type==='mob'?policy.mobs:policy.ores,active=type==='mob'?this.game.mobs:this.game.ores,dormant=type==='mob'?this.dormantMobs:this.dormantOres;let count=0;
-    const counts=e=>e.hp>0&&!e.summoned&&!e.noRewards&&Math.hypot(e.x-x,e.y-y)<policy.radius+e.size&&atlas.at(this.realm,e.x,e.y).tier===tier;
-    for(const e of active)if(counts(e)&&++count>=cap)return false;
-    for(const entry of dormant.values())if(counts(entry.mob||entry.ore)&&++count>=cap)return false;
-    return true;
+    const cap=type==='mob'?policy.mobs:policy.ores;
+    return this.naturalCount(type,x,y,tier,cap)<cap;
   }
   noteNaturalSpawn(type,entity,now=Date.now()){
-    const tier=atlas.at(this.realm,entity.x,entity.y).tier,policy=RARE_DENSITY[tier];if(!policy)return;
+    const tier=atlas.at(this.realm,entity.x,entity.y).tier,policy=RARE_DENSITY[tier];entity.regionTier??=tier;if(!policy)return;
     this.spawnCooldowns.set(this.densityKey(type,entity.x,entity.y,tier),now+(type==='mob'?(policy.mobDelay??policy.delay):policy.delay));
     if(this.spawnCooldowns.size>512){for(const [key,until] of this.spawnCooldowns)if(until<=now)this.spawnCooldowns.delete(key);while(this.spawnCooldowns.size>512)this.spawnCooldowns.delete(this.spawnCooldowns.keys().next().value);}
   }
@@ -191,11 +195,14 @@ class SharedWorld{
   }
   spawnTerritoryMobs(actor){
     const g=this.game,s=actor.state,region=atlas.at(this.realm,s.x,s.y),target=RARE_DENSITY[region.tier]?.mobs||12;
-    const areaRadius=region.tier===9?7000:4000;let nearby=g.mobs.filter(m=>!m.summoned&&Math.hypot(m.x-s.x,m.y-s.y)<areaRadius+m.size).length;
-    for(let attempt=0;attempt<90&&nearby<target&&g.mobs.length<180;attempt++){
-      const angle=Math.random()*Math.PI*2,distance=region.tier===9?1800+Math.random()*4200:(region.safe?1600:500)+Math.random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=atlas.roll(this.realm,x,y);
+    const swarm=region.tier===9,policy=RARE_DENSITY[region.tier],areaRadius=swarm?11000:4000,random=this.spawnRandom||Math.random;
+    if(swarm&&this.naturalCount('mob',s.x,s.y,9,target)>=target)return;
+    let nearby=g.mobs.filter(m=>m.hp>0&&!m.summoned&&Math.hypot(m.x-s.x,m.y-s.y)<areaRadius+m.size).length,spawned=0;
+    for(let attempt=0;attempt<(swarm?policy.attempts:90)&&nearby<target&&spawned<(swarm?policy.wave:Infinity)&&g.mobs.length<180;attempt++){
+      const angle=random()*Math.PI*2,distance=swarm?1800+random()**2*8200:(region.safe?1600:500)+random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=atlas.roll(this.realm,x,y,random);
+      if(swarm&&area.tier!==9)continue;
       if(tier<0||!area.open||!this.canSpawnNatural('mob',x,y))continue;
-      const pool=atlas.pool(this.realm,area.tier),definition=pool[Math.floor(Math.random()*pool.length)],kind=definition==='beetle'&&Math.random()<.00025?'invertedBeetle':definition,mob=g.createCreature(kind,g.rarities[tier],x,y);
+      const pool=atlas.pool(this.realm,area.tier),definition=pool[Math.floor(random()*pool.length)],kind=definition==='beetle'&&random()<.00025?'invertedBeetle':definition,mob=g.createCreature(kind,g.rarities[tier],x,y);
       if(!checkpointCatalog.clear(this.realm,x,y,mob.size+450)||Math.hypot(x-s.x,y-s.y)<mob.size+500||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+mob.size*.75)||g.mobs.some(o=>Math.hypot(o.x-x,o.y-y)<(o.size+mob.size)*.75))continue;
       if(this.realm==='cave'){
         if(x<mob.size+600||y<mob.size+600||x>g.cave.width-mob.size-600||y>g.cave.height-mob.size-600)continue;
@@ -203,7 +210,7 @@ class SharedWorld{
         if(g.wall(x,y,mob.size*.75))g.carveChamber(x,y,mob.size+550);
         if(g.wall(x,y,mob.size*.75))continue;
       }else if(!catalog.gardenOrePositionValid(x,y,mob.size,atlas.SIZE)||atlas.blocked(this.realm,x,y,mob.size*.75))continue;
-      mob.regionTier=area.tier;g.mobs.push(mob);this.noteNaturalSpawn('mob',mob);this.announceSpawn(mob,true);nearby++;
+      mob.regionTier=area.tier;g.mobs.push(mob);this.noteNaturalSpawn('mob',mob);this.announceSpawn(mob,true);nearby++;spawned++;
     }
   }
   addBoss(name,actor){

@@ -19,7 +19,34 @@ test('only twelve distant boss deposits remain awake; sleeping preserves their H
  const s=await setup(t),w=s.worlds.garden,g=w.game;g.ores=Array.from({length:30},(_,n)=>({id:'far-boss-'+n,x:120000,y:100000+n*20,size:320,hp:100+n,maxHp:500,rarity:g.rarities[7],isBoss:true}));w.maintainActiveAreas([],Date.now());assert.equal(g.ores.length,12);assert.equal(w.dormantOres.size,18);assert.equal(w.dormantOres.get('far-boss-29').ore.hp,129);assert.equal(w.drops.length,0);
 });
 
-test('Quantium restores the former eight-mob target with immediate shared replenishment, while ore remains occasional and limited',async t=>{
- const s=await setup(t),w=s.worlds.garden,q=atlas.build('garden').quantum,p={x:q.x,y:q.y},policy=World.densityFor(9);assert.equal(policy.mobs,8);assert.equal(policy.ores,2);assert.equal(policy.mobDelay,0);const a=addActor(s,'garden',p,'QuantumCrowdA'),b=addActor(s,'garden',{x:p.x+150,y:p.y},'QuantumCrowdB');
- let allowed=0;for(let n=0;n<10000;n++)if(w.shouldSpawnOre(p,()=>(n+.5)/10000))allowed++;assert.equal(allowed,1200);assert.equal(w.shouldSpawnOre(atlas.spawn('garden'),()=>.99),true);w.shouldSpawnOre=()=>false;for(let n=0;n<15;n++){w.spawnAround(a);w.spawnAround(b);}const mobs=w.game.mobs.filter(m=>atlas.at('garden',m.x,m.y).tier===9);assert.equal(mobs.length,8);assert.equal(w.game.ores.length,0);assert.ok(mobs.every(m=>['ABSOLUT','QUANTIUM','ALEPH'].includes(m.rarity.name)));for(const m of mobs)w.dormantMobs.set(m.id,{mob:m,since:Date.now()});w.game.mobs=[];assert.equal(w.canSpawnNatural('mob',p.x,p.y),false,'Sleeping creatures still fill the shared population budget');
+test('Quantium fills a shared 64-mob swarm in bounded waves, while ore remains occasional and limited',async t=>{
+ const s=await setup(t),w=s.worlds.garden,q=atlas.build('garden').quantum,p={x:q.x,y:q.y},policy=World.densityFor(9);assert.equal(policy.mobs,64);assert.equal(policy.ores,2);assert.equal(policy.mobDelay,0);const a=addActor(s,'garden',p,'QuantumCrowdA'),b=addActor(s,'garden',{x:p.x+150,y:p.y},'QuantumCrowdB');
+ let allowed=0;for(let n=0;n<10000;n++)if(w.shouldSpawnOre(p,()=>(n+.5)/10000))allowed++;assert.equal(allowed,1200);assert.equal(w.shouldSpawnOre(atlas.spawn('garden'),()=>.99),true);let seed=731;w.spawnRandom=()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);w.shouldSpawnOre=()=>false;for(let n=0;n<15;n++){const before=w.game.mobs.length;w.spawnAround(a);assert.ok(w.game.mobs.length-before<=16);w.spawnAround(b);}const mobs=w.game.mobs.filter(m=>atlas.at('garden',m.x,m.y).tier===9);assert.equal(mobs.length,64);assert.equal(w.game.ores.length,0);assert.ok(mobs.every(m=>['ABSOLUT','QUANTIUM','ALEPH'].includes(m.rarity.name)));for(const m of mobs)w.dormantMobs.set(m.id,{mob:m,since:Date.now()});w.game.mobs=[];assert.equal(w.canSpawnNatural('mob',p.x,p.y),false,'Sleeping creatures still fill the shared population budget');
+});
+
+function seeded(seed){return()=>((seed=Math.imul(seed,1664525)+1013904223>>>0)/4294967296);}
+test('every biome fills its Quantium core without leaking the swarm outside the territory',async t=>{
+ const s=await setup(t);for(const [index,realm] of Object.keys(s.worlds).entries()){
+  const w=s.worlds[realm],q=atlas.build(realm).quantum,a=addActor(s,realm,q,'Swarm'+realm);w.spawnRandom=seeded(541+index);
+  for(let wave=0;wave<30;wave++){const before=w.game.mobs.length;w.spawnTerritoryMobs(a);assert.ok(w.game.mobs.length-before<=16,realm+' wave budget');}
+  assert.equal(w.game.mobs.length,64,realm+' fills the shared core');
+  assert.ok(w.game.mobs.every(m=>m.regionTier===9&&atlas.at(realm,m.x,m.y).tier===9),realm+' stays within Quantium');
+  const victim=w.game.mobs[0];victim.hp=0;w.spawnTerritoryMobs(a);assert.equal(w.game.mobs.filter(m=>m.hp>0).length,64,realm+' replenishes a casualty');delete s.actors[a.socket.id];
+ }
+});
+test('a distant player cannot duplicate sleeping or migrated Quantium mobs',async t=>{
+ const s=await setup(t),w=s.worlds.garden,q=atlas.build('garden').quantum,a=addActor(s,'garden',q,'SharedSwarm');w.spawnRandom=seeded(145);
+ for(let n=0;n<20;n++)w.spawnTerritoryMobs(a);assert.equal(w.game.mobs.length,64);
+ const elsewhere=atlas.spawn('garden');for(const m of w.game.mobs){m.x=elsewhere.x;m.y=elsewhere.y;w.dormantMobs.set(m.id,{mob:m,since:Date.now()});}w.game.mobs=[];
+ const b=addActor(s,'garden',{x:q.x+6000,y:q.y},'DistantSwarm');for(let n=0;n<5;n++)w.spawnTerritoryMobs(b);
+ assert.equal(w.game.mobs.length,0);assert.equal(w.naturalCount('mob',q.x,q.y,9),64);assert.equal(w.dormantMobs.size,64);
+});
+
+test('two viewers see the same swarm and a combat simulation retains entity budgets',async t=>{
+ const s=await setup(t),w=s.worlds.garden,q=atlas.build('garden').quantum,a=addActor(s,'garden',q,'SwarmViewA'),b=addActor(s,'garden',q,'SwarmViewB');w.spawnRandom=seeded(711);
+ for(const actor of [a,b]){actor.viewRadius=20000;actor.socket.volatile={emit(){}};}
+ for(let n=0;n<20;n++)w.spawnAround(a);const ids=w.snapshot(a).mobs.map(m=>m.id).sort();assert.equal(ids.length,64);assert.deepEqual(w.snapshot(b).mobs.map(m=>m.id).sort(),ids);
+ w.hurt=()=>false;for(const m of w.game.mobs){m.aggroPlayerId=a.profile.id;m.aggroUntil=Date.now()+60000;}
+ const start=performance.now();for(let n=0;n<100;n++){w.tick(.05);assert.ok(w.game.projectiles.length<=600);assert.ok(w.game.mobs.filter(m=>m.summoned).length<=96);}
+ assert.ok(w.naturalCount('mob',q.x,q.y,9)<=64);assert.deepEqual(w.snapshot(a).mobs.map(m=>m.id).sort(),w.snapshot(b).mobs.map(m=>m.id).sort());t.diagnostic('100 swarm combat ticks: '+Math.round(performance.now()-start)+' ms total (local fixture, not production ping)');
 });
