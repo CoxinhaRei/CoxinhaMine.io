@@ -19,7 +19,7 @@
 
 ## Conferir depois do deploy
 
-Abra /health no endereço do jogo. A resposta deve conter version: 1.5.5, build: release-155-combat2, protocol: 6, guests: true e accountRequired: false. Se o banco Redis estiver configurado, confira também sharedSaves: true, durable: true e saveError: false.
+Abra /health no endereço do jogo. A resposta deve conter version: 1.5.5, build: release-155-titan1, protocol: 6, guests: true e accountRequired: false. Se o banco Redis estiver configurado, confira também sharedSaves: true, durable: true e saveError: false.
 
 Recarregue com Ctrl+F5. O aviso de desenvolvimento local foi retirado. Confira o changelog 1.5.5, o botão Como jogar, a espada inicial, as configurações do convidado e o login de uma conta existente. Teste dois convidados em abas diferentes para conferir o mundo compartilhado.
 
@@ -28,3 +28,11 @@ As contas existentes continuam no banco configurado; este ZIP não reseta contas
 ## Testar antes no computador
 
 Execute npm install e depois npm run dev. A prévia abre em http://127.0.0.1:3000, usa dados isolados em dev-data e não acessa o Redis de produção. A hospedagem deve usar npm start.
+
+## Patch de combate — release-155-titan1
+
+Vida base de 1.000, máximo de 400.000 com talentos/acessórios; Super+ causam ao menos 20.000 de dano de contato, por espécie e raridade, sem invulnerabilidade global após impactos. Quantium usa a vida canônica corrigida e ganha 12× a tabela anterior; Aleph mantém a progressão superior.
+
+Reset de talentos funciona também durante a exploração, com confirmação e reembolso exato. Craft normal removido; Loja e forja Chosen preservadas. Catálogo ampliado para 50 acessórios, incluindo 20 ovos e itens de esquiva. Solar R cria um sistema solar de mineração; Void Q lança um tridente veloz e Void R cria uma zona escura que minera e puxa parte das pedras.
+
+Núcleo Quantium dentro de Absolut em cada mapa: 60% Quantium, 39,1% Absolut, 0,9% Aleph, com população limitada. Quantium não anuncia spawn no chat. Consulte PATCH-TITAN-COMBATE.md para valores e instalação.

@@ -53,11 +53,11 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
       giveMaterial(state,rarity,amount){player=state;addOreMaterial(rarity,amount);},
       levelUp(state){player=state;checkLevelUp();},
       achievements(state){player=state;checkAchievements();},xpForLevel
-      ,tickPlayer(state){player=state;tickOreCraft();const max=100+(state.talentRanks?.vitality||0)*20+EXPANSION.bonuses(state).health;state.maxHp=max;state.hp=Math.min(max,state.hp); }
+      ,tickPlayer(state){player=state;tickOreCraft();const max=GAME_CATALOG.playerHealth(state,EXPANSION.bonuses(state).health);state.maxHp=max;state.hp=Math.min(max,state.hp); }
       ,command(state,kind,data={}){
         player=state;
-        if(kind==='accessoryMake')return EXPANSION.make(state,data.id,Date.now(),data.count);
-        if(kind==='expansionFusion')return data.rarity!=='ALEPH' && EXPANSION.fuse(state,data);
+        if(['accessoryMake','expansionFusion','fusion'].includes(kind))return false;
+        
         if(kind==='forgeChosen'){const ok=EXPANSION.fuse(state,{...data,rarity:'ALEPH'});if(ok)state.pendingCraft.forge=true;return ok;}
         if(kind==='accessoryEquip')return EXPANSION.equip(state,data.slot,data.item);
         if(kind==='gear' && data.type==='utility')return false;
@@ -66,7 +66,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
         if(kind==='gear')return craftGear((data.type==='armor' ? ARMORS : UTILITIES).find(r=>r.name===data.name));
         if(kind==='talent')return unlockTalent(data.id);
         if(kind==='talentReset')return resetTalentRanks();
-        if(kind==='fusion')return data.name!=='ALEPH' && startOreCraft(data.name);
+        
         if(kind==='equip'){
           if(!['weapon','pickaxe','armor'].includes(data.type))return false;
           const list={weapon:SWORDS,pickaxe:pickaxes,armor:ARMORS,utility:UTILITIES}[data.type],definition=list?.find(r=>r.name===data.name);

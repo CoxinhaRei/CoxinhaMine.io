@@ -6,8 +6,8 @@ const call=(s,event,data)=>new Promise((resolve,reject)=>s.timeout(6000).emit(ev
 const delay=ms=>new Promise(r=>setTimeout(r,ms));
 async function client(url){const s=connect(url,{transports:['websocket'],reconnection:false});s.on('profileReady',p=>s.profile=p);await new Promise(r=>s.on('connect',r));return s;}
 function fresh(level=1){return E.normalize({level,hp:100,maxHp:100,inventory:[],equipment:{},journal:{},accessories:[],accessoryVersion:1});}
-test('30 accessories scale across 12 rarities; slots unlock every 25 levels and effects are bounded',()=>{
- assert.equal(E.ACCESSORIES.length,30);assert.equal(new Set(E.ACCESSORIES.map(a=>a.id)).size,30);assert.deepEqual([1,24,25,49,50,300,475,9999].map(E.slots),[1,1,2,2,3,13,20,20]);
+test('50 accessories scale across 12 rarities; slots unlock every 25 levels and effects are bounded',()=>{
+ assert.equal(E.ACCESSORIES.length,50);assert.equal(new Set(E.ACCESSORIES.map(a=>a.id)).size,50);assert.deepEqual([1,24,25,49,50,300,475,9999].map(E.slots),[1,1,2,2,3,13,20,20]);
  const s=fresh(475);s.inventory=[E.accessory('wings','CHOSEN',20)];for(let n=0;n<20;n++)assert.equal(E.equip(s,n,{accessoryId:'wings',rarity:'CHOSEN'}),true);assert.equal(E.bonuses(s).speed,2);assert.ok(E.bonuses(s).zoom>=.45);
  const locked=fresh();locked.inventory=[E.accessory('wings','Comum',1)];assert.equal(E.equip(locked,1,{accessoryId:'wings',rarity:'Comum'}),false);assert.equal(E.equip(locked,0,{accessoryId:'wings',rarity:'ALEPH'}),false);assert.equal(E.equip(locked,0,{accessoryId:'wings',rarity:'Comum'}),true);assert.ok(E.bonuses(locked).speed>0);
 });

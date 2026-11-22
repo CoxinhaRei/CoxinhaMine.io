@@ -4,7 +4,7 @@ function reachable(m,start){const seen=new Set([start]),q=[start];for(let n=0;n<
 async function server(t){const s=await createGameServer({env:{},storage:{db:low(new Memory()),mode:'memory',flush:async()=>true,close(){}}});t.after(()=>s.close());return s;}
 test('six original maps are deterministic, expanded, connected, have every tier and make white Absolut the largest territory',()=>{
  const hashes=new Set();for(const realm of Object.keys(atlas.LAYOUTS)){
-  const m=atlas.build(realm),spawn=atlas.spawn(realm),counts=Array(9).fill(0);assert.equal(m.width,realm==='cave'?300000:150000);assert.equal(m.height,150000);assert.deepEqual(E.mapFor(realm).spawn,spawn);
+  const m=atlas.build(realm),spawn=atlas.spawn(realm),counts=Array(10).fill(0);assert.equal(m.width,realm==='cave'?300000:150000);assert.equal(m.height,150000);assert.deepEqual(E.mapFor(realm).spawn,spawn);
   for(let n=0;n<m.open.length;n++)if(m.open[n])counts[m.tiers[n]]++;assert.ok(counts.every(n=>n>0),realm+' has all tiers');assert.ok(counts[8]>Math.max(...counts.slice(0,8)),realm+' white area is the largest single region');assert.ok(counts[8]/m.open.length<.25,realm+' Absolut is not the background of the map');assert.equal(atlas.COLORS[8],'#f4f3ed');
   if(realm!=='cave'){const visited=reachable(m,Math.floor(spawn.y/m.tile)*m.cols+Math.floor(spawn.x/m.tile));assert.equal(visited.size,counts.reduce((a,b)=>a+b),realm+' has no unreachable islands');for(const p of [...m.points,...E.portalsFor(realm)])assert.equal(atlas.blocked(realm,p.x,p.y,20),false,realm+' landmark or portal reachable');}
   hashes.add(crypto.createHash('sha256').update(m.open).update(m.tiers).digest('hex'));
@@ -13,15 +13,15 @@ test('six original maps are deterministic, expanded, connected, have every tier 
 test('browser and server generate exactly the same terrain instead of random per-player maps',()=>{
  const context=vm.createContext({});vm.runInContext(fs.readFileSync(require.resolve('../public/map-atlas'),'utf8'),context);for(const realm of Object.keys(atlas.LAYOUTS)){const client=context.MAP_ATLAS.build(realm),host=atlas.build(realm);assert.deepEqual(Buffer.from(client.open),Buffer.from(host.open));assert.deepEqual(Buffer.from(client.tiers),Buffer.from(host.tiers));}
 });
-test('all nine regions meet at shared borders and each rarity occupies exactly one connected part of each map',()=>{
+test('all ten regions meet at shared borders and each rarity occupies exactly one connected part of each map',()=>{
  for(const realm of Object.keys(atlas.LAYOUTS)){
-  const m=atlas.build(realm),components=Array(9).fill(0),seen=new Set();let borders=0,walled=0;
+  const m=atlas.build(realm),components=Array(10).fill(0),seen=new Set();let borders=0,walled=0;
   for(let i=0;i<m.tiers.length;i++){
    if(i%m.cols>0&&i%m.cols<m.cols-2&&i>=m.cols&&i<m.tiers.length-m.cols&&m.tiers[i]!==m.tiers[i+1]){borders++;if(!m.open[i]||!m.open[i+1])walled++;}
    if(seen.has(i))continue;const tier=m.tiers[i],q=[i];seen.add(i);components[tier]++;
    for(let n=0;n<q.length;n++){const k=q[n],x=k%m.cols,y=Math.floor(k/m.cols);for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const xx=x+dx,yy=y+dy,j=yy*m.cols+xx;if(xx>=0&&yy>=0&&xx<m.cols&&yy<m.rows&&!seen.has(j)&&m.tiers[j]===tier){seen.add(j);q.push(j);}}}
   }
-  assert.deepEqual(components,Array(9).fill(1),realm+' has one contiguous territory per rarity, including Absolut');assert.ok(borders>100);assert.ok(walled/borders>.60,realm+' walls follow most region boundaries');assert.equal(seen.size,m.cols*m.rows,'every tile has a territory');if(realm!=='cave')assert.ok(m.open.reduce((a,b)=>a+b,0)/m.open.length>.20&&m.open.reduce((a,b)=>a+b,0)/m.open.length<.80,'clearings and corridors occupy part of the map, with substantial walls');
+  assert.deepEqual(components,Array(10).fill(1),realm+' has one contiguous territory per rarity, including Absolut');assert.ok(borders>100);assert.ok(walled/borders>.60,realm+' walls follow most region boundaries');assert.equal(seen.size,m.cols*m.rows,'every tile has a territory');if(realm!=='cave')assert.ok(m.open.reduce((a,b)=>a+b,0)/m.open.length>.20&&m.open.reduce((a,b)=>a+b,0)/m.open.length<.80,'clearings and corridors occupy part of the map, with substantial walls');
  }
 });
 test('region colors never paint the actual ground or the cave floor',()=>{

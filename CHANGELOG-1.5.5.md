@@ -1,3 +1,16 @@
+# Patch 1.5.5 — Titan combat
+
+- Talent reset now works during exploration with an acknowledged, exact point refund. Repeated requests do not duplicate points.
+- 1,000 starting HP, up to 400,000 through vitality and stronger health accessories.
+- Stronger creatures: Super+ contact damage starts at 20,000 before mitigation and scales with species and rarity. No global post-hit invulnerability; dodge items roll independently per hit.
+- Corrected Quantium ore HP to the shared catalog and increased it to 3.6 billion; Quantium creatures gain 12× health. Higher tiers retain their health progression.
+- 50 accessories, including 20 automatic summon eggs. Normal crafting is removed; species drops, equipment purchases and the Chosen forge remain.
+- Solar pickaxe: expanding fire solar system. Void sword: giant high-speed trident. Void pickaxe: dark mining area with selective ore attraction.
+- Small Quantium inset within Absolut in each biome: 60% Quantium, 39.1% Absolut, 0.9% Aleph. Native floors remain unchanged; Quantium spawns are silent.
+- Continuous damage feedback travels with world frames so getting hit cannot starve shared scene updates.
+
+---
+
 # CoxinhaMine.io — Update 1.5.5
 
 - Six separate maps: Garden, Beach, Jungle, Ice Forest, Desert and Cave. Travel through distant portals or choose a map from the menu.

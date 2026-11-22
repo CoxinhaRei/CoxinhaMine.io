@@ -10,11 +10,11 @@ test('accessory information uses the real rarity bonuses, including fractional r
 });
 test('drops identify source, recipes and uses without inventing passive buffs',()=>{
   const info=D.describe({type:'component',kind:'bee',name:'Ferrão',rarity:'Raro',amount:12},env);
-  assert.equal(info.name,'Ferrão');assert.equal(info.rows.find(r=>r[0]==='Origem')[1],'Abelha');assert.ok(info.rows.find(r=>r[0]==='Receitas')[1].includes('Pingente do Ferrão'));assert.match(info.description,/Não concede bônus/);assert.equal(info.rows[0][1],'12');
+  assert.equal(info.name,'Ferrão');assert.equal(info.rows.find(r=>r[0]==='Origem')[1],'Abelha');assert.ok(info.rows.find(r=>r[0]==='Acessórios da espécie')[1].includes('Pingente do Ferrão'));assert.match(info.description,/Não concede bônus/);assert.equal(info.rows[0][1],'12');
   const ore=D.describe({type:'material',name:'Pedra',oreRarity:'Comum'},env);assert.equal(ore.rows.find(r=>r[0]==='Venda por unidade')[1],'5 moedas');
 });
 test('mob gallery stats match runtime health and damage, while live entities show current life',()=>{
-  const info=D.describe({type:'mob',kind:'bee',rarity:'SUPER'},env);assert.equal(info.rows.find(r=>r[0]==='Vida')[1],D.number(C.mobHealth(25,7)));assert.equal(info.rows.find(r=>r[0]==='Dano de contato')[1],D.number(8*Math.pow(1.4,7)));assert.match(info.description,/ferrão/);
+  const info=D.describe({type:'mob',kind:'bee',rarity:'SUPER'},env);assert.equal(info.rows.find(r=>r[0]==='Vida')[1],D.number(C.mobHealth(25,7)));assert.equal(info.rows.find(r=>r[0]==='Dano de contato')[1],D.number(C.mobDamage(8,7)));assert.match(info.description,/ferrão/);
   const live=D.describe({type:'mob',kind:'bee',rarity:{name:'Raro'},hp:17,maxHp:250,damage:25,summoned:true},env);assert.equal(live.rows.find(r=>r[0]==='Vida')[1],'17 / 250');assert.equal(live.rows.find(r=>r[0]==='Dano de contato')[1],'25');assert.match(live.note,/não concede drops nem XP/);
 });
 test('inspection shortcut guard blocks requested keys without breaking typing, copy or menu controls',()=>{

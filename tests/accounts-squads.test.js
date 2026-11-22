@@ -41,7 +41,7 @@ test('accounts preserve guest progress, protect passwords, rotate sessions and r
   world.damage(server.actors[f.id],ore,950,false);
   await until(()=>c.loots.length===1 && b.loots.length===1);
   const firstDrop=world.drops.find(d=>d.item.type==='material');assert.ok(firstDrop);assert.equal(actorB.state.inventory.filter(i=>i.type==='material').length,0,'material is on the ground before pickup');
-  firstDrop.createdAt-=1000;for(const actor of [actorB,actorC]){actor.state.x=firstDrop.x;actor.state.y=firstDrop.y;world.collectDrops(actor);world.collectDrops(actor);actor.state.x=81000;actor.state.y=75000;}
+  firstDrop.createdAt-=1000;g.mobs=[];for(const actor of [actorB,actorC]){actor.state.dead=false;actor.state.hp=1000;actor.state.x=firstDrop.x;actor.state.y=firstDrop.y;world.collectDrops(actor);world.collectDrops(actor);actor.state.x=81000;actor.state.y=75000;}
   const normalCoins=Math.round(5*Math.pow(1.8,7));
   for(const s of [b,c]){const state=server.actors[s.id].state;assert.equal(state.coins-start.get(s.id).coins,normalCoins,'one normal payout, not doubled');assert.equal(state.journal.mined-start.get(s.id).mined,1);assert.equal(s.loots.length,1);assert.equal(s.loots[0].shared,true);assert.equal(state.inventory.find(i=>i.type==='material' && i.oreRarity==='SUPER').amount,1);}
   for(const s of [d,e])assert.equal(server.actors[s.id].state.coins,start.get(s.id).coins,'far/other-map members excluded');
