@@ -92,7 +92,7 @@ function renderInventoryDetail(row){
   const src=itemPreview(item);if(src){const image=document.createElement('img');image.className='detail-preview';image.src=src;image.alt=item.name;detail.append(image);}
   detail.append(title,rarity);
   const stats=document.createElement('dl');
-  const lines=[['Quantidade',quantity]];if(GAME_CATALOG.ascensions(player))lines.push(['Nível para usar',GAME_CATALOG.itemLevel(item)],['Estado',GAME_CATALOG.canUse(player,item)?'Disponível':'Trancado após ascensão']);
+  const lines=[['Quantidade',quantity]];if(GAME_CATALOG.ascensions(player)&&item.type==='accessory')lines.push(['Nível para usar',GAME_CATALOG.itemLevel(item)],['Estado',GAME_CATALOG.canUse(player,item)?'Disponível':'Trancado após ascensão']);
   if(item.type==='accessory')lines.push(['Efeitos',accessoryDescription(item.accessoryId,item.rarity)],['Uso','Passivo · equipado nos slots de acessórios']);
   if(item.type==='material')lines.push(['Uso','Receitas e fusão'],['Venda por unidade',((ORE_VALUES[materialRarity(item)] || item.value || 1)*5).toLocaleString('pt-BR')+' moedas']);
   if(item.type==='component')lines.push(['Origem',CREATURES.find(c=>c.kind===item.kind)?.name || 'Criatura'],['Uso','Fusão de raridade e venda'],['Venda por unidade',Math.round(8*Math.pow(1.8,rarityIndex)).toLocaleString('pt-BR')+' moedas']);

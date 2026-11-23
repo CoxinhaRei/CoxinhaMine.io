@@ -40,7 +40,7 @@
       if(tier>=7)info.rows.push(['Habilidade especial',abilities[item.kind]?.name||'Ataques especiais de boss']);
       if(item.summoned)info.note='Invocação: não concede drops nem XP.';
     }else return null;
-    if(env.state&&C.ascensions(env.state)&&item.type!=='mob')info.rows.push(['Nível para usar',String(C.itemLevel(item))],['Estado',C.canUse(env.state,item)?'Disponível':'Trancado após ascensão']);
+    if(env.state&&C.ascensions(env.state)&&item.type==='accessory')info.rows.push(['Nível para usar',String(C.itemLevel(item))],['Estado',C.canUse(env.state,item)?'Disponível':'Trancado após ascensão']);
     if(tier===11&&item.type==='mob')info.note='Itens: 50% Quantium, 20% Absolut, 1% Aleph, 0,0001% Chosen; 28,9999% sem item.';
     if(item.amount!==undefined)info.rows.unshift(['Quantidade',number(item.amount)]);
     return info;

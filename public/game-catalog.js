@@ -20,7 +20,7 @@
     ascensions(state){return Math.max(0,Math.min(1000,Math.floor(Number(state?.ascensions)||0)));},
     ascensionRequirement(state){return 1000+250*this.ascensions(state);},
     ascensionPower(state){return 1+this.ascensions(state)*.25;},
-    itemLevel(item){if(!item)return 1;const names=['Madeira','Pedra','Ferro','Ouro','Matéria Vermelha','Diamante','Void','Solar'];let tier=names.indexOf(item.name);if(tier<0)tier=this.NAMES.indexOf(item.oreRarity||(typeof item.rarity==='object'?item.rarity.name:item.rarity));return [1,10,25,50,90,150,225,325,450,600,800,1000][tier]||1;},
+    itemLevel(item){if(!item||item.type!=='accessory'&&!item.accessoryId)return 1;const tier=this.NAMES.indexOf(typeof item.rarity==='object'?item.rarity.name:item.rarity);return [1,10,25,50,90,150,225,325,450,600,800,1000][tier]||1;},
     canUse(state,item){return !this.ascensions(state)||(state.level||1)>=this.itemLevel(item);},
     gearComponents(item,type=item?.type||'pickaxe'){const names=['Madeira','Pedra','Ferro','Ouro','Matéria Vermelha','Diamante','Void','Solar'],rows=[[],[['guardian',3]],[['ant',8],['ladybug',5]],[['bee',12],['beetle',8]],[['spider',20],['scorpion',12]],[['iceTornado',25],['icebeetle',18]],[['centipede',35],['mantis',25],['guardian',40]],[['sandTornado',45],['scarab',35],['dragonfly',30]]];return (rows[names.indexOf(item?.name)]||[]).map(([kind,count])=>[kind,Math.ceil(count*(type==='armor'?1.5:type==='weapon'?1.2:1))]);},
     componentCount(state,kind){return (state.inventory||[]).filter(i=>i.type==='component'&&i.kind===kind&&i.rarity!=='CHOSEN').reduce((n,i)=>n+Math.max(0,Math.floor(i.amount||0)),0);},
