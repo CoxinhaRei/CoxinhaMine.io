@@ -6,7 +6,7 @@ const {resolveWorldCollisions,segmentHitsCircle,segmentCircleEntry,SpatialIndex,
 
 const gRarity=(game,tier)=>tier>=0?game.rarities[tier]:null;
 const strongestSquadContributor=credits=>{let damage=0;for(const value of credits.values())damage=Math.max(damage,value);return damage;};
-const RARE_DENSITY=Object.freeze({7:Object.freeze({mobs:2,ores:3,radius:8000,delay:10000}),8:Object.freeze({mobs:1,ores:2,radius:10000,delay:20000}),9:Object.freeze({mobs:64,ores:2,radius:14000,delay:30000,mobDelay:0,oreChance:.12,wave:16,attempts:520})});
+const RARE_DENSITY=Object.freeze({7:Object.freeze({mobs:8,ores:3,radius:8000,delay:10000,mobDelay:1000}),8:Object.freeze({mobs:6,ores:2,radius:10000,delay:20000,mobDelay:1500}),9:Object.freeze({mobs:64,ores:2,radius:14000,delay:30000,mobDelay:0,oreChance:.12,wave:16,attempts:520})});
 class SharedWorld{
   static densityFor(tier){return RARE_DENSITY[tier]||null;}
   shouldSpawnOre(state,random=Math.random){return atlas.at(this.realm,state.x,state.y).tier!==9||random()<RARE_DENSITY[9].oreChance;}
@@ -195,12 +195,12 @@ class SharedWorld{
   }
   spawnTerritoryMobs(actor){
     const g=this.game,s=actor.state,region=atlas.at(this.realm,s.x,s.y),target=RARE_DENSITY[region.tier]?.mobs||12;
-    const swarm=region.tier===9,policy=RARE_DENSITY[region.tier],areaRadius=swarm?11000:4000,random=this.spawnRandom||Math.random;
-    if(swarm&&this.naturalCount('mob',s.x,s.y,9,target)>=target)return;
+    const swarm=region.tier===9,rare=region.tier===7||region.tier===8,policy=RARE_DENSITY[region.tier],areaRadius=swarm?11000:rare?6500:4000,random=this.spawnRandom||Math.random;
+    if((swarm||rare)&&this.naturalCount('mob',s.x,s.y,region.tier,target)>=target)return;
     let nearby=g.mobs.filter(m=>m.hp>0&&!m.summoned&&Math.hypot(m.x-s.x,m.y-s.y)<areaRadius+m.size).length,spawned=0;
-    for(let attempt=0;attempt<(swarm?policy.attempts:90)&&nearby<target&&spawned<(swarm?policy.wave:Infinity)&&g.mobs.length<180;attempt++){
-      const angle=random()*Math.PI*2,distance=swarm?1800+random()**2*8200:(region.safe?1600:500)+random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=area.tier===9?catalog.mobSpawnTier(9,random):atlas.roll(this.realm,x,y,random);
-      if(swarm&&area.tier!==9)continue;
+    for(let attempt=0;attempt<(swarm?policy.attempts:rare?160:90)&&nearby<target&&spawned<(swarm?policy.wave:rare?3:Infinity)&&g.mobs.length<180;attempt++){
+      const angle=random()*Math.PI*2,distance=swarm?1800+random()**2*8200:rare?900+random()**.65*(region.tier===7?3000:4000):(region.safe?1600:500)+random()*1500,x=s.x+Math.cos(angle)*distance,y=s.y+Math.sin(angle)*distance,area=atlas.at(this.realm,x,y),tier=area.tier===9?catalog.mobSpawnTier(9,random):atlas.roll(this.realm,x,y,random);
+      if((swarm||rare)&&area.tier!==region.tier)continue;
       if(tier<0||!area.open||!this.canSpawnNatural('mob',x,y))continue;
       const pool=atlas.pool(this.realm,area.tier),definition=pool[Math.floor(random()*pool.length)],kind=definition==='beetle'&&random()<.00025?'invertedBeetle':definition,mob=g.createCreature(kind,g.rarities[tier],x,y);
       if(!checkpointCatalog.clear(this.realm,x,y,mob.size+450)||Math.hypot(x-s.x,y-s.y)<mob.size+500||g.ores.some(o=>Math.hypot(o.x-x,o.y-y)<o.size+mob.size*.75)||g.mobs.some(o=>Math.hypot(o.x-x,o.y-y)<(o.size+mob.size)*.75))continue;
