@@ -17,7 +17,7 @@ test('dodge accessories use a capped independent authoritative roll per hit and 
  const {a,w,events}=await setup(t);a.state.inventory=[E.accessory('dragonEye','CHOSEN',20)];a.state.level=475;a.state.accessories=Array.from({length:20},()=>({accessoryId:'dragonEye',rarity:'CHOSEN'}));assert.equal(E.bonuses(a.state).dodge,.6);a.state.hp=1000;w.combatRandom=()=>.599;assert.equal(w.hurt(a.state,100),false);assert.equal(a.state.hp,1000);assert.ok(w.snapshot(a).playerDodge.id);w.combatRandom=()=>.6;assert.equal(w.hurt(a.state,100),true);assert.equal(w.hurt(a.state,100),true);assert.equal(a.state.hp,800);
 });
 test('every mob species has its own auto egg and passive accessory, with bounded group sizes; drops can select each new egg',async t=>{
- const {a,w}=await setup(t);assert.equal(A.EGGS.length,21);assert.equal(E.ACCESSORIES.length,59);w.lootRandom=()=>0;
+ const {a,w}=await setup(t);assert.equal(A.EGGS.length,25);assert.equal(E.ACCESSORIES.length,67);w.lootRandom=()=>0;
  for(const def of w.game.creatures){const egg=A.EGGS.find(e=>e.kind===def.kind);assert.ok(egg,def.kind);assert.ok(egg.count>=1&&egg.count<=4);assert.ok(E.ACCESSORIES.some(e=>e.kind===def.kind&&e.model!=='egg'));const pool=E.ACCESSORIES.filter(e=>e.kind===def.kind),index=pool.findIndex(e=>e.id===egg.id);w.accessoryRandom=()=>(index+.1)/pool.length;const m=w.game.createCreature(def.kind,w.game.rarities[0],82400,75000);w.game.mobs=[m];w.drops=[];w.damage(a,m,m.maxHp,true);assert.ok(w.drops.some(d=>d.item.accessoryId===egg.id),def.kind+' egg drop');}
 });
 function ore(w,id,x,y){return {id,x,y,size:24,hp:1e12,maxHp:1e12,rarity:w.game.rarities[2]};}

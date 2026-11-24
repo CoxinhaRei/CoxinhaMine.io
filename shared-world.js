@@ -45,7 +45,7 @@ class SharedWorld{
     this.game=createRuntime(realm,(state,amount,dx,dy,cause)=>this.hurt(state,amount,dx,dy,cause));
     const home=expansion.LANDMARKS.desert.find(p=>p.id==='forge');this.forge=realm==='desert'?{id:'chosen-forge',name:'Coxinha Forjadora',x:home.x,y:home.y,homeX:home.x,homeY:home.y,size:340,roam:1200,speed:42,targetX:home.x,targetY:home.y,angle:0,timer:0}:null;
     this.workshop=realm==='jungle'?workshop.location():null;
-    this.arcana=new (require('./arcana'))(this);this.ranged=new (require('./ranged-world'))(this);this.equipmentEffects=new (require('./equipment-effects'))(this);
+    this.arcana=new (require('./arcana'))(this);this.rooted=new (require('./rooted-world'))(this);this.ranged=new (require('./ranged-world'))(this);this.equipmentEffects=new (require('./equipment-effects'))(this);
     this.baseMaze=realm==='cave' ? this.game.cave.maze.slice() : null;this.mapVersion=-1;this.mapDelta=[];
   }
   announceSpawn(entity,isMob){
@@ -87,6 +87,7 @@ class SharedWorld{
     actor.nextAttack=now+Math.max(70,350*(1-(state.talentRanks?.haste || 0)*.05)*(1-(utility.haste || 0)));
     state.attackUntil=now+180;
     let damage=(10+(isMob ? tool.damage : tool.power))*(1+(state.talentRanks?.damage || 0)*.12)*(isMob ? 1+(utility.damage||0) : 1+(utility.mining || 0));
+    if(isMob)damage*=1+require('./public/ranged-catalog').rank(state,'weapon')*.25;
     if(Math.random()<(state.talentRanks?.crit || 0)*.03)damage*=2;
     this.damage(actor,entity,damage,isMob);
 
@@ -107,7 +108,7 @@ class SharedWorld{
     if(!ability || now<(state.abilityReadyAt[type] || 0))return false;
     state.abilityReadyAt[type]=now+ability.cooldown*1000*(1-(state.talentRanks?.resonance || 0)*.03);state.attackUntil=now+180;
     const power=type==='utility' ? state.equipment.pickaxe?.power || 30 : type==='weapon' ? item.damage : item.power;
-    const damage=(power+10)*(type==='pickaxe'?1+require('./public/ranged-catalog').rank(state,'pickaxe')*.25:1)*ability.mult*(1+(state.talentRanks?.damage || 0)*.12+state.level*.02)*(1+(utility.damage||0));
+    const damage=(power+10)*(['pickaxe','weapon'].includes(type)?1+require('./public/ranged-catalog').rank(state,type)*.25:1)*ability.mult*(1+(state.talentRanks?.damage || 0)*.12+state.level*.02)*(1+(utility.damage||0));
     if(type==='weapon'&&ability.kind==='solarSun'){this.launchSolarSun(actor,ability,damage);this.store.save(actor.profile);actor.socket.emit('playerState',this.store.clientState(actor.profile));return true;}
     if(['solarSystem','voidTrident','darkZone'].includes(ability.kind)){this.equipmentEffects.launch(actor,ability,damage);this.store.save(actor.profile);actor.socket.emit('playerState',this.store.clientState(actor.profile));return true;}
     const targets=type==='weapon' ? g.mobs.map(e=>[e,true]) : type==='pickaxe' ? g.ores.map(e=>[e,false]) : [...g.mobs.map(e=>[e,true]),...g.ores.map(e=>[e,false])];
@@ -252,7 +253,7 @@ class SharedWorld{
   }
   tick(dt=.05){
     const g=this.game,live=this.live(),now=Date.now();for(const a of live)syncPlayerBody(this,a.state);
-    this.tickLive=live;this.tickForge(dt);this.tickSolarSuns(dt,live);this.equipmentEffects.tick(dt,live);this.ranged.tick(dt,live);
+    this.tickLive=live;this.rooted.tick(dt,live);this.tickForge(dt);this.tickSolarSuns(dt,live);this.equipmentEffects.tick(dt,live);this.ranged.tick(dt,live);
     if(!live.length){this.arcana.tick(dt);this.drops=this.drops.filter(d=>d.expiresAt>now && d.claims.size);this.tickLive=null;return;}
     this.maintainActiveAreas(live,now);
     if(now>this.nextSpawn){this.nextSpawn=now+1000;for(const actor of live)this.spawnAround(actor);if(this.realm!=='cave'){if(Math.random()<.005)this.addBoss('SUPER');if(Math.random()<.0025)this.addBoss('ABSOLUT');if(Math.random()<.000075)this.addBoss('QUANTIUM');if(Math.random()<.0000005)this.addBoss('ALEPH');}}
@@ -284,7 +285,7 @@ class SharedWorld{
       if(this.realm!=='cave' && atlas.blocked(this.realm,projectile.x,projectile.y,projectile.r))projectile.life=0;
       if(projectile.life>0){let first=null,best=Infinity;const radius=Math.hypot(projectile.x-previousX,projectile.y-previousY)/2+projectile.r+1;
        for(const body of projectileBodies.query((previousX+projectile.x)/2,(previousY+projectile.y)/2,radius)){if(body.state.hp<=0||body.state.dead)continue;const at=segmentCircleEntry(previousX,previousY,projectile.x,projectile.y,body.state.x,body.state.y,projectile.r+body.radius);if(at!==null&&at<best){best=at;first=body;}}
-       if(first){projectile.x=previousX+(projectile.x-previousX)*best;projectile.y=previousY+(projectile.y-previousY)*best;if(first.ally)this.arcana.hurtSummon(first.state,projectile.damage);else this.hurt(first.state,projectile.damage,projectile.vx,projectile.vy,'projétil de '+projectile.cause);projectile.life=0;}
+       if(first){projectile.x=previousX+(projectile.x-previousX)*best;projectile.y=previousY+(projectile.y-previousY)*best;if(first.ally)this.arcana.hurtSummon(first.state,projectile.damage);else {const hit=this.hurt(first.state,projectile.damage,projectile.vx,projectile.vy,'projétil de '+projectile.cause);if(hit&&projectile.chill)first.state.slowUntil=now+1200;}projectile.life=0;}
       }
     }
     g.projectiles=g.projectiles.filter(p=>p.life>0 && owners.has(p.owner)).slice(-600);
@@ -336,7 +337,7 @@ class SharedWorld{
     const squadContribution={},team=this.squads?.groupFor(actor.profile.id);
     if(team)for(const [id,groups] of this.squadCredits){const entity=entities.get(id),credit=groups.get(team.id)?.get(actor.profile.id);if(entity && credit)squadContribution[id]=strongestSquadContributor(credit)/entity.maxHp;}
     if(this.baseMaze && this.mapVersion!==(g.cave.revision || 0)){this.mapVersion=g.cave.revision || 0;this.mapDelta=[];for(let i=0;i<this.baseMaze.length;i++)if(g.cave.maze[i] && !this.baseMaze[i])this.mapDelta.push(i);}
-    return {workshop:this.workshop&&near(this.workshop)?this.workshop:null,...this.ranged.snapshot(actor),size:s.size,checkpoint:checkpoints.summary(s),playerHit:actor.lastHit,playerDodge:actor.lastDodge,equipmentEffects:this.equipmentEffects.snapshot(actor),solarSuns:this.solarSuns.filter(near).map(({actor,...sun})=>({...sun,owner:actor.socket.id,kind:'solarSun',maxLife:sun.life})),...this.arcana.snapshot(actor),forge:this.forge&&near(this.forge)?{id:this.forge.id,name:this.forge.name,x:this.forge.x,y:this.forge.y,size:this.forge.size,angle:this.forge.angle}:null,slowUntil:s.slowUntil||0,realm:this.realm,revision:this.revision,serverTime:Date.now(),self:{x:s.x,y:s.y,vx:s.vx || 0,vy:s.vy || 0,seq:actor.moveSeq || 0,epoch:actor.movementEpoch || 1},mapVersion:this.mapVersion,mapDelta:actor.mapAckRealm===this.realm && actor.mapAckVersion===this.mapVersion ? undefined : this.mapDelta,...this.orePacket(actor,clean),mobs:g.mobs.filter(near).map(clean),projectiles:g.projectiles.filter(near).map(p=>({id:p.id,owner:p.owner,x:p.x,y:p.y,vx:p.vx,vy:p.vy,r:p.r,life:p.life,rotation:p.rotation,kind:p.kind})),hazards:g.hazards.filter(near),effects:g.effects.filter(near),drops:this.drops.filter(near).map(d=>({id:d.id,x:d.x,y:d.y,item:d.item,createdAt:d.createdAt,expiresAt:d.expiresAt,eligible:d.claims.has(actor.profile.id)})),contribution,squadContribution,hp:s.hp,maxHp:s.maxHp,dead:s.dead,deathCause:s.deathCause};
+    return {...this.rooted.snapshot(actor),workshop:this.workshop&&near(this.workshop)?this.workshop:null,...this.ranged.snapshot(actor),size:s.size,checkpoint:checkpoints.summary(s),playerHit:actor.lastHit,playerDodge:actor.lastDodge,equipmentEffects:this.equipmentEffects.snapshot(actor),solarSuns:this.solarSuns.filter(near).map(({actor,...sun})=>({...sun,owner:actor.socket.id,kind:'solarSun',maxLife:sun.life})),...this.arcana.snapshot(actor),forge:this.forge&&near(this.forge)?{id:this.forge.id,name:this.forge.name,x:this.forge.x,y:this.forge.y,size:this.forge.size,angle:this.forge.angle}:null,slowUntil:s.slowUntil||0,realm:this.realm,revision:this.revision,serverTime:Date.now(),self:{x:s.x,y:s.y,vx:s.vx || 0,vy:s.vy || 0,seq:actor.moveSeq || 0,epoch:actor.movementEpoch || 1},mapVersion:this.mapVersion,mapDelta:actor.mapAckRealm===this.realm && actor.mapAckVersion===this.mapVersion ? undefined : this.mapDelta,...this.orePacket(actor,clean),mobs:g.mobs.filter(near).map(clean),projectiles:g.projectiles.filter(near).map(p=>({id:p.id,owner:p.owner,x:p.x,y:p.y,vx:p.vx,vy:p.vy,r:p.r,life:p.life,rotation:p.rotation,kind:p.kind})),hazards:g.hazards.filter(near),effects:g.effects.filter(near),drops:this.drops.filter(near).map(d=>({id:d.id,x:d.x,y:d.y,item:d.item,createdAt:d.createdAt,expiresAt:d.expiresAt,eligible:d.claims.has(actor.profile.id)})),contribution,squadContribution,hp:s.hp,maxHp:s.maxHp,dead:s.dead,deathCause:s.deathCause};
   }
 }
 module.exports=SharedWorld;

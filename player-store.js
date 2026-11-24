@@ -46,6 +46,8 @@ module.exports=function playerStore(db,game){
       const requested=raw.equipment?.[type],name=typeof requested==='string' ? requested : requested?.name;
       const gear=list.find(r=>r.name===name);if(gear){state.equipment[type]={...gear,type};if(!state.inventory.some(i=>i.type===type && i.name===name))state.inventory.push({...gear,type,amount:1});}
     }
+    const requestedRanged=require('./public/ranged-catalog').resolve(raw.equipment?.ranged);if(requestedRanged)state.equipment.ranged=requestedRanged;
+    require('./public/ranged-catalog').migrateSlots(state,game.swords);
     const starter=state.equipment.weapon;if(starter.name===game.swords[0].name&&!state.inventory.some(i=>i.type==='weapon'&&i.name===starter.name))state.inventory.push({...starter,amount:1});
     state.journal={mined:0,kills:0,crafted:0,bossKills:0,seen:{},species:{},unlocked:[],...(raw.journal && typeof raw.journal==='object' ? clone(raw.journal) : {})};
     for(const key of ['mined','kills','crafted','bossKills'])state.journal[key]=Math.floor(safeNumber(state.journal[key]));
@@ -76,7 +78,7 @@ module.exports=function playerStore(db,game){
     const id=crypto.randomUUID(),token=crypto.randomBytes(32).toString('hex'),profile={id,name,tokenHash:hash(token),state:sanitize(state),revision:0};
     db.set(['profiles',id],profile).write();return {profile,credentials:{id,token}};
   }
-  function save(profile){profile.revision++;if(profile.guest)return;profile.savedAt=Date.now();db.set(['profiles',profile.id],profile).write();}
+  function save(profile){require('./public/ranged-catalog').dedupeWeapons(profile.state);profile.revision++;if(profile.guest)return;profile.savedAt=Date.now();db.set(['profiles',profile.id],profile).write();}
   function verifyCredentials(creds={}){
     if(!creds || typeof creds!=='object')return null;
     if(!/^[a-f0-9-]{36}$/.test(creds.id || '') || !/^[a-f0-9]{64}$/.test(creds.token || ''))return null;

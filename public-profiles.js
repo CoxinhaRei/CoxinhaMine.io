@@ -4,7 +4,7 @@ function score(profile,metric){const s=profile.state||{},j=s.journal||{};return 
 function publicProfile(profile,claims){
  if(claims)profile={...profile,state:require('./chosen-forge').filteredState(profile.state,profile.id,claims,profile.developerTest===true)};
  const s=profile.state||{},j=s.journal||{},allowed=expansion.RARITIES;
- const gear=Object.fromEntries(['weapon','armor','pickaxe'].map(type=>[type,s.equipment?.[type]?.name||null]));
+ const gear=Object.fromEntries(['weapon','armor','pickaxe','ranged'].map(type=>[type,s.equipment?.[type]?.name||null]));
  return {id:profile.id,name:profile.name,developerTest:profile.developerTest===true,level:s.level||1,xp:s.xp||0,xpToNext:catalog.xpForLevel(s.level||1),joinedAt:s.joinedAt||null,playTimeMs:expansion.num(s.playTimeMs),lastSeen:profile.savedAt||null,gear,accessories:(s.accessories||[]).slice(0,expansion.slots(s.level)),slots:expansion.slots(s.level),nextSlotLevel:expansion.slots(s.level)<20?(Math.floor((s.level||1)/25)+1)*25:null,stats:Object.fromEntries(Object.keys(METRICS).map(k=>[k,score(profile,k)])),kills:expansion.num(j.kills),inventory:expansion.inventoryTotals(s),killTiers:Object.fromEntries(Object.entries(j.killTiers||{}).filter(([key])=>allowed.some(r=>key.endsWith(':'+r))).map(([k,v])=>[k,expansion.num(v)])),oreTiers:Object.fromEntries(Object.entries(j.oreTiers||{}).filter(([key])=>allowed.includes(key)).map(([k,v])=>[k,expansion.num(v)]))};
 }
 module.exports=function attachPublicProfiles(socket,{actors,store,persistence,catalogAction,chosen}){

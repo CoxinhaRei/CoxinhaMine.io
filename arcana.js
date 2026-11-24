@@ -10,7 +10,7 @@ module.exports=class ArcanaWorld{
  summonAction(actor,data={}){const s=actor.state;if(actor.inLobby||s.dead)throw Error('Entre no mapa para controlar as invocações.');
   if(data.action==='toggle'){s.summonsEnabled=!(s.summonsEnabled!==false);if(!s.summonsEnabled){this.dismount(actor);this.allies=this.allies.filter(m=>m.owner!==actor.socket.id);}this.world.store.save(actor.profile);}
   else if(data.action==='dismount')this.dismount(actor);
-  else if(data.action==='mount'){if(s.summonsEnabled===false)throw Error('Invoque seus mobs primeiro.');const eligible=this.allies.filter(m=>m.owner===actor.socket.id&&m.hp>0&&E.tier(m.rarity)>=7&&distance(m,s)<=m.size+450);eligible.sort((a,b)=>distance(a,s)-distance(b,s));const m=data.id?eligible.find(m=>m.id===data.id):eligible[0];if(!m)throw Error('Aproxime-se de uma invocação sua de raridade Super ou superior.');this.dismount(actor);m.rider=actor.socket.id;s.x=m.x;s.y=m.y;s.mount={id:m.id,kind:m.kind,name:m.name,rarity:m.rarity,speed:m.speed,radius:m.size,mass:m.mass};s.vx=s.vy=0;}
+  else if(data.action==='mount'){if(s.summonsEnabled===false)throw Error('Invoque seus mobs primeiro.');const eligible=this.allies.filter(m=>m.owner===actor.socket.id&&m.hp>0&&!m.stationary&&E.tier(m.rarity)>=7&&distance(m,s)<=m.size+450);eligible.sort((a,b)=>distance(a,s)-distance(b,s));const m=data.id?eligible.find(m=>m.id===data.id):eligible[0];if(!m)throw Error('Aproxime-se de uma invocação sua de raridade Super ou superior.');this.dismount(actor);m.rider=actor.socket.id;s.x=m.x;s.y=m.y;s.mount={id:m.id,kind:m.kind,name:m.name,rarity:m.rarity,speed:m.speed,radius:m.size,mass:m.mass};s.vx=s.vy=0;}
   else throw Error('Controle inválido.');actor.socket.emit('playerState',this.world.store.clientState(actor.profile));return true;
  }
  syncMounts(){for(const actor of Object.values(this.world.actors||{})){if(actor.state.realm!==this.world.realm)continue;const m=this.mountForState(actor.state);if(!m||actor.inLobby||actor.state.dead||actor.state.summonsEnabled===false){if(actor.state.mount)this.dismount(actor);continue;}actor.state.x=m.x;actor.state.y=m.y;actor.state.mount={id:m.id,kind:m.kind,name:m.name,rarity:m.rarity,speed:m.speed,radius:m.size,mass:m.mass};}}
@@ -102,20 +102,20 @@ module.exports=class ArcanaWorld{
      const base=g.createCreature(egg.kind,rarity,a.state.x,a.state.y),r=base.size*.7,angle=n*Math.PI*2/egg.count,x=a.state.x+Math.cos(angle)*(r+80),y=a.state.y+Math.sin(angle)*(r+80);
      if(this.wall(x,y,r))continue;
      const stats=group.stats;
-     this.allies.push({id:'ally-'+crypto.randomUUID(),group:key,slot,eggId:egg.id,index:n,ownerId:a.profile.id,owner:a.socket.id,ownerName:a.name,kind:egg.kind,name:base.name,rarity:rarity.name,x,y,size:r,hp:stats.maxHp,...stats,angle,phase:0,attackAt:0,hurtAt:0,cooldown:egg.cooldown,summoned:true,noRewards:true});count++;
+     this.allies.push({id:'ally-'+crypto.randomUUID(),group:key,slot,eggId:egg.id,index:n,ownerId:a.profile.id,owner:a.socket.id,ownerName:a.name,stationary:!!egg.stationary,kind:egg.kind,name:base.name,rarity:rarity.name,x,y,size:r,hp:stats.maxHp,...stats,angle,phase:0,attackAt:0,hurtAt:0,cooldown:egg.cooldown,summoned:true,noRewards:true});count++;
     }
    }
   }
   this.allies=this.allies.filter(m=>valid.has(m.group)&&active.has(m.ownerId)&&active.get(m.ownerId).state.summonsEnabled!==false);for(const key of this.groups.keys())if(!valid.has(key))this.groups.delete(key);
   const targetMobs=g.mobs.filter(m=>m.hp>0&&!m.noRewards&&!m.summoned);
   for(const m of this.allies){const a=active.get(m.ownerId);if(!a)continue;const stats=this.groups.get(m.group)?.stats;if(stats){if(m.maxHp!==stats.maxHp)m.hp=Math.min(stats.maxHp,m.hp/Math.max(1,m.maxHp)*stats.maxHp);Object.assign(m,stats);}let target=null,best=2600+m.size;for(const enemy of (w.safe(a.state)?[]:targetMobs)){const d=distance(m,enemy)-enemy.size;if(d<best&&g.lineClear(m.x,m.y,enemy.x,enemy.y)){best=d;target=enemy;}}
-   const goal=target||{x:a.state.x+Math.cos(m.index*2.4)*150,y:a.state.y+Math.sin(m.index*2.4)*150};const d=distance(m,goal),contact=m.size+(target?.size||65);m.angle=Math.atan2(goal.y-m.y,goal.x-m.x);m.moving=d>contact*.8;
+   const goal=target||{x:a.state.x+Math.cos(m.index*2.4)*150,y:a.state.y+Math.sin(m.index*2.4)*150};const d=distance(m,goal),contact=m.size+(target?.size||65);m.angle=Math.atan2(goal.y-m.y,goal.x-m.x);m.moving=!m.stationary&&d>contact*.8;
    if(m.rider===a.socket.id){m.angle=a.state.aimAngle||0;m.moving=!!a.state.moving;m.x=a.state.x;m.y=a.state.y;}else if(!target&&d>4500){m.x=a.state.x;m.y=a.state.y;}else if(m.moving)summonBody.move(w,m,m.x+Math.cos(m.angle)*Math.min(d-contact*.7,m.speed*dt),m.y+Math.sin(m.angle)*Math.min(d-contact*.7,m.speed*dt));
    m.phase+=dt*(m.moving?8:1);
    if(target&&target.hp>0&&distance(m,target)<=m.size+target.size*.8+1&&this.clock>=m.hurtAt){m.hurtAt=this.clock+.9;m.hp-=target.damage||1;}
    // One cooldown for the entire body. Every touching rock/enemy is hit once;
    // different limbs never duplicate damage to the same target.
-   if(m.hp>0&&!w.safe(a.state)&&this.clock>=m.attackAt){const contacts=summonBody.targets(w,m);if(contacts.length){m.attackAt=this.clock+m.attackInterval;for(const {entity,isMob} of contacts)this.hit(a,entity,m.damage,isMob,m);}}
+   if(m.hp>0&&!m.stationary&&!w.safe(a.state)&&this.clock>=m.attackAt){const contacts=summonBody.targets(w,m);if(contacts.length){m.attackAt=this.clock+m.attackInterval;for(const {entity,isMob} of contacts)this.hit(a,entity,m.damage,isMob,m);}}
    if(m.hp<=0)this.retireSummon(m);
   }
   this.allies=this.allies.filter(m=>m.hp>0);this.syncMounts();

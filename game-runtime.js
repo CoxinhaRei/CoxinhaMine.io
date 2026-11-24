@@ -16,7 +16,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
   const root=path.join(__dirname,'public');
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   const inline=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n');
-  for(const file of ['ranged-catalog.js','game-catalog.js','map-atlas.js','workshop-catalog.js','checkpoint-catalog.js','body-physics.js','arcana-catalog.js','magnet-catalog.js','expansion.js',null,'progression.js','systems.js','adventure.js','gear.js','cave.js','boss-mobs.js','expansion-game.js','ranged-models.js','ranged-gear.js','garden-models.js','realm-scenery.js'])vm.runInContext(file ? fs.readFileSync(path.join(root,file),'utf8') : inline,context,{filename:file || 'game-inline.js'});
+  for(const file of ['rooted-catalog.js','ranged-catalog.js','game-catalog.js','map-atlas.js','workshop-catalog.js','checkpoint-catalog.js','body-physics.js','arcana-catalog.js','magnet-catalog.js','expansion.js',null,'progression.js','systems.js','adventure.js','gear.js','cave.js','boss-mobs.js','expansion-game.js','ranged-models.js','ranged-gear.js','garden-models.js','realm-scenery.js'])vm.runInContext(file ? fs.readFileSync(path.join(root,file),'utf8') : inline,context,{filename:file || 'game-inline.js'});
   context.realmName=realm;
   return vm.runInContext(`
     currentRealm=realmName;
@@ -49,7 +49,7 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
       armor(state){return 1-(1-(ARMORS.find(a=>a.name===state.equipment.armor?.name)?.defense || 0))*(1-EXPANSION.bonuses(state).defense);},
       rarityIndex(state){player=state;return highestOwnedRarity();},
       ability:equipmentAbility,
-      moveEntity(entity,x,y,radius){moveWithWalls(entity,x,y,radius);},
+      moveEntity(entity,x,y,radius){if(!entity.stationary)moveWithWalls(entity,x,y,radius);},
       giveMaterial(state,rarity,amount){player=state;addOreMaterial(rarity,amount);},
       levelUp(state){player=state;checkLevelUp();},
       achievements(state){player=state;checkAchievements();},xpForLevel
@@ -69,10 +69,10 @@ module.exports=function createGameRuntime(realm,onPlayerDamage){
         if(kind==='talentReset')return resetTalentRanks();
         
         if(kind==='equip'){
-          if(!['weapon','pickaxe','armor'].includes(data.type))return false;
-          const list={weapon:SWORDS,pickaxe:pickaxes,armor:ARMORS,utility:UTILITIES}[data.type],definition=list?.find(r=>r.name===data.name);
-          if(!definition || !GAME_CATALOG.canUse(player,definition) || !player.inventory.some(i=>i.type===data.type && i.name===data.name))return false;
-          player.equipment[data.type]={...definition,type:data.type};player.selectedSlot={weapon:0,armor:1,pickaxe:2,utility:3}[data.type];return true;
+          if(!['weapon','ranged','pickaxe','armor'].includes(data.type))return false;
+          const list={weapon:SWORDS,ranged:SWORDS,pickaxe:pickaxes,armor:ARMORS,utility:UTILITIES}[data.type],definition=list?.find(r=>r.name===data.name);if(data.type==='ranged'&&!definition?.rangedId)return false;
+          if(!definition || !GAME_CATALOG.canUse(player,definition) || !player.inventory.some(i=>i.type===(data.type==='ranged'?'weapon':data.type) && i.name===data.name))return false;
+          const target=definition.rangedId?'ranged':data.type;player.equipment[target]={...definition,type:target==='ranged'?'weapon':target};player.selectedSlot={weapon:0,armor:1,pickaxe:2,ranged:3,utility:3}[target];return true;
         }
         if(kind==='sellComponent'){
           const item=player.inventory.find(i=>i.type==='component' && i.kind===data.kind && i.rarity===data.rarity),amount=Math.min(item?.amount || 0,Math.max(0,Math.floor(Number(data.amount)||0)));
