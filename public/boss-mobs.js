@@ -8,7 +8,7 @@ const SPECIAL_MOB_ABILITIES={
   centipede:{name:'Rastro corrosivo',description:'Deixa três poças de ácido na posição marcada por 4 segundos.',windup:1.2,cooldown:9,color:'#caf278',kind:'acid'}
 };
 let bossMobEffects=[],bossMobHazards=[];
-function bossMobAbility(mob){return mob && !mob.summoned && !mob.noBossAbilities && isBossRarity(mob.rarity) ? SPECIAL_MOB_ABILITIES[mob.kind] || SPECIAL_MOB_ABILITIES.guardian : null;}
+function bossMobAbility(mob){return mob && !mob.stationary && !mob.summoned && !mob.noBossAbilities && isBossRarity(mob.rarity) ? SPECIAL_MOB_ABILITIES[mob.kind] || SPECIAL_MOB_ABILITIES.guardian : null;}
 function removeMobAndSummons(mob){mobs=mobs.filter(other=>other.id!==mob.id && other.summonerId!==mob.id);}
 function clearBossMobEffects(){
   bossMobEffects=[];bossMobHazards=[];

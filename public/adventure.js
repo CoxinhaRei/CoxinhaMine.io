@@ -49,7 +49,7 @@ function isBossRarity(rarity){return rarities.findIndex(r=>r.name===rarity?.name
 function createCreature(kind,rarity,x,y){
   const definition=CREATURES.find(c=>c.kind===kind) || CREATURES[0],index=Math.max(0,rarities.findIndex(r=>r.name===rarity.name));
   const hp=GAME_CATALOG.mobHealth(definition.hp,index),size=GAME_CATALOG.mobRadius(index,currentRealm==='cave');
-  return {...definition,id:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),x,y,rarity,hp,maxHp:hp,size,speed:GAME_CATALOG.mobSpeed(definition.speed,index),damage:GAME_CATALOG.mobDamage(definition.damage,index),cooldown:0,angle:0,isBoss:index>6,pathTimer:0};
+  return {...definition,id:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),x,y,rarity,hp,maxHp:hp,size,speed:definition.stationary?0:GAME_CATALOG.mobSpeed(definition.speed,index),damage:GAME_CATALOG.mobDamage(definition.damage,index),cooldown:0,angle:0,isBoss:index>6,pathTimer:0};
 }
 function noteCreature(creature){
   if(!player.journal?.species || creature.summoned)return;
@@ -86,6 +86,7 @@ function creatureAggressive(mob){
 function updateCreatureMovement(dt){
   const safe=currentRealm!=='cave' && getZone(player.x,player.y)==='P';
   for(const mob of mobs){
+    if(mob.stationary){mob.moving=false;continue;}
     mob.kind=mob.kind || 'guardian';mob.name=mob.name || 'Guardião';
     const travelled=Math.hypot(mob.x-(mob.lastWalkX ?? mob.x),mob.y-(mob.lastWalkY ?? mob.y));
     mob.walkPhase=(mob.walkPhase || 0)+travelled/Math.max(12,mob.size*.22);mob.moving=travelled>.05;mob.lastWalkX=mob.x;mob.lastWalkY=mob.y;

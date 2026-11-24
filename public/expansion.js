@@ -13,6 +13,7 @@
   {id:'ice',name:'Floresta de Gelo',color:'#bcdfe7',texture:'#537eac38',x:0,y:0,w:70000,h:25000,spawn:{x:45000,y:14000},mobs:['icebeetle','snowmoth','iceTornado']},
   {id:'desert',name:'Deserto',color:'#dcb271',texture:'#946b3638',x:70000,y:0,w:30000,h:100000,spawn:{x:85000,y:50000},mobs:['scorpion','scarab','sandTornado']}
  ].map(b=>({...b,x:0,y:0,w:atlas.SIZE,h:atlas.SIZE,spawn:atlas.spawn(b.id)}));
+ for(const b of BIOMES){const kind=(typeof module!=='undefined'&&module.exports?require('./rooted-catalog'):root.ROOTED_CATALOG).kindFor(b.id);if(kind)b.mobs.push(kind);}
  const MAPS=[...BIOMES,{id:'cave',name:'Caverna',color:'#343640',texture:'#a6a1b238',w:atlas.SIZE*2,h:atlas.SIZE,spawn:{x:750,y:750},mobs:['guardian']}];
  const mapFor=id=>MAPS.find(m=>m.id===id)||MAPS[0];
  const LANDMARKS={
@@ -39,6 +40,7 @@
   ['icebeetle','Besouro Glacial','neutral',105,10,65,'#70bcd9','Carapaça Glacial','ice'],['snowmoth','Mariposa da Neve','neutral',42,6,115,'#e0efff','Pó Lunar','ice'],['iceTornado','Tornado de Gelo','hostile',80,8,84,'#a9edff','Núcleo Glacial','ice'],
   ['scorpion','Escorpião','hostile',85,11,110,'#a88762','Aguilhão do Deserto','desert'],['scarab','Escaravelho','neutral',100,9,74,'#cfad54','Élitro Dourado','desert'],['sandTornado','Tornado de Areia','hostile',65,7,100,'#ebc885','Essência de Areia','desert'],['caterpillar','Lagarta','neutral',60,6,65,'#95c958','Fibra de Lagarta','garden']
  ].map(([kind,name,temperament,hp,damage,speed,color,drop,biome])=>({kind,name,temperament,hp,damage,speed,color,drop,biome}));
+ MOBS.push(...(typeof module!=='undefined'&&module.exports?require('./rooted-catalog'):root.ROOTED_CATALOG).MOBS);
  MOBS.push({kind:'invertedBeetle',name:'Besouro Invertido',temperament:'neutral',hp:140,damage:10,speed:74,color:'#ad7292',drop:'Semente de Retorno',biome:'garden',variantOf:'beetle'});
  const ACCESSORIES=[
   ['cocoon','Casulo Macio','caterpillar','shell',{health:500,regen:5}],
@@ -49,6 +51,12 @@
   ['frost','Carapaça do Inverno','icebeetle','shell',{defense:.012,slowResist:.025}],['moth','Asas da Aurora','snowmoth','wings',{vision:20,speed:.02}],['glacier','Coração Glacial','iceTornado','core',{slowResist:.05,health:900}],
   ['scorpion','Talismã do Escorpião','scorpion','sting',{damage:.05,vampirism:.0015}],['sun','Élitro Solar','scarab','wings',{speed:.025,xp:.025}],['storm','Olho da Tempestade','sandTornado','eye',{range:10,slowResist:.03}],['magnet','Magneto Normal','guardian','magnet',{vision:12,mining:.04}]
  ].map(([id,name,kind,model,bonuses])=>({id,name,kind,model,bonuses,materials:8,components:3}));
+ ACCESSORIES.push(...[
+ ['sporeCharm','Amuleto de Esporos','sporecap','vial',{regen:15,health:600}],
+ ['sandstoneHeart','Coração de Arenito','livingDune','shell',{health:1400,defense:.02,size:.05,speedPenalty:.03}],
+ ['livingCoral','Broche de Coral Vivo','coralSentry','shell',{regen:18,defense:.012}],
+ ['frostPrism','Prisma da Geada','frostCrystal','core',{slowResist:.04,vision:30}]
+ ].map(([id,name,kind,model,bonuses])=>({id,name,kind,model,bonuses,materials:8,components:3})));
  ACCESSORIES.push({id:'revival',name:'Relicário do Retorno',kind:'invertedBeetle',model:'revive',bonuses:{health:300},materials:8,components:3,revive:true});
  ACCESSORIES.push({id:'orb',name:'Orbe Mágica',kind:'frog',model:'orb',bonuses:{},materials:12,components:5},...arcana.EGGS.map(e=>({...e,model:'egg',bonuses:{},materials:10,components:5})));
  ACCESSORIES.push(...[

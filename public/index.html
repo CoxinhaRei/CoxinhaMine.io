@@ -34,20 +34,20 @@ opacity:0;
 pointer-events:none;
 }
 </style>
-<link rel="stylesheet" href="hud.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="workshop.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="systems.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="adventure.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="account-menu.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="mobile-play.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="region-client.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="expansion.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="item-profile.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="tutorial.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="map-atlas.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="craft-ui.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="talent-tree.css?v=1.5.5-jungle1">
-<link rel="stylesheet" href="chat-visibility.css?v=1.5.5-jungle1">
+<link rel="stylesheet" href="hud.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="workshop.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="systems.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="adventure.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="account-menu.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="mobile-play.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="region-client.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="expansion.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="item-profile.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="tutorial.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="map-atlas.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="craft-ui.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="talent-tree.css?v=1.5.5-dual1">
+<link rel="stylesheet" href="chat-visibility.css?v=1.5.5-dual1">
 </head>
 
 <body>
@@ -71,23 +71,24 @@ pointer-events:none;
       <div class="menu-tools"><button type="button" data-menu-panel="inventory">Inventário</button><button type="button" data-menu-panel="talents">Talentos</button><button type="button" data-menu-panel="settings">Configurações</button></div>
     </div>
   </section>
-  <footer class="menu-footer"><span id="menu-connection">Conectando ao mundo…</span><span>WASD / mouse · 1 espada · 3 picareta · Q / R habilidades</span></footer>
+  <footer class="menu-footer"><span id="menu-connection">Conectando ao mundo…</span><span>WASD / mouse · 1 espada · 3 picareta · 4 disparos · Z/X habilidades</span></footer>
 </main>
 
 <canvas id="game"></canvas>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="region-client.js?v=1.5.5-jungle1"></script>
-<script src="movement-net.js?v=1.5.5-jungle1"></script>
-<script src="ranged-catalog.js?v=1.5.5-jungle1"></script>
-<script src="game-catalog.js?v=1.5.5-jungle1"></script>
-<script src="map-atlas.js?v=1.5.5-jungle1"></script>
-<script src="workshop-catalog.js?v=1.5.5-jungle1"></script>
-<script src="checkpoint-catalog.js?v=1.5.5-jungle1"></script>
-<script src="body-physics.js?v=1.5.5-jungle1"></script>
-<script src="arcana-catalog.js?v=1.5.5-jungle1"></script>
-<script src="magnet-catalog.js?v=1.5.5-jungle1"></script>
-<script src="expansion.js?v=1.5.5-jungle1"></script>
+<script src="region-client.js?v=1.5.5-dual1"></script>
+<script src="movement-net.js?v=1.5.5-dual1"></script>
+<script src="ranged-catalog.js?v=1.5.5-dual1"></script>
+<script src="game-catalog.js?v=1.5.5-dual1"></script>
+<script src="map-atlas.js?v=1.5.5-dual1"></script>
+<script src="workshop-catalog.js?v=1.5.5-dual1"></script>
+<script src="checkpoint-catalog.js?v=1.5.5-dual1"></script>
+<script src="body-physics.js?v=1.5.5-dual1"></script>
+<script src="rooted-catalog.js?v=1.5.5-dual1"></script>
+<script src="arcana-catalog.js?v=1.5.5-dual1"></script>
+<script src="magnet-catalog.js?v=1.5.5-dual1"></script>
+<script src="expansion.js?v=1.5.5-dual1"></script>
 
 <script>
 // ===== SAFE START =====
@@ -290,6 +291,7 @@ if(e.key === "2"){
 if(e.key === "3"){
   player.selectedSlot = 2;
 }
+if(e.key === '4')player.selectedSlot=3;
 
   if(!typing && e.key === "b") toggleHudPanel('inventory');
   if(!typing && e.key === "v") toggleHudPanel('shop');
@@ -527,10 +529,11 @@ function drawPlayer(x, y, entity=player){
   const distance=Math.hypot(dx,dy)||1;
   ctx.save();
   if(typeof drawAttachedAccessories==='function')drawAttachedAccessories(x,y,entity);
-  if(playerBodyImg.complete && playerBodyImg.naturalWidth) ctx.drawImage(playerBodyImg,x-size/2,y-size/2,size,size);
+  ctx.save();if(entity.poisoned)ctx.filter='sepia(1) saturate(5) hue-rotate(220deg)';
+  if(playerBodyImg.complete && playerBodyImg.naturalWidth) ctx.drawImage(playerBodyImg,x-size/2,y-size/2,size,size);ctx.restore();
   if(playerEyesImg.complete && playerEyesImg.naturalWidth) ctx.drawImage(playerEyesImg,x-size/2+dx/distance*4,y-size/2+dy/distance*4,size,size);
   drawPlayerArmor(x,y,entity);
-  const held=entity===player ? (player.selectedSlot===3 && player.equipment.utility ? player.equipment.utility : player.selectedSlot===0 && player.equipment.weapon ? player.equipment.weapon : player.equipment.pickaxe) : getRemoteEquipment(entity);
+  const held=entity===player ? (player.selectedSlot===3 && player.equipment.ranged ? player.equipment.ranged : player.selectedSlot===0 && player.equipment.weapon ? player.equipment.weapon : player.equipment.pickaxe) : getRemoteEquipment(entity);
   drawHeldEquipment(held,x,y,aim,entity===player,entity);
   if(entity!==player){
     const aiming=Date.now()<(entity.attackUntil || 0),radius=aiming ? 95 : 78;
@@ -684,6 +687,7 @@ function getSafeSpawn(){
   };
 }
 function restoreEquipment(){
+  RANGED_CATALOG.migrateSlots(player,SWORDS);if(player.equipment.ranged)player.equipment.ranged={...SWORDS.find(w=>w.name===player.equipment.ranged.name)};
 
   let p = player.equipment.pickaxe;
 
@@ -1027,53 +1031,55 @@ async function startGame(){
 }
 </script>
 
-<script src="progression.js?v=1.5.5-jungle1"></script>
-<script src="systems.js?v=1.5.5-jungle1"></script>
-<script src="adventure.js?v=1.5.5-jungle1"></script>
-<script src="gear.js?v=1.5.5-jungle1"></script>
-<script src="cave.js?v=1.5.5-jungle1"></script>
-<script src="boss-mobs.js?v=1.5.5-jungle1"></script>
-<script src="expansion-game.js?v=1.5.5-jungle1"></script>
-<script src="ranged-models.js?v=1.5.5-jungle1"></script>
-<script src="ranged-gear.js?v=1.5.5-jungle1"></script>
-<script src="garden-models.js?v=1.5.5-jungle1"></script>
-<script src="realm-scenery.js?v=1.5.5-jungle1"></script>
-<script src="workshop.js?v=1.5.5-jungle1"></script>
-<script src="talent-tree.js?v=1.5.5-jungle1"></script>
-<script src="equipment-slots.js?v=1.5.5-jungle1"></script>
-<script src="item-details.js?v=1.5.5-jungle1"></script>
-<script src="item-tooltips.js?v=1.5.5-jungle1"></script>
-<script src="profile-view.js?v=1.5.5-jungle1"></script>
-<script src="inspection-shortcuts.js?v=1.5.5-jungle1"></script>
-<script src="hud.js?v=1.5.5-jungle1"></script>
-<script src="panels.js?v=1.5.5-jungle1"></script>
-<script src="admin-ui.js?v=1.5.5-jungle1"></script>
-<script src="inventory.js?v=1.5.5-jungle1"></script>
-<script src="adventure-ui.js?v=1.5.5-jungle1"></script>
-<script src="multiplayer.js?v=1.5.5-jungle1"></script>
-<script src="account-menu.js?v=1.5.5-jungle1"></script>
-<script src="secure-ui.js?v=1.5.5-jungle1"></script>
-<script src="mobile-play.js?v=1.5.5-jungle1"></script>
-<script src="world-presentation.js?v=1.5.5-jungle1"></script>
-<script src="presentation.js?v=1.5.5-jungle1"></script>
-<script src="expansion-ui.js?v=1.5.5-jungle1"></script>
-<script src="craft-layout.js?v=1.5.5-jungle1"></script>
-<script src="craft-ui.js?v=1.5.5-jungle1"></script>
+<script src="progression.js?v=1.5.5-dual1"></script>
+<script src="systems.js?v=1.5.5-dual1"></script>
+<script src="adventure.js?v=1.5.5-dual1"></script>
+<script src="gear.js?v=1.5.5-dual1"></script>
+<script src="cave.js?v=1.5.5-dual1"></script>
+<script src="boss-mobs.js?v=1.5.5-dual1"></script>
+<script src="expansion-game.js?v=1.5.5-dual1"></script>
+<script src="ranged-models.js?v=1.5.5-dual1"></script>
+<script src="ranged-gear.js?v=1.5.5-dual1"></script>
+<script src="garden-models.js?v=1.5.5-dual1"></script>
+<script src="realm-scenery.js?v=1.5.5-dual1"></script>
+<script src="workshop.js?v=1.5.5-dual1"></script>
+<script src="talent-tree.js?v=1.5.5-dual1"></script>
+<script src="equipment-slots.js?v=1.5.5-dual1"></script>
+<script src="item-details.js?v=1.5.5-dual1"></script>
+<script src="item-tooltips.js?v=1.5.5-dual1"></script>
+<script src="profile-view.js?v=1.5.5-dual1"></script>
+<script src="inspection-shortcuts.js?v=1.5.5-dual1"></script>
+<script src="hud.js?v=1.5.5-dual1"></script>
+<script src="panels.js?v=1.5.5-dual1"></script>
+<script src="admin-ui.js?v=1.5.5-dual1"></script>
+<script src="inventory.js?v=1.5.5-dual1"></script>
+<script src="adventure-ui.js?v=1.5.5-dual1"></script>
+<script src="multiplayer.js?v=1.5.5-dual1"></script>
+<script src="account-menu.js?v=1.5.5-dual1"></script>
+<script src="secure-ui.js?v=1.5.5-dual1"></script>
+<script src="mobile-play.js?v=1.5.5-dual1"></script>
+<script src="world-presentation.js?v=1.5.5-dual1"></script>
+<script src="presentation.js?v=1.5.5-dual1"></script>
+<script src="expansion-ui.js?v=1.5.5-dual1"></script>
+<script src="craft-layout.js?v=1.5.5-dual1"></script>
+<script src="craft-ui.js?v=1.5.5-dual1"></script>
 
-<script src="social-ui.js?v=1.5.5-jungle1"></script>
-<script src="realms-ui.js?v=1.5.5-jungle1"></script>
-<script src="menu-tour.js?v=1.5.5-jungle1"></script>
-<script src="menu-preview.js?v=1.5.5-jungle1"></script>
-<script src="guild-ui.js?v=1.5.5-jungle1"></script>
-<script src="quick-tutorial.js?v=1.5.5-jungle1"></script>
-<script src="tutorial-ui.js?v=1.5.5-jungle1"></script>
-<script src="map-atlas-ui.js?v=1.5.5-jungle1"></script>
-<script src="arcana-ui.js?v=1.5.5-jungle1"></script>
-<script src="checkpoint-ui.js?v=1.5.5-jungle1"></script>
-<script src="chat-visibility.js?v=1.5.5-jungle1"></script>
-<script src="endgame-ui.js?v=1.5.5-jungle1"></script>
-<script src="ranged-ui.js?v=1.5.5-jungle1"></script>
-<script src="jungle-workshop-ui.js?v=1.5.5-jungle1"></script>
+<script src="social-ui.js?v=1.5.5-dual1"></script>
+<script src="realms-ui.js?v=1.5.5-dual1"></script>
+<script src="menu-tour.js?v=1.5.5-dual1"></script>
+<script src="menu-preview.js?v=1.5.5-dual1"></script>
+<script src="guild-ui.js?v=1.5.5-dual1"></script>
+<script src="quick-tutorial.js?v=1.5.5-dual1"></script>
+<script src="tutorial-ui.js?v=1.5.5-dual1"></script>
+<script src="map-atlas-ui.js?v=1.5.5-dual1"></script>
+<script src="arcana-ui.js?v=1.5.5-dual1"></script>
+<script src="checkpoint-ui.js?v=1.5.5-dual1"></script>
+<script src="chat-visibility.js?v=1.5.5-dual1"></script>
+<script src="endgame-ui.js?v=1.5.5-dual1"></script>
+<script src="rooted-models.js?v=1.5.5-dual1"></script>
+<script src="ranged-vfx.js?v=1.5.5-dual1"></script>
+<script src="ranged-ui.js?v=1.5.5-dual1"></script>
+<script src="jungle-workshop-ui.js?v=1.5.5-dual1"></script>
 </body>
 </html>
 

@@ -214,9 +214,11 @@ function updateCombatWorld(dt) {
 }
 
 function equipmentParticleColor(item) {
+  const tier=itemRarityIndex(item);if(tier===10||tier===11)return rarities[tier].color;
   return {'Diamante':'#76ffff','Matéria Vermelha':'#ff6868','Solar':'#ffdf62','Void':'#ad77ff'}[item?.name];
 }
 function getRemoteEquipment(remote) {
+  if(remote.selectedSlot===3&&remote.ranged)return SWORDS.find(s=>s.name===remote.ranged)||null;
   if(remote.selectedSlot===3)return UTILITIES.find(u=>u.name===remote.utility);
   return remote.selectedSlot===0 ? SWORDS.find(s=>s.name===remote.weapon) : {...pickaxes.find(p=>p.name===remote.pickaxe),img:pickaxeSprites[remote.pickaxe]};
 }
@@ -226,7 +228,13 @@ function drawHeldEquipment(item,x,y,angle,local,entity=player) {
   const remaining=local ? (player.swingUntil || 0)-performance.now() : (entity.attackUntil || 0)-Date.now();
   const swing=remaining>0 ? Math.sin(Math.min(1,remaining/180)*Math.PI)*.85 : 0;
   ctx.save();ctx.translate(x,y);ctx.rotate(angle+swing);
-  const sword=item.type==='weapon';ctx.drawImage(item.img,20,sword ? -25 : -15,sword ? 50 : 36,sword ? 50 : 36);ctx.restore();
+  const sword=item.type==='weapon';ctx.drawImage(item.img,20,sword ? -25 : -15,sword ? 50 : 36,sword ? 50 : 36);
+  const tier=itemRarityIndex(item);
+  if(settings.particles&&(tier===10||tier===11)){
+    const time=performance.now()/1000,color=rarities[tier].color;ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=6;
+    for(let n=0;n<10;n++){const phase=time*1.8+n*Math.PI*.2,radius=13+5*Math.sin(time*2+n),px=44+Math.cos(phase)*radius,py=Math.sin(phase)*21;ctx.globalAlpha=.35+.65*Math.sin(time*3+n)**2;ctx.beginPath();ctx.arc(px,py,1.1+n%3*.45,0,Math.PI*2);ctx.fill();}
+  }
+  ctx.restore();
   const color=equipmentParticleColor(item),now=performance.now();
   if(local && color && settings.particles && now-lastParticleTime>45){
     lastParticleTime=now;

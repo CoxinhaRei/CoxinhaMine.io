@@ -3,6 +3,7 @@ const chosenRarity=rarities.find(r=>r.name==='CHOSEN');
 GAME_CATALOG.GRADIENTS.CHOSEN=['#7d838e','#f0f1f4','#a6adb7','#d6dae1'];ORE_VALUES.CHOSEN=450000;
 craftRecipes.ALEPH={next:'CHOSEN',chance:1};
 for(const def of EXPANSION.MOBS){CREATURES.push({...def});GAME_CATALOG.MOB_LOOT[def.kind]=def.drop;SPECIAL_MOB_ABILITIES[def.kind]={...SPECIAL_MOB_ABILITIES[def.kind.includes('Tornado')?'guardian':def.kind==='mantis'?'ladybug':def.kind==='scorpion'?'centipede':def.kind==='dragonfly'||def.kind==='snowmoth'?'bee':'beetle'],name:def.kind==='sandTornado'?'Tempestade de areia':def.kind==='iceTornado'?'Nevasca espiral':'Instinto de '+def.name};}
+for(const def of EXPANSION.MOBS.filter(m=>m.stationary))SPECIAL_MOB_ABILITIES[def.kind]={name:def.poison?'Esporos Tóxicos':'Sentinela Enraizada',description:def.poison?'Libera esporos venenosos sem sair do lugar.':'Lança projéteis sem sair do lugar.'};
 const legacyUtilityDefinitions=[...UTILITIES];UTILITIES.length=0;
 equippedUtility=()=>null;
 utilityBonus=name=>EXPANSION.bonuses(player)[name]||0;

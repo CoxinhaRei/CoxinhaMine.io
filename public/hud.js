@@ -102,7 +102,7 @@ function updateGameHud() {
       const name=document.createElement('span'),key=document.createElement('kbd');name.className='gear-name';name.textContent=item?.name||entry.label;key.textContent=entry.shortcut;slot.append(name,key);slot.onclick=()=>{if(entry.type==='accessory')openAccessoryInventory(entry.accessorySlot);else player.selectedSlot=entry.selectedSlot;};hud.equipment.append(slot);
     }hud.equipment.scrollLeft=scroll;
   }
-  [...hud.equipment.children].forEach((slot,n)=>slot.classList.toggle('selected',n<3?n===(player.selectedSlot??2):inventoryOpen&&inventoryType==='accessory'&&n-3===selectedAccessorySlot));
+  [...hud.equipment.children].forEach((slot,n)=>slot.classList.toggle('selected',n<4?n===(player.selectedSlot??2):inventoryOpen&&inventoryType==='accessory'&&n-4===selectedAccessorySlot));
 }
 
 function renderMinimap() {

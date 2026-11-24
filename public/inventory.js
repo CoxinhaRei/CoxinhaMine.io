@@ -15,7 +15,7 @@ function inventoryRows(){
     if(!item || typeof item!=='object' || (item.amount ?? 1)<=0)continue;
     const key=itemKey(item),existing=grouped.get(key),isStored=player.inventory.includes(item);
     if(existing){if(['material','component','accessory'].includes(item.type) && isStored)existing.quantity+=item.amount ?? 1;continue;}
-    grouped.set(key,{key,item,quantity:['material','component','accessory'].includes(item.type) ? item.amount ?? 1 : 1,rarityIndex:itemRarityIndex(item)});
+    grouped.set(key,{key,item:{...item,name:String(item.name||GAME_CATALOG.MOB_LOOT[item.kind]||item.oreRarity||item.accessoryId||'Item')},quantity:['material','component','accessory'].includes(item.type) ? item.amount ?? 1 : 1,rarityIndex:itemRarityIndex(item)});
   }
   return [...grouped.values()].sort((a,b)=>b.rarityIndex-a.rarityIndex || a.item.name.localeCompare(b.item.name,'pt-BR'));
 }
@@ -36,13 +36,13 @@ function itemPreview(item){
   if(item.type==='armor')return ARMORS.find(a=>a.name===item.name)?.img.src || null;
   return item.img?.src || null;
 }
-function equippedItem(item){if(item.type==='accessory')return (player.accessories||[]).some(r=>r&&r.accessoryId===item.accessoryId&&r.rarity===item.rarity);return player.equipment[item.type]?.name===item.name;}
+function equippedItem(item){if(item.type==='accessory')return (player.accessories||[]).some(r=>r&&r.accessoryId===item.accessoryId&&r.rarity===item.rarity);return player.equipment[item.rangedId?'ranged':item.type]?.name===item.name;}
 function equipInventoryItem(item){
   if(item.type==='accessory'){requestPlayerAction('accessoryEquip',{slot:selectedAccessorySlot,item:{accessoryId:item.accessoryId,rarity:item.rarity}});return;}
   if(isServerWorld()){requestPlayerAction('equip',{type:item.type,name:item.name});return;}
   if(player.dead || item.type==='material')return;
   if(item.type==='weapon'){
-    const definition=SWORDS.find(s=>s.name===item.name);player.equipment.weapon=definition ? {...definition} : {...item};player.selectedSlot=0;
+    const definition=SWORDS.find(s=>s.name===item.name);const slot=definition?.rangedId?'ranged':'weapon';player.equipment[slot]=definition ? {...definition} : {...item};player.selectedSlot=slot==='ranged'?3:0;
   }else if(item.type==='pickaxe'){
     const definition=pickaxes.find(p=>p.name===item.name);player.equipment.pickaxe=definition ? {...definition,type:'pickaxe',img:pickaxeSprites[item.name]} : {...item};player.selectedSlot=2;
   }else if(item.type==='utility'){player.equipment.utility={...(UTILITIES.find(u=>u.name===item.name) || item)};player.selectedSlot=3;}
@@ -100,7 +100,7 @@ function renderInventoryDetail(row){
   if(item.type==='pickaxe')lines.push(['Poder',pickaxes.find(p=>p.name===item.name)?.power || item.power || 0],['Uso','Mineração e habilidades']);
   if(item.type==='armor')lines.push(['Defesa',Math.round((ARMORS.find(a=>a.name===item.name)?.defense || 0)*100)+'% menos dano'],['Visual',item.aura ? 'Aura de partículas' : 'Armadura visível']);
   if(item.type==='utility'){const utility=UTILITIES.find(u=>u.name===item.name);lines.push(['Efeito',utility?.description || 'Utilidade'],['Uso','Bônus ao equipar · uma utilidade por vez']);if(utility?.active)lines.push(['Recarga',utility.cooldown+'s'],['Atalho','Z']);}
-  if(item.rangedId){const ranged=RANGED_CATALOG.resolve(item);lines.push(['Recarga',ranged.cooldown+' s'],['Alcance',ranged.range],['Z',ranged.z||'Sem habilidade'],['X',ranged.x||'Sem habilidade']);}if(['pickaxe','armor'].includes(item.type))lines.push(['Upgrade','+'+RANGED_CATALOG.rank(player,item.type,item.name)+' / 20']);
+  if(item.rangedId){const ranged=RANGED_CATALOG.resolve(item);lines.push(['Recarga',ranged.cooldown+' s'],['Alcance',ranged.range],['Z',ranged.z||'Sem habilidade'],['X',ranged.x||'Sem habilidade']);}if(['pickaxe','armor'].includes(item.type)||item.type==='weapon'&&!item.rangedId)lines.push(['Upgrade','+'+RANGED_CATALOG.rank(player,item.type,item.name)+' / 20']);
   const ability=equipmentAbility(item);if(ability)lines.push(['Habilidade',ability.name],['Recarga',ability.cooldown+' segundos'],['Atalho',item.type==='weapon' ? 'Q' : 'R']);
   for(const [name,value] of lines){const label=document.createElement('dt'),text=document.createElement('dd');label.textContent=name;text.textContent=value;stats.append(label,text);}detail.append(stats);
   if(['material','component'].includes(item.type)){

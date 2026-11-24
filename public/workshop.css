@@ -67,3 +67,5 @@
 .pickaxe-catalog { max-height: 52vh; overflow-y: auto; padding: 2px; }
 .garden-panel button:focus-visible { outline: 3px solid #fff2a8; outline-offset: 2px; }
 @media(max-width: 560px) { .workshop-body { grid-template-columns: 104px 1fr; gap: 8px; padding: 0 8px 10px; } .pickaxe-catalog button { grid-template-columns: 26px 1fr; font-size: 10px; padding: 3px; } .pickaxe-catalog img { width: 23px; height: 23px; } .recipe-detail { padding: 10px; } .pickaxe-hero { gap: 6px; } .pickaxe-hero img { width: 65px; height: 65px; } .pickaxe-hero h2 { font-size: 17px; } .recipe-materials { grid-template-columns: 1fr; } .talent-points span { max-width: 130px; } }
+
+.shop-tabs{flex-wrap:wrap}.shop-tabs button{min-height:38px}.mobile-mode .shop-tabs button{min-height:44px}.recipe-detail .ranged-recipe-skills{font-size:12px;line-height:1.6;color:#e4f3ff}

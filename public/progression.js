@@ -141,7 +141,7 @@ function handleMiningClick(screenX,screenY) {
   lastMiningHit = now;
   player.swingUntil=now+160;
   if(isServerWorld()){socket.emit('attack',{targetId:(mob || ore).id,type:mob ? 'weapon' : 'pickaxe'});return;}
-  let damage = (player.damage+(tool.type==='weapon' ? tool.damage || 5 : tool.power || 5))*(1+.12*talentRank('damage'));
+  let damage = (player.damage+(tool.type==='weapon' ? tool.damage || 5 : tool.power || 5))*(mob?1+RANGED_CATALOG.rank(player,'weapon')*.25:1)*(1+.12*talentRank('damage'));
   if(!mob)damage*=1+utilityBonus('mining');
   if(Math.random()<talentRank('crit')*.03+(player.crit || 0)/100) damage*=2;
   const target = mob || ore;

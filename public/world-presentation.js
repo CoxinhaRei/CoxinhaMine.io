@@ -12,7 +12,7 @@ const healthTrail=document.createElement('i');healthTrail.className='health-trai
 const originalHudUpdate=updateGameHud;
 updateGameHud=function(){
   const now=performance.now();if(now-(updateGameHud.previous || 0)>80){updateGameHud.previous=now;originalHudUpdate();healthTrail.style.width=Math.max(0,player.hp/Math.max(1,player.maxHp)*100)+'%';}
-  const c=avatar.getContext('2d'),aim=playerAimAngle();c.clearRect(0,0,64,72);if(playerBodyImg.complete && playerBodyImg.naturalWidth)c.drawImage(playerBodyImg,0,4,64,64);if(playerEyesImg.complete && playerEyesImg.naturalWidth)c.drawImage(playerEyesImg,Math.cos(aim)*4,4+Math.sin(aim)*4,64,64);
+  const c=avatar.getContext('2d'),aim=playerAimAngle();c.clearRect(0,0,64,72);c.save();if(player.poisoned)c.filter='sepia(1) saturate(5) hue-rotate(220deg)';if(playerBodyImg.complete && playerBodyImg.naturalWidth)c.drawImage(playerBodyImg,0,4,64,64);c.restore();if(playerEyesImg.complete && playerEyesImg.naturalWidth)c.drawImage(playerEyesImg,Math.cos(aim)*4,4+Math.sin(aim)*4,64,64);
 };
 function drawEntityHealth(entity,x,y,width=70,color='#a9ee6b'){
   const now=performance.now(),ratio=Math.max(0,Math.min(1,entity.hp/Math.max(1,entity.maxHp))),dt=Math.min(.1,(now-(entity._healthTime || now))/1000);entity._healthTime=now;

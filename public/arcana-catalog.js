@@ -2,7 +2,8 @@
  'use strict';
  const combat=typeof module!=='undefined'&&module.exports?require('./game-catalog'):root.GAME_CATALOG;
  const physics=typeof module!=='undefined'&&module.exports?require('./body-physics'):root.BODY_PHYSICS;
- const EGGS=[
+ const rooted=typeof module!=='undefined'&&module.exports?require('./rooted-catalog'):root.ROOTED_CATALOG;
+ const EGGS=[...rooted.EGGS,
   {id:'eggCaterpillar',kind:'caterpillar',name:'Ovo de Lagarta',count:4,cooldown:18},
   {id:'eggAnt',kind:'ant',name:'Ovo de Formiga',count:4,cooldown:14},
   {id:'eggBeetle',kind:'beetle',name:'Ovo de Besouro',count:1,cooldown:24},
@@ -38,6 +39,6 @@
  function points(state){const p=normalize(state.magic);return Math.max(0,1+Math.floor(Math.max(1,state.level||1)/10)-SPELLS.reduce((n,s)=>n+p.ranks[s.id],0));}
  function orb(state,E){let best=-1;for(const ref of (state.accessories||[]).slice(0,E.slots(state.level)))if(ref?.accessoryId==='orb'&&combat.canUse(state,ref)&&state.inventory.some(i=>i.type==='accessory'&&i.accessoryId==='orb'&&i.rarity===ref.rarity&&i.amount>0))best=Math.max(best,E.tier(ref.rarity));return best;}
  function spec(id,tier,rank=1){const spell=SPELLS.find(s=>s.id===id);if(!spell||tier<0||tier>11)return null;const growth=GROWTH[tier];return {...spell,tier,rank,damage:90*combat.ACCESSORY_BUFF*POWER[tier]*spell.mult*(1+Math.max(0,rank-1)*.15),radius:(id==='nova'?180:id==='comet'?90:35)*growth,width:50*growth,range:(id==='beam'?650:500)*Math.sqrt(growth),maxMana:(100+tier*24)*combat.ACCESSORY_BUFF,regen:(12+tier*2)*combat.ACCESSORY_BUFF};}
- function summonStats(base,egg,tier,boosts={}){const interval={ant:.45,beetle:1,sandTornado:.6,iceTornado:.6,bee:.55,spider:.65,mantis:.5,guardian:1.1}[egg.kind]||.8,baseDps=2*combat.ACCESSORY_BUFF*Math.max(base.damage*12,base.maxHp*(tier>=7?.10:.16))*(1+Math.max(0,tier)*.03),damage=baseDps*interval/egg.count*(boosts.damage||1),attackInterval=Math.max(.10,interval/(boosts.haste||1)),dps=damage/attackInterval;return {damage,attackInterval,dps,groupDps:dps*egg.count,maxHp:base.maxHp*(14*combat.ACCESSORY_BUFF/10)*(boosts.health||1),speed:Math.max(170,base.speed||120)*2*combat.ACCESSORY_BUFF*(boosts.speed||1),mass:physics.mobMass(base.size)*1.35};}
+ function summonStats(base,egg,tier,boosts={}){const interval={ant:.45,beetle:1,sandTornado:.6,iceTornado:.6,bee:.55,spider:.65,mantis:.5,guardian:1.1}[egg.kind]||.8,baseDps=2*combat.ACCESSORY_BUFF*Math.max(base.damage*12,base.maxHp*(tier>=7?.10:.16))*(1+Math.max(0,tier)*.03),damage=baseDps*.70*interval/egg.count*(boosts.damage||1),attackInterval=Math.max(.10,interval/(boosts.haste||1)),dps=damage/attackInterval;return {damage,attackInterval,dps,groupDps:dps*egg.count,maxHp:base.maxHp*(14*combat.ACCESSORY_BUFF/10)*.75*(boosts.health||1),speed:egg.stationary?0:Math.max(170,base.speed||120)*2*combat.ACCESSORY_BUFF*(boosts.speed||1),mass:physics.mobMass(base.size)*1.35};}
  const api={summonStats,EGGS,SPELLS,POWER,GROWTH,LIMIT,MENTOR,normalize,points,orb,spec};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.ARCANA=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
