@@ -8,7 +8,7 @@ test('walking, retaliation, boss summons and abundant ores in the Ultra territor
   }
   const boss=g.createCreature('spider',g.rarities[7],81400,75000);boss.specialCooldown=0;g.mobs=[boss];g.ores=[];
   g.bossStep(boss,player,.1);assert.ok(boss.bossAction);assert.equal(g.mobs.length,1);g.bossStep(boss,player,1.4);
-  assert.ok(g.mobs.length>=8);assert.ok(g.projectiles.length>=24);for(const helper of g.mobs.slice(1)){assert.equal(helper.rarity.name,'Mítico');assert.ok(helper.noRewards);assert.equal(g.bossMobAbility(helper),null);}
+  assert.equal(g.mobs.length,3);assert.equal(g.projectiles.length,0);for(const helper of g.mobs.slice(1)){assert.equal(helper.rarity.name,'Mítico');assert.ok(helper.noRewards);assert.equal(g.bossMobAbility(helper),null);}
   Object.assign(player,atlas.build('garden').points[6]);g.ores=[];g.mobs=[];for(let n=0;n<150;n++)g.refill(player);
   assert.ok(g.ores.length>80);assert.ok(g.ores.filter(o=>o.rarity.name==='ULTRA').length/g.ores.length>.4,'Ultra ores are common in the Ultra territory');
 });

@@ -1,6 +1,8 @@
 const crypto=require('crypto'),E=require('./public/expansion');
 const itemKey=item=>item?.type==='accessory'?'accessory:'+item.accessoryId:item?.type==='component'?'component:'+item.kind:item?.type==='material'?'material:ore':null;
-const isChosen=item=>(item?.oreRarity||item?.rarity)==='CHOSEN';
+// Ranged weapons evolve through their own server-validated recipe. They do not
+// compete for the exclusive accessory/component/mineral forge claims.
+const isChosen=item=>(item?.oreRarity||item?.rarity)==='CHOSEN'&&!(item?.type==='weapon'&&require('./public/ranged-catalog').resolve(item));
 function filteredState(state,profileId,claims,developerTest=false){if(developerTest)return {...state,inventory:[...(state.inventory||[])],accessories:[...(state.accessories||[])]};const copy={...state,inventory:(state.inventory||[]).filter(i=>!isChosen(i)||/^[a-f0-9-]{36}$/.test(i.chosenDropId||'')||claims[itemKey(i)]?.owner===profileId&&claims[itemKey(i)]?.serial===i.chosenSerial)};copy.accessories=(state.accessories||[]).map(ref=>ref?.rarity==='CHOSEN'&&!copy.inventory.some(i=>i.type==='accessory'&&i.accessoryId===ref.accessoryId&&i.rarity==='CHOSEN')?null:ref);return copy;}
 module.exports=function chosenForge(db,store){
  db.defaults({chosenClaims:{}}).write();

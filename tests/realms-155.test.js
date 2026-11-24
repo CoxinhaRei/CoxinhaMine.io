@@ -6,7 +6,7 @@ const call=(s,event,data)=>new Promise((resolve,reject)=>s.timeout(5000).emit(ev
 async function until(fn){for(let n=0;n<80;n++){if(fn())return;await delay(25);}throw Error('Expected world update did not arrive');}
 test('six independent maps isolate entities and players; portals validate proximity, reset movement and preserve progress',{timeout:20000},async t=>{
  const server=await createGameServer({storage:{db:low(new Memory()),mode:'memory',flush:async()=>true,close(){}}});await new Promise(r=>server.http.listen(0,'127.0.0.1',r));const sockets=[];
- t.after(async()=>{sockets.forEach(s=>s.disconnect());await server.close();});for(const w of Object.values(server.worlds))w.nextSpawn=Infinity;
+ t.after(async()=>{sockets.forEach(s=>s.disconnect());await server.close();});for(const w of Object.values(server.worlds)){w.nextSpawn=Infinity;w.rangedLootRandom=()=>1;}
  async function guest(name,realm){const s=connect('http://127.0.0.1:'+server.http.address().port,{transports:['websocket'],reconnection:false});sockets.push(s);s.on('profileReady',p=>s.profile=p);s.on('worldFrame',p=>s.frame=p);s.on('realmChanged',p=>s.changed=p);await new Promise(r=>s.on('connect',r));assert.equal((await call(s,'guestJoin',{name,realm,lobby:false})).ok,true);return s;}
  const a=await guest('Garden Visitor','garden'),b=await guest('Beach Visitor','beach'),aa=server.actors[a.id],bb=server.actors[b.id];assert.equal(b.profile.realm,'beach');assert.deepEqual(Object.keys(server.worlds).sort(),E.MAPS.map(m=>m.id).sort());
  assert.equal(server.worlds.garden.forge,null);assert.ok(server.worlds.desert.forge);

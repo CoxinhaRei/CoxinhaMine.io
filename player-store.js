@@ -28,7 +28,7 @@ module.exports=function playerStore(db,game){
     state.talentPoints=Math.floor(safeNumber(raw.talentPoints,Math.max(0,state.level-1),0,1e7));
     state.talents={speed:Math.floor(safeNumber(raw.talents?.speed,0,0,11))};
     state.inventory=[];
-    for(const item of Array.isArray(raw.inventory) ? raw.inventory.slice(0,1000) : []){
+    for(const item of Array.isArray(raw.inventory) ? raw.inventory.slice(0,2000) : []){
       if(item?.type==='material'){
         const rarity=game.rarities.find(r=>r.name===(item.oreRarity || item.name?.replace(/^Minério\s+/i,'') || item.id?.replace(/_material$/,'')));
         const amount=Math.floor(safeNumber(item.amount,1,0,1e12));if(rarity && amount)state.inventory.push({id:rarity.name+'_material',type:'material',name:rarity.name,chosenDropId:/^[a-f0-9-]{36}$/.test(item.chosenDropId||'')?item.chosenDropId:undefined,chosenSerial:/^[a-f0-9-]{36}$/.test(item.chosenSerial||'')?item.chosenSerial:undefined,oreRarity:rarity.name,color:rarity.color,amount});
@@ -52,7 +52,8 @@ module.exports=function playerStore(db,game){
     state.journal.seen=state.journal.seen && typeof state.journal.seen==='object' ? state.journal.seen : {};
     state.journal.species=state.journal.species && typeof state.journal.species==='object' ? state.journal.species : {};
     state.journal.unlocked=Array.isArray(state.journal.unlocked) ? state.journal.unlocked.slice(0,100) : [];
-    state.abilityReadyAt={};for(const type of ['weapon','pickaxe','utility'])state.abilityReadyAt[type]=safeNumber(raw.abilityReadyAt?.[type],0,0,Date.now()+120000);
+    state.gearUpgrades=require('./public/ranged-catalog').normalizeUpgrades(raw.gearUpgrades,state);
+    state.abilityReadyAt={};for(const type of ['weapon','pickaxe','utility','rangedZ','rangedX'])state.abilityReadyAt[type]=safeNumber(raw.abilityReadyAt?.[type],0,0,Date.now()+120000);
     state.magic=require('./public/arcana-catalog').normalize(raw.magic);state.mana=safeNumber(raw.mana,100,0,546);state.maxMana=100;state.magicReadyAt=safeNumber(raw.magicReadyAt,0,0,Date.now()+7000);
     state.pendingCraft=raw.pendingCraft && typeof raw.pendingCraft.from==='string' ? clone(raw.pendingCraft) : null;
     state.accessoryVersion=raw.accessoryVersion;state.accessories=Array.isArray(raw.accessories)?clone(raw.accessories):[];state.joinedAt=raw.joinedAt;state.playTimeMs=safeNumber(raw.playTimeMs);state.reviveReadyAt=safeNumber(raw.reviveReadyAt,0,0,Date.now()+180000);game.expansion.normalize(state);

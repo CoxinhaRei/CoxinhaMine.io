@@ -1,3 +1,25 @@
+# Patch 1.5.5-jungle1 — Canopy Workshop
+
+- Meet the new Coxinha artisan, **Mestra das Raízes**, near the Absolut entrance in the Jungle. Her location is marked on the minimap and atlas.
+- Equipment upgrades and ranged rarity evolution now require proximity to this NPC. Use E or tap Talk; the server checks distance, realm and line of sight before spending ingredients.
+- All twelve ranged weapon models have been redrawn with distinct materials, silhouettes and details, used throughout the equipment UI and world.
+- Ascension now appears beside the level below the HUD health bar, using Roman numerals. The ascension panel uses the same notation.
+- Full details: `PATCH-OFICINA-JUNGLE.md`.
+
+---
+
+# Patch 1.5.5-ranged1 — Ranged weapons and upgrades
+
+- Twelve ranged weapons with the requested base damage/cooldowns and 144 rarity variants, Common through Chosen.
+- Z/X skills, separate mobile buttons, physical projectiles, returning discs, homing stars, poison, freezing fields, meteors and gravitational effects.
+- Combat Workshop: weapon sources, visible ingredient costs, guaranteed rarity evolution and up to 20 upgrades per pickaxe/armor piece.
+- Creature bodies −25%, base speed −30%, damage −40%. HP is preserved. Super/Absolut/Quantium lose bullet-hell rings; Aleph gains dense alternating-speed rings and rapid follow-up bursts.
+- Caterpillars join the Garden with their own model, drops, egg and accessory. New weapon drops preserve normal loot eligibility.
+- Server-authoritative cooldowns, collisions and shared effects. Weapon rarity/upgrades persist; ascension resets gear upgrades with equipment.
+- Full details and installation: `PATCH-ARMAS-DISTANCIA.md`.
+
+---
+
 # Patch 1.5.5 — Titan combat
 
 - Talent reset now works during exploration with an acknowledged, exact point refund. Repeated requests do not duplicate points.

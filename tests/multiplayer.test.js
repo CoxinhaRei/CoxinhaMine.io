@@ -65,7 +65,7 @@ test('authoritative world, loot threshold, independent aim, tool restrictions, s
   db.set('guilds',{ghost:{id:'ghost',members:['Alpha']}}).set(['profiles',creds.id,'state','guildId'],'ghost').write();
   const before=JSON.stringify(db.get(['profiles',creds.id,'state','inventory']).value());assert.equal(resetGuilds(db),1);assert.deepEqual(db.get('guilds').value(),{});assert.equal(db.get(['profiles',creds.id,'state','guildId']).value(),null);assert.equal(JSON.stringify(db.get(['profiles',creds.id,'state','inventory']).value()),before);
   const g=server.worlds.garden.game;
-  for(const definition of g.creatures){const common=g.createCreature(definition.kind,g.rarities[0],79000,75000),superMob=g.createCreature(definition.kind,g.rarities[7],79000,75000);assert.ok(common.hp>definition.hp);assert.ok(superMob.hp>=500000);assert.equal(superMob.size,Math.min(360,25*Math.pow(1.32,7))*3);assert.equal(superMob.damage,catalog.mobDamage(definition.damage,7));}
+  for(const definition of g.creatures){const common=g.createCreature(definition.kind,g.rarities[0],79000,75000),superMob=g.createCreature(definition.kind,g.rarities[7],79000,75000);assert.ok(common.hp>definition.hp);assert.ok(superMob.hp>=500000);assert.equal(superMob.size,catalog.mobRadius(7));assert.equal(superMob.damage,catalog.mobDamage(definition.damage,7));}
   assert.equal(g.zone(5000,75000),'Z'+require('../public/map-atlas').at('garden',5000,75000).tier);assert.equal(catalog.ORE_HP[7],18000000);assert.ok(g.pickaxes[5].power>=45000);assert.ok(g.armors.find(a=>a.name==='Diamante').aura);
   const caveFriend=await login(url,'Gamma');sockets.push(caveFriend);
   for(const socket of [resumed,caveFriend]){
