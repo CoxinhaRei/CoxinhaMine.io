@@ -3,6 +3,7 @@
  const combat=typeof module!=='undefined'&&module.exports?require('./game-catalog'):root.GAME_CATALOG;
  const physics=typeof module!=='undefined'&&module.exports?require('./body-physics'):root.BODY_PHYSICS;
  const EGGS=[
+  {id:'eggCaterpillar',kind:'caterpillar',name:'Ovo de Lagarta',count:4,cooldown:18},
   {id:'eggAnt',kind:'ant',name:'Ovo de Formiga',count:4,cooldown:14},
   {id:'eggBeetle',kind:'beetle',name:'Ovo de Besouro',count:1,cooldown:24},
   {id:'eggSand',kind:'sandTornado',name:'Ovo de Tornado de Areia',count:4,cooldown:22},

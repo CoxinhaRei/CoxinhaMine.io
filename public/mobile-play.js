@@ -16,6 +16,7 @@ for(const name of ['pointerup','pointercancel','lostpointercapture'])attackButto
 function mobileBasicAttack(){
   if(!mobileState.enabled || isUiBlocking() || !multiplayer.started)return;
   const type=player.selectedSlot===0 ? 'weapon' : player.selectedSlot===2 ? 'pickaxe' : null;if(!type || !player.equipment[type])return;
+  if(type==='weapon'&&RANGED_CATALOG.resolve(player.equipment.weapon)){const ranged=RANGED_CATALOG.resolve(player.equipment.weapon);let nearest=null,best=ranged.range;for(const m of mobs){const p=targetSurface(m),d=Math.hypot(p.x-player.x,p.y-player.y);if(m.hp>0&&d<best&&caveLineClear(player.x,player.y,p.x,p.y)){best=d;nearest=m;}}if(nearest)mobileState.aim=Math.atan2(nearest.y-player.y,nearest.x-player.x);fireRanged(mobileState.aim||playerAimAngle());return;}
   const targets=type==='weapon' ? mobs : ores,range=175+talentRank('range')*18+utilityBonus('range');let closest,best=Infinity;
   for(const target of targets){const surface=targetSurface(target),distance=Math.hypot(surface.x-player.x,surface.y-player.y);if(distance<best && distance<=range && caveLineClear(player.x,player.y,surface.x,surface.y)){closest=target;best=distance;}}
   if(!closest)return;mobileState.aim=Math.atan2(closest.y-player.y,closest.x-player.x);handleMiningClick(canvas.width/2+(closest.x-player.x)*cameraZoom(),canvas.height/2+(closest.y-player.y)*cameraZoom());

@@ -49,7 +49,7 @@ function isBossRarity(rarity){return rarities.findIndex(r=>r.name===rarity?.name
 function createCreature(kind,rarity,x,y){
   const definition=CREATURES.find(c=>c.kind===kind) || CREATURES[0],index=Math.max(0,rarities.findIndex(r=>r.name===rarity.name));
   const hp=GAME_CATALOG.mobHealth(definition.hp,index),size=GAME_CATALOG.mobRadius(index,currentRealm==='cave');
-  return {...definition,id:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),x,y,rarity,hp,maxHp:hp,size,speed:definition.speed+index*4,damage:GAME_CATALOG.mobDamage(definition.damage,index),cooldown:0,angle:0,isBoss:index>6,pathTimer:0};
+  return {...definition,id:kind+'_'+Date.now()+'_'+Math.random().toString(36).slice(2),x,y,rarity,hp,maxHp:hp,size,speed:GAME_CATALOG.mobSpeed(definition.speed,index),damage:GAME_CATALOG.mobDamage(definition.damage,index),cooldown:0,angle:0,isBoss:index>6,pathTimer:0};
 }
 function noteCreature(creature){
   if(!player.journal?.species || creature.summoned)return;

@@ -61,7 +61,7 @@ function sellInventoryMaterial(item,amount){
 function renderInventoryPanel(){
   inventoryPanel.hidden=!inventoryOpen;if(!inventoryOpen)return;
   const search=document.getElementById('inventory-search').value.toLocaleLowerCase('pt-BR'),rarity=document.getElementById('inventory-rarity').value;
-  const rows=inventoryRows(),signature=JSON.stringify([inventoryType,search,rarity,player.level,player.ascensions,selectedInventoryKey,rows.map(r=>[r.key,r.quantity,r.item.power,r.item.damage]),Object.values(player.equipment).map(i=>i?.name)]);
+  const rows=inventoryRows(),signature=JSON.stringify([inventoryType,search,rarity,player.level,player.ascensions,player.gearUpgrades,selectedInventoryKey,rows.map(r=>[r.key,r.quantity,r.item.power,r.item.damage]),Object.values(player.equipment).map(i=>i?.name)]);
   if(signature===inventorySignature)return;inventorySignature=signature;
   inventoryPanel.querySelectorAll('[data-inventory-type]').forEach(b=>b.classList.toggle('active',b.dataset.inventoryType===inventoryType));
   const visible=rows.filter(row=>(inventoryType==='all' || row.item.type===inventoryType) && (rarity==='all' || row.rarityIndex===Number(rarity)) && (row.item.name+' '+(INVENTORY_TYPES[row.item.type] || '')).toLocaleLowerCase('pt-BR').includes(search));
@@ -100,6 +100,7 @@ function renderInventoryDetail(row){
   if(item.type==='pickaxe')lines.push(['Poder',pickaxes.find(p=>p.name===item.name)?.power || item.power || 0],['Uso','Mineração e habilidades']);
   if(item.type==='armor')lines.push(['Defesa',Math.round((ARMORS.find(a=>a.name===item.name)?.defense || 0)*100)+'% menos dano'],['Visual',item.aura ? 'Aura de partículas' : 'Armadura visível']);
   if(item.type==='utility'){const utility=UTILITIES.find(u=>u.name===item.name);lines.push(['Efeito',utility?.description || 'Utilidade'],['Uso','Bônus ao equipar · uma utilidade por vez']);if(utility?.active)lines.push(['Recarga',utility.cooldown+'s'],['Atalho','Z']);}
+  if(item.rangedId){const ranged=RANGED_CATALOG.resolve(item);lines.push(['Recarga',ranged.cooldown+' s'],['Alcance',ranged.range],['Z',ranged.z||'Sem habilidade'],['X',ranged.x||'Sem habilidade']);}if(['pickaxe','armor'].includes(item.type))lines.push(['Upgrade','+'+RANGED_CATALOG.rank(player,item.type,item.name)+' / 20']);
   const ability=equipmentAbility(item);if(ability)lines.push(['Habilidade',ability.name],['Recarga',ability.cooldown+' segundos'],['Atalho',item.type==='weapon' ? 'Q' : 'R']);
   for(const [name,value] of lines){const label=document.createElement('dt'),text=document.createElement('dd');label.textContent=name;text.textContent=value;stats.append(label,text);}detail.append(stats);
   if(['material','component'].includes(item.type)){

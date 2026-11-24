@@ -26,7 +26,7 @@ document.getElementById('craft-pickaxe').onclick=()=>{
 };
 function renderWorkshop(){
   workshop.hidden=!shopOpen;if(!shopOpen)return;
-  const recipes=shopCategory==='utility' ? UTILITIES : shopCategory==='armor' ? ARMORS : shopCategory==='weapon' ? SWORDS : PICKAXE_RECIPES;
+  const recipes=shopCategory==='utility' ? UTILITIES : shopCategory==='armor' ? ARMORS : shopCategory==='weapon' ? SWORDS.filter(s=>!s.rangedId) : PICKAXE_RECIPES;
   const state=JSON.stringify([shopCategory,selectedRecipe,player.coins,player.level,player.ascensions,Object.values(player.equipment).map(i=>i?.name),player.inventory.map(i=>[i.name,i.type,i.amount])]);
   if(state===lastShopState)return;lastShopState=state;
   catalog.replaceChildren();

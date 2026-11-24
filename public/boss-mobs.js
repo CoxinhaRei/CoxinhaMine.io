@@ -2,8 +2,8 @@ const SPECIAL_MOB_ABILITIES={
   guardian:{name:'Coroa de pedras',description:'Lança uma rajada de fragmentos na direção marcada.',windup:1,cooldown:7,color:'#d1dadd',kind:'stones'},
   ladybug:{name:'Investida rubra',description:'Marca uma direção e avança com força. Saia da linha vermelha.',windup:1.1,cooldown:8,color:'#ff8275',kind:'dash'},
   bee:{name:'Chuva de ferrões',description:'Dispara um leque de ferrões na direção marcada.',windup:.9,cooldown:6,color:'#ffe58c',kind:'stings'},
-  ant:{name:'Chamado da colônia',description:'Invoca 8 ou mais formigas duas raridades abaixo e dispara anéis de projéteis. Invocações não dão recompensas.',windup:1.3,cooldown:11,color:'#e4b786',kind:'ants'},
-  spider:{name:'Ninhada sombria',description:'Invoca 8 ou mais aranhas duas raridades abaixo e dispara rajadas em espiral. Invocações não dão recompensas.',windup:1.3,cooldown:12,color:'#d7a8ef',kind:'spiders'},
+  ant:{name:'Chamado da colônia',description:'Invoca formigas duas raridades abaixo. Aleph+ também cria tempestades densas de projéteis. Invocações não dão recompensas.',windup:1.3,cooldown:11,color:'#e4b786',kind:'ants'},
+  spider:{name:'Ninhada sombria',description:'Invoca aranhas duas raridades abaixo. Aleph+ também dispara espirais densas. Invocações não dão recompensas.',windup:1.3,cooldown:12,color:'#d7a8ef',kind:'spiders'},
   beetle:{name:'Carapaça sísmica',description:'Reduz o dano recebido em 75% por 4 segundos e libera uma onda de impacto.',windup:1.2,cooldown:10,color:'#9af0bd',kind:'shield'},
   centipede:{name:'Rastro corrosivo',description:'Deixa três poças de ácido na posição marcada por 4 segundos.',windup:1.2,cooldown:9,color:'#caf278',kind:'acid'}
 };
@@ -36,23 +36,23 @@ function summonBossHelpers(boss,kind,count){
   return spawned;
 }
 function addBossProjectiles(mob,action,stings){
-  const tier=rarities.findIndex(r=>r.name===mob.rarity.name),count=Math.min(600-projectiles.length,(stings ? 22 : 28)+Math.max(0,tier-7)*6);
+  const tier=rarities.findIndex(r=>r.name===mob.rarity.name),hell=tier>=10,count=Math.min(600-projectiles.length,hell?(stings?28:36):3+Math.max(0,tier-7));
   const spread=stings ? .85 : 1.5,speed=(stings ? 640 : 450)+Math.max(0,tier-7)*35;
   for(let i=0;i<count;i++){
-    const angle=action.angle+(i/(count-1)-.5)*spread;
+    const angle=action.angle+(i/Math.max(1,count-1)-.5)*spread;
     projectiles.push({owner:mob.id,cause:mob.name+' '+mob.rarity.name+' · '+action.ability.name,x:mob.x+Math.cos(angle)*(mob.size+20),y:mob.y+Math.sin(angle)*(mob.size+20),vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:stings ? 9 : 14,life:3,damage:mob.damage*(stings ? .65 : .8),rotation:angle,kind:stings ? 'sting' : 'stone'});
   }
 }
 function addBulletHellRing(mob,phase=0){
-  const tier=Math.max(0,rarities.findIndex(r=>r.name===mob.rarity.name)-7),count=Math.min(600-projectiles.length,24+tier*8),speed=310+tier*45;
-  for(let i=0;i<count;i++){const angle=i/count*Math.PI*2+phase;projectiles.push({owner:mob.id,cause:mob.name+' '+mob.rarity.name+' · tempestade',x:mob.x+Math.cos(angle)*(mob.size+18),y:mob.y+Math.sin(angle)*(mob.size+18),vx:Math.cos(angle)*speed,vy:Math.sin(angle)*speed,r:7,life:5,damage:mob.damage*.55,rotation:angle,kind:mob.kind==='bee' ? 'sting' : 'orb'});}
+  const rarityTier=rarities.findIndex(r=>r.name===mob.rarity.name);if(rarityTier<10)return;const tier=rarityTier-10,count=Math.min(600-projectiles.length,96+tier*16),speed=700+tier*100;
+  for(let i=0;i<count;i++){const angle=i/Math.max(1,count)*Math.PI*2+phase;const velocity=speed*(i%3===0?1.35:i%3===1?.8:1);projectiles.push({owner:mob.id,cause:mob.name+' '+mob.rarity.name+' · tempestade',x:mob.x+Math.cos(angle)*(mob.size+18),y:mob.y+Math.sin(angle)*(mob.size+18),vx:Math.cos(angle)*velocity,vy:Math.sin(angle)*velocity,r:7,life:6,damage:mob.damage*.55,rotation:angle,kind:mob.kind==='bee' ? 'sting' : 'orb'});}
 }
 function resolveBossMobAbility(mob,action){
   const ability=action.ability,tier=Math.max(0,rarities.findIndex(r=>r.name===mob.rarity.name)-7);
-  addBulletHellRing(mob,action.angle);mob.burstShots=2+Math.floor(tier/2);mob.burstTimer=.4;mob.burstAngle=action.angle;
-  if(ability.kind==='spiders' || ability.kind==='ants')summonBossHelpers(mob,ability.kind==='spiders' ? 'spider' : 'ant',8+tier*3);
+  const hell=tier>=3;mob.burstShots=0;if(hell){addBulletHellRing(mob,action.angle);mob.burstShots=8+Math.max(0,tier-3);mob.burstTimer=.18;mob.burstAngle=action.angle;}
+  if(ability.kind==='spiders' || ability.kind==='ants')summonBossHelpers(mob,ability.kind==='spiders' ? 'spider' : 'ant',hell?12+tier*3:2+tier);
   if(ability.kind==='stones' || ability.kind==='stings')addBossProjectiles(mob,action,ability.kind==='stings');
-  if(ability.kind==='dash')mob.dash={angle:action.angle,time:.65,speed:700+tier*50};
+  if(ability.kind==='dash')mob.dash={angle:action.angle,time:.65,speed:(700+tier*50)*GAME_CATALOG.MOB_SPEED_MULT};
   if(ability.kind==='shield'){
     mob.shieldTime=4;
     const radius=mob.size+240+tier*30;
@@ -81,7 +81,8 @@ function updateBossMobAbilities(dt,activeMobs=mobs,skipEffects=false){
     if(player.dead || safe || !creatureAggressive(mob) || distance>1800+mob.size || !caveLineClear(mob.x,mob.y,player.x,player.y)){
       mob.bossAction=null;mob.dash=null;mob.burstShots=0;continue;
     }
-    if(mob.burstShots>0){mob.burstTimer-=dt;if(mob.burstTimer<=0){mob.burstShots--;mob.burstTimer=.45;mob.burstAngle+=.13;addBulletHellRing(mob,mob.burstAngle);}}
+    if(rarities.findIndex(r=>r.name===mob.rarity.name)<10)mob.burstShots=0;
+    if(mob.burstShots>0){mob.burstTimer-=dt;if(mob.burstTimer<=0){mob.burstShots--;mob.burstTimer=.18;mob.burstAngle+=mob.burstShots%2?.087:-.121;addBulletHellRing(mob,mob.burstAngle);}}
     if(mob.dash){
       const dash=mob.dash,oldX=mob.x,oldY=mob.y;
       const nx=mob.x+Math.cos(dash.angle)*dash.speed*dt,ny=mob.y+Math.sin(dash.angle)*dash.speed*dt;
@@ -98,9 +99,9 @@ function updateBossMobAbilities(dt,activeMobs=mobs,skipEffects=false){
     }
     mob.specialCooldown=(mob.specialCooldown ?? 2.5)-dt;
     if(mob.specialCooldown<=0){
-      mob.bossAction={ability,remaining:ability.windup,total:ability.windup,x:player.x,y:player.y,angle:Math.atan2(player.y-mob.y,player.x-mob.x)};
+      mob.bossAction={ability,remaining:ability.windup*(rarities.findIndex(r=>r.name===mob.rarity.name)>=10?.55:1),total:ability.windup*(rarities.findIndex(r=>r.name===mob.rarity.name)>=10?.55:1),x:player.x,y:player.y,angle:Math.atan2(player.y-mob.y,player.x-mob.x)};
       const tier=Math.max(0,rarities.findIndex(r=>r.name===mob.rarity.name)-7);
-      mob.specialCooldown=Math.max(2.2,ability.cooldown*.43*(1-tier*.07));
+      mob.specialCooldown=tier>=3?Math.max(1.8,ability.cooldown*.25*(1-tier*.05)):ability.cooldown;
     }
   }
   if(!skipEffects)updateBossMobHazards(dt);

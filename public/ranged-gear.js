@@ -1,0 +1,5 @@
+// Canvas/SVG models are shared with the server catalogue; no downloaded art.
+function rangedWeaponSvg(def){return RANGED_MODELS.svg(def);}
+const rangedArt=new Map();for(const def of RANGED_CATALOG.WEAPONS)rangedArt.set(def.id,loadImg('data:image/svg+xml,'+encodeURIComponent(rangedWeaponSvg(def))));
+for(const gear of RANGED_CATALOG.all())SWORDS.push({...gear,img:rangedArt.get(gear.rangedId)});
+const rangedCreatureModelBefore=drawCreatureModel;drawCreatureModel=function(kind,c,x,y,r,angle=0,phase=0,moving=false){if(kind!=='caterpillar')return rangedCreatureModelBefore(kind,c,x,y,r,angle,phase,moving);c.save();c.translate(x,y);c.rotate(angle);c.strokeStyle='#3c663b';c.lineWidth=Math.max(1,r*.06);for(let n=4;n>=0;n--){c.fillStyle=n%2?'#9fd966':'#80bd51';c.beginPath();c.ellipse(-r*.8+n*r*.32,Math.sin(phase+n)*r*.08,r*.38,r*.46,0,0,Math.PI*2);c.fill();c.stroke();}c.fillStyle='#efffd7';c.beginPath();c.ellipse(r*.67,-r*.15,r*.12,r*.18,0,0,Math.PI*2);c.ellipse(r*.67,r*.15,r*.12,r*.18,0,0,Math.PI*2);c.fill();c.fillStyle='#263a2b';c.beginPath();c.arc(r*.71,-r*.13,r*.05,0,Math.PI*2);c.arc(r*.71,r*.17,r*.05,0,Math.PI*2);c.fill();c.restore();};

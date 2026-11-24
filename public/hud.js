@@ -82,7 +82,7 @@ function updateGameHud() {
   hud.health.style.width = Math.max(0, Math.min(100, hp / maxHp * 100)) + '%';
   hud.health.parentElement.title = 'Vida ' + Math.ceil(hp) + ' / ' + maxHp;
   hud.xp.style.width = Math.max(0, Math.min(100, player.xp / player.xpToNext * 100)) + '%';
-  hud.level.replaceChildren(document.createTextNode('Lv. '+player.level+' '));if(guild){const tag=document.createElement('b');tag.className='guild-tag';tag.textContent='['+guild.tag+']';hud.level.append(tag);}
+  hud.level.replaceChildren(document.createTextNode('Lv. '+player.level));const asc=document.createElement('b'),ascension=GAME_CATALOG.roman(GAME_CATALOG.ascensions(player));asc.id='hud-ascension';asc.className='ascension-badge';asc.textContent='Asc. '+ascension;asc.title='Ascensão '+ascension;hud.level.append(asc);if(guild){const tag=document.createElement('b');tag.className='guild-tag';tag.textContent='['+guild.tag+']';hud.level.append(tag);}
   hud.level.style.color=rarities[highestOwnedRarity()].color;
   hud.coins.textContent = '◉ ' + player.coins.toLocaleString('pt-BR');
   hud.zone.textContent = currentRealm==='cave' ? 'Caverna profunda' : getZone(player.x, player.y) === 'P' ? (currentRealm==='garden'?'Praça central':'Refúgio · '+EXPANSION.mapFor(currentRealm).name) : EXPANSION.mapFor(currentRealm).name;

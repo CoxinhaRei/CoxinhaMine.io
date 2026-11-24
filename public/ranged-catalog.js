@@ -1,0 +1,42 @@
+(function(root){
+'use strict';
+const RARITIES=['Comum','Incomum','Raro','Épico','Lendário','Mítico','ULTRA','SUPER','ABSOLUT','QUANTIUM','ALEPH','CHOSEN'];
+const POWER=[1,3,10,35,120,450,1800,9000,50000,300000,3000000,20000000],GROWTH=[1,1.1,1.2,1.3,1.5,1.8,2.2,2.7,3.3,4,5,6];
+const WEAPONS=[
+{id:'slingshot',name:'Estilingue',damage:10,cooldown:.4,range:1200,speed:1100,color:'#c99962',model:'slingshot',source:'shop',coins:50,ore:5},
+{id:'woodbow',name:'Arco de Madeira',damage:25,cooldown:.8,range:1600,speed:1200,color:'#ad7545',model:'bow',source:'craft',coins:150,ore:12,kind:'guardian',components:2},
+{id:'boomerang',name:'Bumerangue',damage:18,cooldown:1,range:1000,speed:1000,color:'#dca659',model:'boomerang',returning:true,source:'shop',coins:250,ore:15},
+{id:'revolver',name:'Revólver Enferrujado',damage:45,cooldown:.9,range:1900,speed:1800,color:'#a99683',model:'revolver',source:'shop',coins:600,ore:25},
+{id:'thornbow',name:'Arco de Espinhos',damage:100,cooldown:.7,range:1800,speed:1300,color:'#80be54',model:'bow',source:'drop',dropKind:'caterpillar',dropChance:.12,z:'Rajada de Espinhos',x:'Raízes Vivas'},
+{id:'glacial',name:'Cajado Glacial',damage:180,cooldown:1,range:1800,speed:1100,color:'#a5f3ff',model:'staff',source:'craft',coins:4500,ore:40,kind:'icebeetle',components:12,z:'Três Cristais',x:'Tempestade Glacial'},
+{id:'firebook',name:'Grimório de Fogo',damage:250,cooldown:1.2,range:1700,speed:900,color:'#ff9953',model:'book',source:'craft',coins:7500,ore:50,kind:'sandTornado',components:15,z:'Bola de Fogo Gigante',x:'Chuva de Meteoros'},
+{id:'stinger',name:'Stinger',damage:350,cooldown:.5,range:1900,speed:1450,color:'#ffe16a',model:'stinger',source:'drop',dropKind:'bee',dropChance:.06,z:'Ferrões Venenosos',x:'Enxame Temporário'},
+{id:'chakram',name:'Diamond Chakram',damage:3000,cooldown:2,range:1500,speed:1200,color:'#8ff4ff',model:'chakram',returning:true,source:'diamond',dropChance:.08,z:'Crystal Fragmentation',x:'Diamond Orbit'},
+{id:'voidbow',name:'Void Crossbow',damage:8000,cooldown:2,range:2200,speed:1600,color:'#b67aff',model:'crossbow',source:'craft',coins:90000,ore:80,kind:'guardian',components:35,z:'Void Arrow',x:'Abyssal Collapse'},
+{id:'starfall',name:'Starfall',damage:15000,cooldown:.8,range:2400,speed:1400,color:'#9aafff',model:'bow',homing:true,source:'craft',coins:240000,ore:120,kind:'dragonfly',components:45,z:'Shooting Stars',x:'Celestial Rain'},
+{id:'horizon',name:'Event Horizon',damage:25000,cooldown:1.2,range:2300,speed:1050,color:'#b697ff',model:'staff',gravity:true,source:'boss',dropChance:.0005,z:'Gravitational Pull',x:'Singularity Collapse'}
+];
+const integer=(v,max=20)=>Math.max(0,Math.min(max,Math.floor(Number(v)||0)));
+function definition(id){return WEAPONS.find(w=>w.id===id||w.name===id);}
+function item(id,rarity='Comum'){const w=definition(id),tier=RARITIES.indexOf(rarity);if(!w||tier<0)return null;return {...w,name:w.name+(tier?' · '+rarity:''),baseName:w.name,rangedId:w.id,id:'ranged_'+w.id+'_'+tier,type:'weapon',rarity,amount:1,damage:w.damage*POWER[tier],baseDamage:w.damage,range:w.range+Math.min(1600,tier*120),projectileSize:10*GROWTH[tier],growth:GROWTH[tier]};}
+function resolve(value){if(!value)return null;const name=typeof value==='string'?value:value.name;if(typeof name!=='string')return null;const def=WEAPONS.find(w=>name===w.name||name?.startsWith(w.name+' · '));if(!def)return null;const rarity=typeof value==='object'&&RARITIES.includes(value.rarity)?value.rarity:name.includes(' · ')?name.split(' · ')[1]:'Comum';const result=item(def.id,rarity);return result?.name===name?result:null;}
+function all(){return WEAPONS.flatMap(w=>RARITIES.map(r=>item(w.id,r)));}
+function materialCount(s,rarity){return (s.inventory||[]).filter(i=>i.type==='material'&&(i.oreRarity||i.name)===rarity).reduce((n,i)=>n+integer(i.amount,1e12),0);}
+function componentCount(s,kind){return (s.inventory||[]).filter(i=>i.type==='component'&&i.kind===kind&&i.rarity!=='CHOSEN').reduce((n,i)=>n+integer(i.amount,1e12),0);}
+function ready(s,cost){return s.coins>=cost.coins&&(!cost.ore||materialCount(s,cost.rarity)>=cost.ore)&&(!cost.components||componentCount(s,cost.kind)>=cost.components);}
+function consume(s,cost){if(!ready(s,cost))return false;s.coins-=cost.coins;for(const [matches,total] of [[i=>i.type==='material'&&(i.oreRarity||i.name)===cost.rarity,cost.ore||0],[i=>i.type==='component'&&i.kind===cost.kind&&i.rarity!=='CHOSEN',cost.components||0]]){let left=total;for(const i of s.inventory){if(!matches(i))continue;const take=Math.min(left,integer(i.amount,1e12));i.amount-=take;left-=take;if(!left)break;}}s.inventory=s.inventory.filter(i=>(i.amount??1)>0);return true;}
+function acquisitionCost(id){const w=definition(id);return w&&['shop','craft'].includes(w.source)?{coins:w.coins,ore:w.ore,rarity:w.id==='voidbow'?'ULTRA':w.id==='starfall'?'SUPER':w.id==='glacial'?'Raro':w.id==='firebook'?'Épico':'Comum',kind:w.kind,components:w.components||0}:null;}
+function owned(s,name){return s.equipment?.weapon?.name===name||(s.inventory||[]).some(i=>i.type==='weapon'&&i.name===name);}
+function acquire(s,id){const w=definition(id),cost=acquisitionCost(id),gear=w&&item(w.id);if(!gear||!cost||owned(s,gear.name)||!consume(s,cost))return false;s.inventory.push(gear);return true;}
+function evolveCost(value){const gear=resolve(value),tier=gear&&RARITIES.indexOf(gear.rarity);return gear&&tier<11?{coins:Math.round(250*Math.pow(3,tier)),ore:5+tier*5,rarity:RARITIES[tier],kind:definition(gear.rangedId).kind||definition(gear.rangedId).dropKind||'guardian',components:3+tier*3}:null;}
+function evolve(s,name){const old=resolve(name),cost=evolveCost(name);if(!old||!owned(s,name)||!cost)return false;const next=item(old.rangedId,RARITIES[RARITIES.indexOf(old.rarity)+1]);if(owned(s,next.name)||!consume(s,cost))return false;s.inventory=s.inventory.filter(i=>i.type!=='weapon'||i.name!==name);s.inventory.push(next);if(s.equipment.weapon?.name===name)s.equipment.weapon={...next};return true;}
+function normalizeUpgrades(raw,s){const out={};for(const [key,value] of Object.entries(raw||{})){const m=/^(pickaxe|armor):(.+)$/.exec(key);if(!m||!['Madeira','Pedra','Ferro','Ouro','Matéria Vermelha','Diamante','Void','Solar'].includes(m[2]))continue;if(s&&!s.inventory.some(i=>i.type===m[1]&&i.name===m[2])&&s.equipment?.[m[1]]?.name!==m[2])continue;out[key]=integer(value);}return out;}
+function rank(s,type,name=s.equipment?.[type]?.name){return integer(s.gearUpgrades?.[type+':'+name]);}
+function upgradeCost(s,type,name){if(!['pickaxe','armor'].includes(type))return null;const n=rank(s,type,name),index=['Madeira','Pedra','Ferro','Ouro','Matéria Vermelha','Diamante','Void','Solar'].indexOf(name);return index>=0&&n<20?{coins:Math.round(100*(index+1)*Math.pow(1.65,n)),ore:5+n*3,rarity:RARITIES[Math.min(10,Math.max(index,Math.floor(n/3)))],kind:type==='armor'?'beetle':'guardian',components:2+n}:null;}
+function upgrade(s,type,name){const cost=upgradeCost(s,type,name);if(!cost||!s.inventory.some(i=>i.type===type&&i.name===name)&&s.equipment?.[type]?.name!==name||!consume(s,cost))return false;s.gearUpgrades||={};s.gearUpgrades[type+':'+name]=rank(s,type,name)+1;return true;}
+function skill(value,key){const w=resolve(value);if(!w||!['z','x'].includes(key)||!w[key])return null;return {name:w[key],cooldown:key==='z'?8+(w.rangedId==='horizon'?4:0):16+(w.rangedId==='horizon'?8:0),damage:w.damage,growth:w.growth,color:w.color,weapon:w.rangedId};}
+function diamondOre(ore){if(!ore?.rarity)return false;const tier=RARITIES.indexOf(ore.rarity.name);if(tier<4||tier>10)return false;let h=0;for(const c of String(ore.id))h=(h*31+c.charCodeAt(0))>>>0;return h%10===0;}
+function mobDrop(mob,random=Math.random){const tier=RARITIES.indexOf(mob.rarity?.name);if(mob.noRewards||mob.summoned||tier<0||tier>11)return null;const candidate=WEAPONS.find(w=>w.dropKind===mob.kind);if(candidate&&random()<candidate.dropChance)return item(candidate.id,RARITIES[tier]);return tier>=7&&random()<.0005?item('horizon',RARITIES[tier]):null;}
+function oreDrop(ore,random=Math.random){return diamondOre(ore)&&random()<.08?item('chakram',ore.rarity.name):null;}
+const api={RARITIES,POWER,GROWTH,WEAPONS,definition,item,resolve,all,integer,materialCount,componentCount,ready,consume,acquisitionCost,owned,acquire,evolveCost,evolve,normalizeUpgrades,rank,upgradeCost,upgrade,skill,diamondOre,mobDrop,oreDrop};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.RANGED_CATALOG=api;
+})(typeof globalThis!=='undefined'?globalThis:this);

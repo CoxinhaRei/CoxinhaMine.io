@@ -4,7 +4,7 @@
   const NAMES=['Comum','Incomum','Raro','Épico','Lendário','Mítico','ULTRA','SUPER','ABSOLUT','QUANTIUM','ALEPH','CHOSEN','PRIMORDIAL'];
   const PRIMORDIAL={name:'PRIMORDIAL',color:'#ffc5f7',hp:4e12,mult:160000,adminOnly:true};
   const catalog={
-    ORE_RADII,NAMES,PRIMORDIAL,ACCESSORY_BUFF:1.5,
+    ORE_RADII,NAMES,PRIMORDIAL,ACCESSORY_BUFF:1.5,MOB_SIZE_MULT:.75,MOB_SPEED_MULT:.70,MOB_DAMAGE_MULT:.60,
     PICKAXE_POWER:[30,100,400,1600,10000,45000,120000,280000],
     SWORD_DAMAGE:[135,450,1800,7200,54000,180000,510000,1080000],
     ORE_HP:[150,350,900,2500,7500,24000,120000,18000000,90000000,3600000000,18000000000,72000000000,4e12],
@@ -18,6 +18,7 @@
     GRADIENTS:{SUPER:['#34e8fa','#f1ffff','#7972ff'],ABSOLUT:['#ffffff','#a4eaff','#ffa6df'],QUANTIUM:['#52a5ff','#7affdc','#d18aff'],ALEPH:['#ffcf51','#fffbd1','#ff93d8'],CHOSEN:['#7b818d','#ffffff','#bbc0ca'],PRIMORDIAL:['#ffa1f2','#fff5a1','#9eeeff']},
     CHOSEN:{name:'CHOSEN',color:'#a8adb7',hp:72000000000,mult:240000},
     ascensions(state){return Math.max(0,Math.min(1000,Math.floor(Number(state?.ascensions)||0)));},
+    roman(value){let n=Math.max(0,Math.min(3999,Math.floor(Number(value)||0))),out='';if(!n)return '—';for(const [v,s] of [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']])while(n>=v){out+=s;n-=v;}return out;},
     ascensionRequirement(state){return 1000+250*this.ascensions(state);},
     ascensionPower(state){return 1+this.ascensions(state)*.25;},
     itemLevel(item){if(!item||item.type!=='accessory'&&!item.accessoryId)return 1;const tier=this.NAMES.indexOf(typeof item.rarity==='object'?item.rarity.name:item.rarity);return [1,10,25,50,90,150,225,325,450,600,800,1000][tier]||1;},
@@ -28,9 +29,10 @@
     consumeGearComponents(state,item,type){if(!this.gearComponentsReady(state,item,type))return false;for(const [kind,count] of this.gearComponents(item,type)){let left=count;for(const i of state.inventory){if(i.type!=='component'||i.kind!==kind||i.rarity==='CHOSEN')continue;const take=Math.min(left,i.amount);i.amount-=take;left-=take;if(!left)break;}}state.inventory=state.inventory.filter(i=>(i.amount??1)>0);return true;},
     enforceEquipment(state,swords,pickaxes){for(const type of ['weapon','pickaxe','armor'])if(state.equipment?.[type]&&!this.canUse(state,state.equipment[type]))state.equipment[type]=type==='armor'?null:{...(type==='weapon'?swords:pickaxes)[0],type};},
     mobSpawnTier(region,random=Math.random){if(region!==9)return null;const n=random();return n<.01?11:n<.04?10:n<.64?9:8;},
-    mobRadius(tier,cave=false){const old=i=>Math.min(cave?205:360,25*Math.pow(1.32,i))*(i>=7?3:1),quantium=old(9)*1.25;return tier===9?quantium:tier===10?quantium*4:tier===11?quantium*5:old(tier);},
+    mobRadius(tier,cave=false){const old=i=>Math.min(cave?205:360,25*Math.pow(1.32,i))*(i>=7?3:1),quantium=old(9)*1.25;return (tier===9?quantium:tier===10?quantium*4:tier===11?quantium*5:old(tier))*this.MOB_SIZE_MULT;},
     mobHealth(base,tier){if(tier===10)return 10e12;if(tier===11)return 150e12;if(tier===9)return 40*Math.ceil(Math.max(3000000,base/25*3000000)*Math.pow(4.5,2)*12*12);return tier>=7 ? Math.ceil(Math.max(3000000,base/25*3000000)*Math.pow(4.5,tier-7)*(tier===7?2:12)*(tier>=9?12:1)) : Math.ceil(base*Math.pow(2.2,tier)*(10+tier*6));},
-    mobDamage(base,tier){return Math.ceil(tier>=7?Math.max(20000,base/5*20000)*Math.pow(1.5,tier-7):base*80*Math.pow(1.6,tier));},
+    mobSpeed(base,tier){return (base+tier*4)*this.MOB_SPEED_MULT;},
+    mobDamage(base,tier){return Math.ceil((tier>=7?Math.max(20000,base/5*20000)*Math.pow(1.5,tier-7):base*80*Math.pow(1.6,tier))*this.MOB_DAMAGE_MULT);},
     playerHealth(state,accessoryHealth=0){const rank=Math.max(0,Math.min(11,Math.floor(Number(state.talentRanks?.vitality)||0)));return Math.min(400000,(1000+1000*rank*rank+Math.max(0,Number(accessoryHealth)||0))*this.ascensionPower(state));},
     vampirismRate(state,accessory=0){return Math.max(0,Math.min(11,Number(state.talentRanks?.drain)||0))*.015+Math.max(0,Math.min(.12,Number(accessory)||0));},
     regeneration(state,accessory=0){const rank=Math.max(0,Math.min(11,Number(state.talentRanks?.regeneration)||0));return state.dead?0:rank*(35+Math.max(0,Number(state.maxHp)||1000)*.001)+Math.max(0,Number(accessory)||0);},

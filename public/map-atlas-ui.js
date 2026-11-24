@@ -35,6 +35,7 @@ function paintAtlas(c,w,h,large=false){
  if(typeof CHECKPOINT_CATALOG!=='undefined')for(const cp of CHECKPOINT_CATALOG.places(realm)){const active=typeof multiplayer!=='undefined'&&multiplayer.checkpoint?.id===cp.id;dot(cp.x,cp.y,large?4:2.5,active?'#baff93':'#dfc997',large?'⚑ '+(active?'Checkpoint ativo':'Acampamento'):null);}
  for(const gate of MAP_ATLAS.build(realm).gates)dot(gate.x,gate.y,large?3:1.5,'#e8cd82');
  for(const portal of EXPANSION.portalsFor(realm))dot(portal.x,portal.y,large?4:2.5,EXPANSION.mapFor(portal.to).color,large?EXPANSION.mapFor(portal.to).name:null);
+ if(realm==='jungle'&&typeof WORKSHOP_CATALOG!=='undefined'){const shop=WORKSHOP_CATALOG.location();dot(shop.x,shop.y,large?6:3.5,'#ffe39b',large?'Oficina do Dossel':'O');}
  if(realm==='desert'){const f=multiplayer.forge||EXPANSION.LANDMARKS.desert.find(p=>p.id==='forge');dot(f.x,f.y,large?5:3,'#fff',large?'Forjadora':null);}
  for(const ore of ores){const t=rarities.findIndex(r=>r.name===ore.rarity?.name);if(t<9)continue;const s=screen(ore.x,ore.y),r=large?5:3.5;c.globalAlpha=.25;c.fillStyle=ore.rarity.color;c.beginPath();c.arc(s.x,s.y,Math.max(r,ore.size*p.scale),0,Math.PI*2);c.fill();c.globalAlpha=1;c.fillStyle=ore.rarity.color;c.strokeStyle='#203630';c.lineWidth=1.5;c.beginPath();c.moveTo(s.x,s.y-r);c.lineTo(s.x+r,s.y);c.lineTo(s.x,s.y+r);c.lineTo(s.x-r,s.y);c.closePath();c.fill();c.stroke();}
  for(const [id,remote] of Object.entries(players)){if(id===playerId||remote.inLobby||remote.realm!==realm)continue;dot(remote.x,remote.y,large?2.5:1.7,'#d8f1e6');}

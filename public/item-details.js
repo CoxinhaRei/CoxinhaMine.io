@@ -39,7 +39,9 @@
       info.rows.push(['XP base',number(item.summoned?0:C.experienceReward(rarity,true))]);
       if(tier>=7)info.rows.push(['Habilidade especial',abilities[item.kind]?.name||'Ataques especiais de boss']);
       if(item.summoned)info.note='Invocação: não concede drops nem XP.';
-    }else return null;
+    }else if(['weapon','pickaxe','armor'].includes(item.type)){info.kind=item.type==='pickaxe'?'Picareta':item.type==='armor'?'Armadura':'Arma';info.description='Equipamento permanente enquanto não ascender.';info.rows=item.type==='armor'?[['Defesa',number((item.defense||0)*100)+'%']]:[[item.type==='pickaxe'?'Mineração':'Dano',number(item.power||item.damage||0)]];}else return null;
+    if(item.type==='weapon'&&item.rangedId){const ranged=typeof module!=='undefined'&&module.exports?require('./ranged-catalog'):root.RANGED_CATALOG,w=ranged.resolve(item);if(w){info.kind='Arma à distância';info.description=w.baseName+' · projéteis usam a mira e atingem apenas mobs.';info.rows=[['Dano base',number(w.baseDamage)],['Dano na raridade',number(w.damage)+(w.returning?' por impacto · ida e volta':'')],['Recarga',number(w.cooldown)+' s'],['Alcance',number(w.range)],['Z',w.z||'Sem habilidade'],['X',w.x||'Sem habilidade']];info.note=w.homing?'Passiva: persegue inimigos próximos.':w.gravity?'Passiva: atrai criaturas menores.':'Evolua a raridade na Oficina de Combate.';}}
+    if(env.state&&['pickaxe','armor'].includes(item.type)){const ranged=typeof module!=='undefined'&&module.exports?require('./ranged-catalog'):root.RANGED_CATALOG;info.rows.push(['Upgrade','+'+ranged.rank(env.state,item.type,item.name)+' / 20']);}
     if(env.state&&C.ascensions(env.state)&&item.type==='accessory')info.rows.push(['Nível para usar',String(C.itemLevel(item))],['Estado',C.canUse(env.state,item)?'Disponível':'Trancado após ascensão']);
     if(tier===11&&item.type==='mob')info.note='Itens: 50% Quantium, 20% Absolut, 1% Aleph, 0,0001% Chosen; 28,9999% sem item.';
     if(item.amount!==undefined)info.rows.unshift(['Quantidade',number(item.amount)]);

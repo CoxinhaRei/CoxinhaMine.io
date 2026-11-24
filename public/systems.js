@@ -76,7 +76,7 @@ function consumeMaterials(requirements) {
 }
 function craftSword(name) {
   if(isServerWorld())return requestPlayerAction('weapon',{name});
-  const recipe=SWORDS.find(s=>s.name===name);if(!recipe)return false;
+  const recipe=SWORDS.find(s=>s.name===name);if(!recipe||recipe.rangedId)return false;
   const status=swordRecipeStatus(recipe);
   if(!status.owned){
     if(!status.previousReady || !status.coinsReady || !status.materialsReady)return false;
